@@ -188,7 +188,7 @@ public class MainActivity extends ActionBarActivity {
 
 			if (responseReceived) {
 				sensorDumpThread = new SensorDumpThread(socket,
-						locationManager, bestProvider, address, 8384, 100);
+						locationManager, address, 8384, 100, this);
 				sensorDumpThread.start();
 			} else {
 				alert(getString(R.string.server_not_responding));

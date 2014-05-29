@@ -1,6 +1,7 @@
 """Telemetry class that takes raw sensor data and filters it to remove noise
 and provide more accurate telemetry data.
 """
+import json
 import time
 
 
@@ -53,5 +54,12 @@ class Telemetry(object):
         assert command in self._valid_commands
 
     def handle_message(self, message):
-        # TODO: Process the message and stop using test data
+        # TODO: Process the message
+        print(
+            json.dumps(
+                message,
+                sort_keys=True,
+                indent=1
+            )
+        )
         pass
