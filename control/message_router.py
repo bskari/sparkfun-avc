@@ -38,20 +38,33 @@ class MessageRouter(threading.Thread):
             try:
                 message = json.loads(message)
             except:
-                print('Unable to parse message: {message}'.format(message=message))
-                continue
-
-            if 'requestResponse' in message:
-                # TODO: Send a response
-                pass
-
-            if 'type' not in message:
                 print(
-                    'Type missing from message: {message}'.format(
+                    'Unable to parse message: {message}'.format(
                         message=message
                     )
                 )
                 continue
+
+            if 'requestResponse' in message:
+                self._socket.sendto(
+                    json.dumps({
+                        'messageReceived': time.time(),
+                    }),
+                    (address[0], 5001)
+                )
+                pass
+
+            if 'type' not in message:
+                # Only asking for a response is a valid message
+                if 'requestResponse' in message and len(message) == 1:
+                    continue
+                else:
+                    print(
+                        'Type missing from message: {message}'.format(
+                            message=message
+                        )
+                    )
+                    continue
 
             if 'timestamp' not in message:
                 # This might not be accurate at all (the sender might have sent

@@ -43,7 +43,7 @@ class Telemetry(object):
             'timestamp': time.time(),
         }
 
-    def process_drive_command(self, comand):
+    def process_drive_command(self, command):
         """Process a drive command. When the command module tells the car to do
         something (e.g. drive forward and left), that data should be integrated
         into the telemetry immediately, because GPS sensors and what not
@@ -52,6 +52,6 @@ class Telemetry(object):
         # TODO: Do something useful with this command
         assert command in self._valid_commands
 
-    def handle_message(message):
+    def handle_message(self, message):
         # TODO: Process the message and stop using test data
         pass
