@@ -52,6 +52,6 @@ class Telemetry(object):
         # TODO: Do something useful with this command
         assert command in self._valid_commands
 
-    def handle_message(message):
+    def handle_message(self, message):
         # TODO: Process the message and stop using test data
         pass

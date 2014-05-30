@@ -42,15 +42,27 @@ class MessageRouter(threading.Thread):
                 continue
 
             if 'requestResponse' in message:
-                # TODO: Send a response
-                pass
+                new_socket = None
+                try:
+                    new_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    new_socket.sendto(
+                        json.dumps({
+                            'response': time.time()
+                        }),
+                        (address[0], 5001)
+                    )
+                except Exception as e:
+                    print(e)
+                    if new_socket is not None:
+                        new_socket.close()
 
             if 'type' not in message:
-                print(
-                    'Type missing from message: {message}'.format(
-                        message=message
+                if 'requestResponse' not in message:
+                    print(
+                        'Type missing from message: {message}'.format(
+                            message=message
+                        )
                     )
-                )
                 continue
 
             if 'timestamp' not in message:

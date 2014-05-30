@@ -38,6 +38,11 @@ class Command(threading.Thread):
             )
             return
 
+        if message['command'] == 'start':
+            self.run()
+        elif message['command'] == 'stop':
+            self.stop()
+
     def run(self):
         """Run in a thread, controls the RC car."""
         start_time = 0.0  # Force the car to start driving right away
