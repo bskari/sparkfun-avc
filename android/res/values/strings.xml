@@ -11,7 +11,9 @@
     <string name="server_not_found">Server not found</string>
     <string name="create_socket_error">Error creating socket</string>
     <string name="socket_error">Error sending on socket</string>
-    
+    <string name="not_running">Sensor dump is not running</string>
+    <string name="server_not_responding">Server not responding</string>
+
     <color name="green">#0F0</color>
     <color name="red">#F00</color>
 

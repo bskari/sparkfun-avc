@@ -1,6 +1,7 @@
 """Telemetry class that takes raw sensor data and filters it to remove noise
 and provide more accurate telemetry data.
 """
+import json
 import time
 
 
@@ -43,7 +44,7 @@ class Telemetry(object):
             'timestamp': time.time(),
         }
 
-    def process_drive_command(self, comand):
+    def process_drive_command(self, command):
         """Process a drive command. When the command module tells the car to do
         something (e.g. drive forward and left), that data should be integrated
         into the telemetry immediately, because GPS sensors and what not

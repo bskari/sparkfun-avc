@@ -42,19 +42,21 @@
         android:layout_height="fill_parent" >
 
         <ImageButton
-            android:id="@+id/imageButton1"
+            android:id="@+id/goutton"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1.00"
             android:src="@drawable/abc_ic_go_search_api_holo_light"
+            android:onClick="run"
             android:background="@color/green"/>
 
         <ImageButton
-            android:id="@+id/imageButton2"
+            android:id="@+id/stopButton"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1.00"
             android:src="@drawable/abc_ic_clear_holo_light"
+            android:onClick="stop"
             android:background="@color/red"/>
 
     </LinearLayout>
