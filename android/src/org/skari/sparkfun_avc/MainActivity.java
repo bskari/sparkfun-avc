@@ -1,4 +1,4 @@
-package com.example.sparkfun_avc;
+package org.skari.sparkfun_avc;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -21,7 +21,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 
 public class MainActivity extends ActionBarActivity {
-	public final static String EXTRA_MESSAGE = "com.example.myfirstapp.MESSAGE";
+	public final static String EXTRA_MESSAGE = "org.skari.myfirstapp.MESSAGE";
 
 	private SensorDumpThread sensorDumpThread = null;
 	private LocationManager locationManager = null;
@@ -65,14 +65,16 @@ public class MainActivity extends ActionBarActivity {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
-		if (sensorDumpThread.isAlive()) {
-			sensorDumpThread.stopDumping();
-		}
+		if (sensorDumpThread != null) {
+			if (sensorDumpThread.isAlive()) {
+				sensorDumpThread.stopDumping();
+			}
 
-		try {
-			sensorDumpThread.join();
-		} catch (InterruptedException e) {
-			// TODO: Figure out what to do here
+			try {
+				sensorDumpThread.join();
+			} catch (InterruptedException e) {
+				// TODO Figure out what to do here
+			}
 		}
 	}
 
@@ -235,8 +237,9 @@ public class MainActivity extends ActionBarActivity {
 		try {
 			listenSocket.setSoTimeout(100);
 
-			final byte[] buffer = String.format(
-					"{\"requestResponse\": true," + " \"type\": \"command\","
+			final byte[] buffer = String
+					.format("{\"requestResponse\": true,"
+							+ " \"type\": \"command\","
 							+ " \"command\": \"%s\"}", start ? "start" : "stop")
 					.getBytes();
 			final DatagramPacket packet = new DatagramPacket(buffer,

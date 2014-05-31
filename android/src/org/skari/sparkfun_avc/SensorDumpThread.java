@@ -1,4 +1,4 @@
-package com.example.sparkfun_avc;
+package org.skari.sparkfun_avc;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -26,10 +26,13 @@ public class SensorDumpThread extends Thread {
 	final InetAddress address;
 	final int port;
 
+	final SensorManager sensorManager;
+
 	final MyLocationListener locationListener;
 	final MySensorEventListener gyroscopeListener;
 	final MySensorEventListener linearAccelerationListener;
 	final MySensorEventListener magneticFieldListener;
+	final MySensorEventListener accelerometerListener;
 
 	public SensorDumpThread(final DatagramSocket datagramSocket,
 			final LocationManager manager, final InetAddress address,
@@ -49,7 +52,7 @@ public class SensorDumpThread extends Thread {
 
 		running = true;
 
-		final SensorManager sensorManager = (SensorManager) context
+		sensorManager = (SensorManager) context
 				.getSystemService(Context.SENSOR_SERVICE);
 
 		locationListener = new MyLocationListener();
@@ -63,21 +66,30 @@ public class SensorDumpThread extends Thread {
 				.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
 		final Sensor magneticField = sensorManager
 				.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		final Sensor accelerometer = sensorManager
+				.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		final int updateRate = SensorManager.SENSOR_DELAY_NORMAL;
 		gyroscopeListener = new MySensorEventListener();
+		linearAccelerationListener = new MySensorEventListener();
+		magneticFieldListener = new MySensorEventListener();
+		accelerometerListener = new MySensorEventListener();
 		sensorManager
 				.registerListener(gyroscopeListener, gyroscope, updateRate);
-		linearAccelerationListener = new MySensorEventListener();
 		sensorManager.registerListener(linearAccelerationListener,
 				linearAcceleration, updateRate);
-		magneticFieldListener = new MySensorEventListener();
 		sensorManager.registerListener(magneticFieldListener, magneticField,
+				updateRate);
+		sensorManager.registerListener(accelerometerListener, accelerometer,
 				updateRate);
 	}
 
 	public void stopDumping() {
 		this.running = false;
+		sensorManager.unregisterListener(gyroscopeListener);
+		sensorManager.unregisterListener(linearAccelerationListener);
+		sensorManager.unregisterListener(magneticFieldListener);
+		sensorManager.unregisterListener(accelerometerListener);
 	}
 
 	@Override
@@ -94,10 +106,23 @@ public class SensorDumpThread extends Thread {
 					try {
 						final double latitude = location.getLatitude();
 						final double longitude = location.getLongitude();
+						final float accuracy = location.getAccuracy();
 						final float bearing = location.getBearing();
+						final float speed = location.getSpeed();
+						final long timeStampMilliseconds = location.getTime();
+
 						root.put("latitude", latitude);
 						root.put("longitude", longitude);
+						root.put("accuracy", accuracy);
 						root.put("bearing", bearing);
+						root.put("speed", speed);
+						root.put("timestamp", timeStampMilliseconds / 1000.0f);
+						try {
+							final float heading = getHeading();
+							root.put("heading", heading);
+						} catch (Exception e) {
+							// Ignore
+						}
 					} catch (Exception e) {
 						// Ignore
 					}
@@ -107,6 +132,7 @@ public class SensorDumpThread extends Thread {
 				putArray(root, "linearAcceleration",
 						linearAccelerationListener.values);
 				putArray(root, "magneticField", magneticFieldListener.values);
+				putArray(root, "accelerometer", accelerometerListener.values);
 
 				if (root.length() <= 1) {
 					continue;
@@ -145,6 +171,33 @@ public class SensorDumpThread extends Thread {
 			json.put(name, array);
 		} else {
 			json.put(name, values[0]);
+		}
+	}
+
+	private float getHeading() throws Exception {
+		final float[] mGravity = accelerometerListener.values;
+		final float[] mGeomagnetic = magneticFieldListener.values;
+		if (mGravity != null && mGeomagnetic != null) {
+			float R[] = new float[9];
+			float I[] = new float[9];
+			boolean success = SensorManager.getRotationMatrix(R, I, mGravity,
+					mGeomagnetic);
+			if (success) {
+				final float orientation[] = new float[3];
+				SensorManager.getOrientation(R, orientation);
+				final float azimuth = orientation[0]; // Azimuth, pitch, and
+														// roll
+				final float degrees = -azimuth * 360.0f
+						/ (2.0f * (float) Math.PI);
+				if (degrees < 0.0f) {
+					return degrees + 360.0f;
+				}
+				return degrees;
+			} else {
+				throw new Exception("getRotationMatrix failed");
+			}
+		} else {
+			throw new Exception("mGravity or mGeomegnetic is null");
 		}
 	}
 
