@@ -1,13 +1,25 @@
 """Class to control the RC car."""
 
+import collections
+import json
+import math
 import threading
 import time
+
+EQUATORIAL_RADIUS_M = 6378.1370 * 1000
+M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
 
 
 class Command(threading.Thread):
     """Processes telemetry data and controls the RC car."""
 
-    def __init__(self, telemetry, fake_socket, commands, sleep_time_milliseconds=None):
+    def __init__(
+        self,
+        telemetry,
+        fake_socket,
+        commands,
+        sleep_time_milliseconds=None
+    ):
         """Create the Command thread. fake_socket is just a wrapper around
         some other kind of socket that has a simple "send" method.
         """
@@ -16,12 +28,16 @@ class Command(threading.Thread):
         self._valid_commands = {'start', 'stop'}
         self._telemetry = telemetry
         if sleep_time_milliseconds is None:
-            self._sleep_time_milliseconds = 20 
+            self._sleep_time_seconds = .02
         else:
-            self._sleep_time_milliseconds = sleep_time_milliseconds
+            self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
         self._fake_socket = fake_socket
         self._commands = commands
         self._run = True
+        self._run_course = False
+        self._last_iteration_seconds = None
+        self._waypoints = collections.deque()
+        self._last_command = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -39,33 +55,310 @@ class Command(threading.Thread):
             return
 
         if message['command'] == 'start':
-            self.run()
+            self.run_course()
         elif message['command'] == 'stop':
             self.stop()
 
+    @staticmethod
+    def latitude_to_m_per_d_longitude(latitude_d):
+        """Returns the number of meters per degree longitude at a given
+        latitude.
+        """
+        if hasattr(Command.latitude_to_m_per_d_longitude, 'cache'):
+            cache = Command.latitude_to_m_per_d_longitude.cache
+            if latitude_d - 1.0 < cache[0] < latitude_d + 1.0:
+                return cache[1]
+
+        # Assume the Earth is a perfect sphere
+        radius_m = \
+            math.cos(math.radians(latitude_d)) * EQUATORIAL_RADIUS_M
+        circumference_m = 2.0 * math.pi * radius_m
+        Command.latitude_to_m_per_d_longitude.cache = (latitude_d, circumference_m / 360.0)
+        return circumference_m / 360.0
+
+    @staticmethod
+    def distance_m(latitude_d_1, longitude_d_1, latitude_d_2, longitude_d_2):
+        diff_latitude_d = latitude_d_1 - latitude_d_2
+        diff_longitude_d = longitude_d_1 - longitude_d_2
+        diff_1_m = diff_latitude_d * M_PER_D_LATITUDE
+        diff_2_m = diff_longitude_d * Command.latitude_to_m_per_d_longitude(latitude_d_1)
+        return math.sqrt(diff_1_m  ** 2.0 + diff_2_m ** 2.0)
+
+    @staticmethod
+    def relative_degrees(latitude_d_1, longitude_d_1, latitude_d_2, longitude_d_2):
+        """Computes the relative degrees from the first waypoint to the second,
+        where north is 0.
+        """
+        relative_y_m = latitude_d_1 - latitude_d_2
+        relative_x_m = longitude_d_1 - longitude_d_2
+        degrees = math.degrees(math.atan(relative_y_m / relative_x_m))
+        if relative_x_m > 0.0:
+            if relative_y_m > 0.0:
+                return 90.0 - degrees
+            else:
+                90.0 + degrees
+        else:
+            if relative_y_m > 0.0:
+                return 270.0 + degrees
+            else:
+                180.0 + degrees
+
+    @staticmethod
+    def _generate_test_waypoints(position_d, meters, points_count):
+        """Generates a generator of test waypoints originating from the current
+        position.
+        """
+        def rotate(point, radians):
+            """Rotates the point by radians."""
+            pt_x, pt_y = point
+            cosine = math.cos(radians)
+            sine = math.sin(radians)
+            return (
+                pt_x * cosine - pt_y * sine,
+                pt_x * sine + pt_y * cosine
+            )
+
+        m_per_d_longitude = Command.latitude_to_m_per_d_longitude(position_d[0])
+
+        step_d = 360.0 / points_count
+        step_r = math.radians(step_d)
+
+        step_m = (5.0, 0.0)
+        last_waypoint_d = (
+            position_d[0] + step_m[1] / M_PER_D_LATITUDE,
+            position_d[1] + step_m[0] / m_per_d_longitude
+        )
+        waypoints = collections.deque()
+        for _ in range(4):
+            waypoints.append(last_waypoint_d)
+            step_m = rotate(step_m, step_r)
+            last_waypoint_d = (
+                last_waypoint_d[0] + step_m[1] / M_PER_D_LATITUDE,
+                last_waypoint_d[1] + step_m[0] / m_per_d_longitude
+            )
+
+        return waypoints
+
     def run(self):
         """Run in a thread, controls the RC car."""
-        start_time = 0.0  # Force the car to start driving right away
-        command_to_next_command = {
-            'forward-left': 'forward',
-            'forward': 'forward-left'
-        }
-        last_command = 'forward-left'
+        try:
+            while self._run:
 
-        while self._run:
-            # Just drive in circles for now
-            now = time.time()
-            if now + 1.0 < start_time:
-                new_command = command_to_next_command[last_command]
-                socket.send(self._commands[new_command])
-                start_time = time.time()
-                self._telemetry.process_drive_command(new_command)
-                last_command = new_command
+                while self._run and not self._run_course:
+                    time.sleep(self._sleep_time_seconds)
 
-            try:
-                time.sleep(self._sleep_time_milliseconds / 1000.0)
-            except:
-                pass
+                print('Running course iteration')
+
+                telemetry = self._telemetry.get_data()
+                position_d = (telemetry['latitude'], telemetry['longitude'])
+                self._waypoints = self._generate_test_waypoints(
+                    position_d,
+                    5,
+                    4
+                )
+
+                while self._run and self._run_course:
+                    self._last_iteration_seconds = time.time()
+                    self._run_course_iteration()
+                    time.sleep(self._sleep_time_seconds)
+                print('Stopping course')
+
+        except ZeroDivisionError as e:
+        #except Exception as e:
+            print('Command thread had exception, ignoring: ' + str(e))
+
+    def _run_course_iteration(self):
+        """Runs a single iteration of the course navigation loop."""
+        speed = 0.0
+        telemetry = self._telemetry.get_data()
+        current_waypoint = self._waypoints[0]
+        distance = self.distance_m(
+            telemetry['latitude'],
+            telemetry['longitude'],
+            current_waypoint[0],
+            current_waypoint[1]
+        )
+        if distance < 0.5:
+            print('Reached ' + str(current_waypoint))
+            self._waypoints.popleft()
+            if len(self._waypoints) == 0:
+                print('Stopping')
+                self.send_command(0.0, 0.0)
+            else:
+                # I know I shouldn't use recursion here, but I'm lazy
+                self._run_course_iteration()
+            return
+
+        degrees = self.relative_degrees(
+            telemetry['latitude'],
+            telemetry['longitude'],
+            current_waypoint[0],
+            current_waypoint[1]
+        )
+
+        if 'heading' not in telemetry:
+            import random
+            #if random.randint(1, 10) == 1:
+            #    print('no heading')
+            return
+        heading_d = telemetry['heading']
+        if abs(degrees - heading_d) < 5.0:
+            self.send_command(speed, 0.0)
+            return
+
+        if degrees < heading_d:
+            left_degrees = (360.0 - degrees) + heading_d
+            right_degrees = degrees - heading_d
+        else:
+            left_degrees = 360.0 - degrees - heading_d
+            right_degrees = heading_d - degrees
+
+        if left_degrees < right_degrees:
+            self.send_command(speed, min(left_degrees / 20.0, 1.0))
+        else:
+            self.send_command(speed, min(right_degrees / -20.0, 1.0))
+
+    def run_course(self):
+        """Starts the RC car running the course."""
+        self._run_course = True
 
     def stop(self):
+        """Stops the RC car from running the course."""
+        self.send_command(0.0, 0.0)
+        self._run_course = False
+
+    def kill(self):
+        """Kills the thread."""
         self._run = False
+
+    def send_command(self, throttle, turn):
+        """Sends a command to the RC car. Throttle should be a float between
+        -1.0 for reverse and 1.0 for forward. Turn should be a float between
+        -1.0 for left and 1.0 for right.
+        """
+        assert -1.0 <= throttle <= 1.0
+        assert -1.0 <= turn <= 1.0
+
+        throttle = int(throttle * 16.0 + 16.0)
+        # Turning too sharply causes the servo to push harder than it can go,
+        # so limit this
+        turn = int(turn * 24.0 + 32.0)
+
+        if self._last_command is not None:
+            last_command = self._last_command
+            if last_command[0] == throttle and last_command[1] == turn:
+                return
+        self._last_command = (throttle, turn)
+        print(
+            'throttle:{throttle} turn:{turn} time:{time}'.format(
+                throttle=throttle,
+                turn=turn,
+                time=time.time()
+            )
+        )
+        return
+
+        self._telemetry.process_drive_command(throttle, turn)
+
+        # TODO allow setting the host and port
+        sock.sendto(command(throttle, turn), ('127.1', 12345))
+
+        def dead_frequency(frequency):
+            """Returns an approprtiate dead signal frequency for the given signal."""
+            if frequency < 38:
+                return 49.890
+            return 26.995
+
+
+        def format_command(
+            frequency,
+            useconds
+        ):
+            """Returns the JSON command string for this command tuple."""
+            dead = dead_frequency(frequency)
+            return {
+                'frequency': frequency,
+                'dead_frequency': dead,
+                'burst_us': useconds,
+                'spacing_us': useconds,
+                'repeats': 1,
+            }
+
+        def to_bit(number):
+            if number > 0:
+                return 1
+            return 0
+
+        def ones_count(number):
+            mask = 1
+            ones = 0
+            while mask <= number:
+                ones += to_bit(mask & number)
+                mask <<= 1
+            return ones
+
+        def command(throttle, turn):
+            assert throttle >= 0 and throttle < 32
+            # Turning too sharply causes the servo to push harder than it can
+            # go, so limit this
+            assert turn >= 8 and turn < 58
+
+            frequency = 27.145
+            even_parity_bit = to_bit(
+                (
+                    ones_count(throttle)
+                    + ones_count(turn)
+                    + 3
+                ) % 2
+            )
+
+            bit_pattern = (
+                to_bit(turn & 0x8),
+                to_bit(turn & 0x4),
+                to_bit(turn & 0x2),
+                to_bit(turn & 0x1),
+                0,
+                0,
+                to_bit(turn & 0x20),
+                to_bit(turn & 0x10),
+                to_bit(throttle & 0x10),
+                to_bit(throttle & 0x8),
+                to_bit(throttle & 0x4),
+                to_bit(throttle & 0x2),
+                to_bit(throttle & 0x1),
+                1,
+                1,
+                1,
+                0,
+                0,
+                even_parity_bit,
+                0,
+                0,
+                0
+            )
+            assert(len(bit_pattern) == 22)
+            assert(sum(bit_pattern) % 2 == 0)
+
+            total_useconds = 7000
+            for bit in bit_pattern[:-1]:
+                if bit == 0:
+                    useconds = 127
+                else:
+                    useconds = 200
+                command.append(format_command(27.145, useconds))
+                total_useconds += useconds
+
+            if bit_pattern[-1] == 0:
+                useconds = 127
+            else:
+                useconds = 200
+            total_useconds += useconds
+            command.append({
+                'frequency': frequency,
+                'dead_frequency': dead_frequency(frequency),
+                'burst_us': useconds,
+                'spacing_us': 7000 - total_useconds,
+                'repeats': 1,
+            })
+
+            return json.dumps(command)

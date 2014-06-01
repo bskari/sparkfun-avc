@@ -17,14 +17,12 @@ def terminate(signal_number, stack_frame):
         )
     )
     for thread in THREADS:
-        thread.stop()
+        thread.kill()
         thread.join()
     sys.exit(0)
 
 
 def main(listen_interface, listen_port, connect_host, connect_port):
-    #signal.signal(signal.SIGINT, terminate)
-
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((listen_interface, listen_port))
@@ -55,6 +53,7 @@ def main(listen_interface, listen_port, connect_host, connect_port):
 
     message_router.start()
     command.start()
+    print('Started all threads')
     global THREADS
     THREADS = [message_router, command]
 

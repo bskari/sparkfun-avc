@@ -80,5 +80,5 @@ class MessageRouter(threading.Thread):
             else:
                 self._type_to_handler[message['type']].handle_message(message)
 
-    def stop(self):
+    def kill(self):
         self._run = False
