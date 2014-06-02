@@ -6,6 +6,8 @@ import math
 import threading
 import time
 
+# pylint: disable=superfluous-parens
+
 EQUATORIAL_RADIUS_M = 6378.1370 * 1000
 M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
 
@@ -45,7 +47,7 @@ class Command(threading.Thread):
         if 'command' not in message:
             print('No command in command message')
             return
-        
+
         if message['command'] not in self._valid_commands:
             print(
                 'Unknown command: "{command}"'.format(
@@ -73,19 +75,29 @@ class Command(threading.Thread):
         radius_m = \
             math.cos(math.radians(latitude_d)) * EQUATORIAL_RADIUS_M
         circumference_m = 2.0 * math.pi * radius_m
-        Command.latitude_to_m_per_d_longitude.cache = (latitude_d, circumference_m / 360.0)
+        Command.latitude_to_m_per_d_longitude.cache = \
+            (latitude_d, circumference_m / 360.0)
         return circumference_m / 360.0
 
     @staticmethod
     def distance_m(latitude_d_1, longitude_d_1, latitude_d_2, longitude_d_2):
+        """Returns the distance in meters between two waypoints in degrees."""
         diff_latitude_d = latitude_d_1 - latitude_d_2
         diff_longitude_d = longitude_d_1 - longitude_d_2
         diff_1_m = diff_latitude_d * M_PER_D_LATITUDE
-        diff_2_m = diff_longitude_d * Command.latitude_to_m_per_d_longitude(latitude_d_1)
+        diff_2_m = (
+            diff_longitude_d
+            * Command.latitude_to_m_per_d_longitude(latitude_d_1)
+        )
         return math.sqrt(diff_1_m  ** 2.0 + diff_2_m ** 2.0)
 
     @staticmethod
-    def relative_degrees(latitude_d_1, longitude_d_1, latitude_d_2, longitude_d_2):
+    def relative_degrees(
+        latitude_d_1,
+        longitude_d_1,
+        latitude_d_2,
+        longitude_d_2
+    ):
         """Computes the relative degrees from the first waypoint to the second,
         where north is 0.
         """
@@ -96,12 +108,12 @@ class Command(threading.Thread):
             if relative_y_m > 0.0:
                 return 90.0 - degrees
             else:
-                90.0 + degrees
+                return 90.0 + degrees
         else:
             if relative_y_m > 0.0:
                 return 270.0 + degrees
             else:
-                180.0 + degrees
+                return 180.0 + degrees
 
     @staticmethod
     def _generate_test_waypoints(position_d, meters, points_count):
@@ -123,7 +135,7 @@ class Command(threading.Thread):
         step_d = 360.0 / points_count
         step_r = math.radians(step_d)
 
-        step_m = (5.0, 0.0)
+        step_m = (meters, 0.0)
         last_waypoint_d = (
             position_d[0] + step_m[1] / M_PER_D_LATITUDE,
             position_d[1] + step_m[0] / m_per_d_longitude
@@ -147,6 +159,9 @@ class Command(threading.Thread):
                 while self._run and not self._run_course:
                     time.sleep(self._sleep_time_seconds)
 
+                if not self._run:
+                    return
+
                 print('Running course iteration')
 
                 telemetry = self._telemetry.get_data()
@@ -163,9 +178,9 @@ class Command(threading.Thread):
                     time.sleep(self._sleep_time_seconds)
                 print('Stopping course')
 
-        except ZeroDivisionError as e:
-        #except Exception as e:
-            print('Command thread had exception, ignoring: ' + str(e))
+        except ZeroDivisionError as exception:
+        #except Exception as exception:
+            print('Command thread had exception, ignoring: ' + str(exception))
 
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
@@ -198,8 +213,8 @@ class Command(threading.Thread):
 
         if 'heading' not in telemetry:
             import random
-            #if random.randint(1, 10) == 1:
-            #    print('no heading')
+            if random.randint(1, 10) == 1:
+                print('no heading')
             return
         heading_d = telemetry['heading']
         if abs(degrees - heading_d) < 5.0:
@@ -261,10 +276,12 @@ class Command(threading.Thread):
         self._telemetry.process_drive_command(throttle, turn)
 
         # TODO allow setting the host and port
-        sock.sendto(command(throttle, turn), ('127.1', 12345))
+        self._fake_socket.send(command(throttle, turn))
 
         def dead_frequency(frequency):
-            """Returns an approprtiate dead signal frequency for the given signal."""
+            """Returns an approprtiate dead signal frequency for the given
+            signal.
+            """
             if frequency < 38:
                 return 49.890
             return 26.995
@@ -285,11 +302,15 @@ class Command(threading.Thread):
             }
 
         def to_bit(number):
+            """0 => 0, anything else => 1."""
             if number > 0:
                 return 1
             return 0
 
         def ones_count(number):
+            """Returns the number of 1s in the binary representation of the
+            number.
+            """
             mask = 1
             ones = 0
             while mask <= number:
@@ -298,6 +319,7 @@ class Command(threading.Thread):
             return ones
 
         def command(throttle, turn):
+            """Returns a JSON formatted control command for the Dune Warrior."""
             assert throttle >= 0 and throttle < 32
             # Turning too sharply causes the servo to push harder than it can
             # go, so limit this
@@ -339,6 +361,7 @@ class Command(threading.Thread):
             assert(len(bit_pattern) == 22)
             assert(sum(bit_pattern) % 2 == 0)
 
+            command = []
             total_useconds = 7000
             for bit in bit_pattern[:-1]:
                 if bit == 0:

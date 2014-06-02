@@ -1,7 +1,6 @@
 """Telemetry class that takes raw sensor data and filters it to remove noise
 and provide more accurate telemetry data.
 """
-import json
 
 
 class Telemetry(object):

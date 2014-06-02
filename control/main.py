@@ -1,3 +1,5 @@
+"""Main command module that starts the different threads."""
+import json
 import signal
 import socket
 import sys
@@ -6,11 +8,15 @@ from command import Command
 from message_router import MessageRouter
 from telemetry import Telemetry
 
+# pylint: disable=superfluous-parens
+# pylint: disable=global-statement
+
 
 THREADS = []
 
 
 def terminate(signal_number, stack_frame):
+    """Terminates the program. Used when a signal is received."""
     print(
         'Received signal {signal_number}, quitting'.format(
             signal_number=signal_number
@@ -23,6 +29,7 @@ def terminate(signal_number, stack_frame):
 
 
 def main(listen_interface, listen_port, connect_host, connect_port):
+    """Runs everything."""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((listen_interface, listen_port))
@@ -32,13 +39,29 @@ def main(listen_interface, listen_port, connect_host, connect_port):
         sys.exit(1)
 
     class DgramSocketWrapper(object):
+        """Simple wrapper around a socket so that modules don't need to worry
+        about host, port, timeouts, or other details.
+        """
         def __init__(self, host, port):
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self._host = host
             self._port = port
-        
-        def send(message):
-            self._socket.sendto((host, port), message)
+
+        def send(self, message, request_response=None):
+            """Sends a message through the socket."""
+            if request_response is None:
+                request_response = False
+            if isinstance(message, dict):
+                if request_response and 'requestResponse' not in message:
+                    message['requestResponse'] = True
+                message_str = json.dumps(message)
+            else:
+                # If somebody's already converted to a string, then
+                # request_response won't do anything
+                assert not request_response
+                message_str = message
+
+            self._socket.sendto((self._host, self._port), message_str)
 
     telemetry = Telemetry()
     dgram_socket_wrapper = DgramSocketWrapper(connect_host, connect_port)

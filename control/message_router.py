@@ -8,6 +8,8 @@ import socket
 import threading
 import time
 
+# pylint: disable=superfluous-parens
+
 
 class MessageRouter(threading.Thread):
     """Receives and routes UDP messages."""
@@ -18,6 +20,7 @@ class MessageRouter(threading.Thread):
         self._type_to_handler = type_to_handler
 
     def run(self):
+        """Run in a thread, routes messages to the appropriate handlers."""
         while self._run:
             try:
                 message, address = self._socket.recvfrom(4096)
@@ -37,7 +40,7 @@ class MessageRouter(threading.Thread):
 
             try:
                 message = json.loads(message)
-            except:
+            except ValueError:
                 print(
                     'Unable to parse message: {message}'.format(
                         message=message
@@ -81,4 +84,5 @@ class MessageRouter(threading.Thread):
                 self._type_to_handler[message['type']].handle_message(message)
 
     def kill(self):
+        """Kills the thread."""
         self._run = False
