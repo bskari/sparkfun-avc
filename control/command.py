@@ -1,10 +1,11 @@
 """Class to control the RC car."""
 
 import collections
-import json
 import math
 import threading
 import time
+
+from dune_warrior import command
 
 # pylint: disable=superfluous-parens
 
@@ -18,11 +19,11 @@ class Command(threading.Thread):
     def __init__(
         self,
         telemetry,
-        fake_socket,
+        send_socket,
         commands,
         sleep_time_milliseconds=None
     ):
-        """Create the Command thread. fake_socket is just a wrapper around
+        """Create the Command thread. send_socket is just a wrapper around
         some other kind of socket that has a simple "send" method.
         """
         super(Command, self).__init__()
@@ -33,7 +34,7 @@ class Command(threading.Thread):
             self._sleep_time_seconds = .02
         else:
             self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
-        self._fake_socket = fake_socket
+        self._send_socket = send_socket
         self._commands = commands
         self._run = True
         self._run_course = False
@@ -212,10 +213,11 @@ class Command(threading.Thread):
         )
 
         if 'heading' not in telemetry:
+            return
+        else:
             import random
             if random.randint(1, 10) == 1:
-                print('no heading')
-            return
+                print(telemetry['heading'])
         heading_d = telemetry['heading']
         if abs(degrees - heading_d) < 5.0:
             self.send_command(speed, 0.0)
@@ -275,113 +277,4 @@ class Command(threading.Thread):
 
         self._telemetry.process_drive_command(throttle, turn)
 
-        # TODO allow setting the host and port
-        self._fake_socket.send(command(throttle, turn))
-
-        def dead_frequency(frequency):
-            """Returns an approprtiate dead signal frequency for the given
-            signal.
-            """
-            if frequency < 38:
-                return 49.890
-            return 26.995
-
-
-        def format_command(
-            frequency,
-            useconds
-        ):
-            """Returns the JSON command string for this command tuple."""
-            dead = dead_frequency(frequency)
-            return {
-                'frequency': frequency,
-                'dead_frequency': dead,
-                'burst_us': useconds,
-                'spacing_us': useconds,
-                'repeats': 1,
-            }
-
-        def to_bit(number):
-            """0 => 0, anything else => 1."""
-            if number > 0:
-                return 1
-            return 0
-
-        def ones_count(number):
-            """Returns the number of 1s in the binary representation of the
-            number.
-            """
-            mask = 1
-            ones = 0
-            while mask <= number:
-                ones += to_bit(mask & number)
-                mask <<= 1
-            return ones
-
-        def command(throttle, turn):
-            """Returns a JSON formatted control command for the Dune Warrior."""
-            assert throttle >= 0 and throttle < 32
-            # Turning too sharply causes the servo to push harder than it can
-            # go, so limit this
-            assert turn >= 8 and turn < 58
-
-            frequency = 27.145
-            even_parity_bit = to_bit(
-                (
-                    ones_count(throttle)
-                    + ones_count(turn)
-                    + 3
-                ) % 2
-            )
-
-            bit_pattern = (
-                to_bit(turn & 0x8),
-                to_bit(turn & 0x4),
-                to_bit(turn & 0x2),
-                to_bit(turn & 0x1),
-                0,
-                0,
-                to_bit(turn & 0x20),
-                to_bit(turn & 0x10),
-                to_bit(throttle & 0x10),
-                to_bit(throttle & 0x8),
-                to_bit(throttle & 0x4),
-                to_bit(throttle & 0x2),
-                to_bit(throttle & 0x1),
-                1,
-                1,
-                1,
-                0,
-                0,
-                even_parity_bit,
-                0,
-                0,
-                0
-            )
-            assert(len(bit_pattern) == 22)
-            assert(sum(bit_pattern) % 2 == 0)
-
-            command = []
-            total_useconds = 7000
-            for bit in bit_pattern[:-1]:
-                if bit == 0:
-                    useconds = 127
-                else:
-                    useconds = 200
-                command.append(format_command(27.145, useconds))
-                total_useconds += useconds
-
-            if bit_pattern[-1] == 0:
-                useconds = 127
-            else:
-                useconds = 200
-            total_useconds += useconds
-            command.append({
-                'frequency': frequency,
-                'dead_frequency': dead_frequency(frequency),
-                'burst_us': useconds,
-                'spacing_us': 7000 - total_useconds,
-                'repeats': 1,
-            })
-
-            return json.dumps(command)
+        self._send_socket.send(command(throttle, turn))
