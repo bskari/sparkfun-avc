@@ -6,11 +6,9 @@ import threading
 import time
 
 from dune_warrior import command
+from telemetry import Telemetry
 
 # pylint: disable=superfluous-parens
-
-EQUATORIAL_RADIUS_M = 6378.1370 * 1000
-M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
 
 
 class Command(threading.Thread):
@@ -62,35 +60,10 @@ class Command(threading.Thread):
         elif message['command'] == 'stop':
             self.stop()
 
-    @staticmethod
-    def latitude_to_m_per_d_longitude(latitude_d):
-        """Returns the number of meters per degree longitude at a given
-        latitude.
-        """
-        if hasattr(Command.latitude_to_m_per_d_longitude, 'cache'):
-            cache = Command.latitude_to_m_per_d_longitude.cache
-            if latitude_d - 1.0 < cache[0] < latitude_d + 1.0:
-                return cache[1]
-
-        # Assume the Earth is a perfect sphere
-        radius_m = \
-            math.cos(math.radians(latitude_d)) * EQUATORIAL_RADIUS_M
-        circumference_m = 2.0 * math.pi * radius_m
-        Command.latitude_to_m_per_d_longitude.cache = \
-            (latitude_d, circumference_m / 360.0)
-        return circumference_m / 360.0
 
     @staticmethod
-    def distance_m(latitude_d_1, longitude_d_1, latitude_d_2, longitude_d_2):
-        """Returns the distance in meters between two waypoints in degrees."""
-        diff_latitude_d = latitude_d_1 - latitude_d_2
-        diff_longitude_d = longitude_d_1 - longitude_d_2
-        diff_1_m = diff_latitude_d * M_PER_D_LATITUDE
-        diff_2_m = (
-            diff_longitude_d
-            * Command.latitude_to_m_per_d_longitude(latitude_d_1)
-        )
-        return math.sqrt(diff_1_m  ** 2.0 + diff_2_m ** 2.0)
+    def is_turn_left(our_bearing_d, goal_bearing_d):
+        return True
 
     @staticmethod
     def relative_degrees(
@@ -121,32 +94,22 @@ class Command(threading.Thread):
         """Generates a generator of test waypoints originating from the current
         position.
         """
-        def rotate(point, radians):
-            """Rotates the point by radians."""
-            pt_x, pt_y = point
-            cosine = math.cos(radians)
-            sine = math.sin(radians)
-            return (
-                pt_x * cosine - pt_y * sine,
-                pt_x * sine + pt_y * cosine
-            )
-
-        m_per_d_longitude = Command.latitude_to_m_per_d_longitude(position_d[0])
+        m_per_d_longitude = Telemetry.latitude_to_m_per_d_longitude(position_d[0])
 
         step_d = 360.0 / points_count
         step_r = math.radians(step_d)
 
         step_m = (meters, 0.0)
         last_waypoint_d = (
-            position_d[0] + step_m[1] / M_PER_D_LATITUDE,
+            position_d[0] + step_m[1] / Telemetry.M_PER_D_LATITUDE,
             position_d[1] + step_m[0] / m_per_d_longitude
         )
         waypoints = collections.deque()
         for _ in range(4):
             waypoints.append(last_waypoint_d)
-            step_m = rotate(step_m, step_r)
+            step_m = Telemetry.rotate_radians(step_m, step_r)
             last_waypoint_d = (
-                last_waypoint_d[0] + step_m[1] / M_PER_D_LATITUDE,
+                last_waypoint_d[0] + step_m[1] / Telemetry.M_PER_D_LATITUDE,
                 last_waypoint_d[1] + step_m[0] / m_per_d_longitude
             )
 
@@ -179,16 +142,17 @@ class Command(threading.Thread):
                     time.sleep(self._sleep_time_seconds)
                 print('Stopping course')
 
+        # For testing, I want stack dumps, so don't catch anything
         except ZeroDivisionError as exception:
         #except Exception as exception:
             print('Command thread had exception, ignoring: ' + str(exception))
 
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
-        speed = 0.0
+        speed = 0.25
         telemetry = self._telemetry.get_data()
         current_waypoint = self._waypoints[0]
-        distance = self.distance_m(
+        distance = Telemetry.distance_m(
             telemetry['latitude'],
             telemetry['longitude'],
             current_waypoint[0],
@@ -214,26 +178,20 @@ class Command(threading.Thread):
 
         if 'heading' not in telemetry:
             return
-        else:
-            import random
-            if random.randint(1, 10) == 1:
-                print(telemetry['heading'])
         heading_d = telemetry['heading']
-        if abs(degrees - heading_d) < 5.0:
+
+        diff_d = abs(heading_d - degrees)
+        if diff_d > 180.0:
+            diff_d -= 180.0
+
+        if diff_d < 10.0:
             self.send_command(speed, 0.0)
             return
 
-        if degrees < heading_d:
-            left_degrees = (360.0 - degrees) + heading_d
-            right_degrees = degrees - heading_d
-        else:
-            left_degrees = 360.0 - degrees - heading_d
-            right_degrees = heading_d - degrees
-
-        if left_degrees < right_degrees:
-            self.send_command(speed, min(left_degrees / 20.0, 1.0))
-        else:
-            self.send_command(speed, min(right_degrees / -20.0, 1.0))
+        turn = min(diff_d / 20.0, 1.0)
+        if Telemetry.is_turn_left(heading_d, degrees):
+            turn = -turn
+        self.send_command(speed, turn)
 
     def run_course(self):
         """Starts the RC car running the course."""
@@ -256,6 +214,8 @@ class Command(threading.Thread):
         assert -1.0 <= throttle <= 1.0
         assert -1.0 <= turn <= 1.0
 
+        self._telemetry.process_drive_command(throttle, turn)
+
         throttle = int(throttle * 16.0 + 16.0)
         # Turning too sharply causes the servo to push harder than it can go,
         # so limit this
@@ -273,8 +233,5 @@ class Command(threading.Thread):
                 time=time.time()
             )
         )
-        return
-
-        self._telemetry.process_drive_command(throttle, turn)
 
         self._send_socket.send(command(throttle, turn))

@@ -51,7 +51,7 @@ def main(listen_interface, listen_port, connect_host, connect_port):
             """Sends a message through the socket."""
             if request_response is None:
                 request_response = False
-            if isinstance(message, dict):
+            if isinstance(message, list):
                 if request_response and 'requestResponse' not in message:
                     message['requestResponse'] = True
                 message_str = json.dumps(message)
@@ -61,7 +61,7 @@ def main(listen_interface, listen_port, connect_host, connect_port):
                 assert not request_response
                 message_str = message
 
-            self._socket.sendto((self._host, self._port), message_str)
+            self._socket.sendto(message_str, (self._host, self._port))
 
     telemetry = Telemetry()
     dgram_socket_wrapper = DgramSocketWrapper(connect_host, connect_port)

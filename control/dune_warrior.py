@@ -84,8 +84,8 @@ def command(throttle, turn):
     assert(len(bit_pattern) == 22)
     assert(sum(bit_pattern) % 2 == 0)
 
-    command = []
-    total_useconds = 7000
+    command = [format_command(frequency, 500)]
+    total_useconds = 0
     for bit in bit_pattern[:-1]:
         if bit == 0:
             useconds = 127
