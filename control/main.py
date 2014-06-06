@@ -13,6 +13,7 @@ from telemetry import Telemetry
 
 
 THREADS = []
+SOCKET = None
 
 
 def terminate(signal_number, stack_frame):
@@ -22,6 +23,8 @@ def terminate(signal_number, stack_frame):
             signal_number=signal_number
         )
     )
+    if SOCKET is not None:
+        SOCKET.close()
     for thread in THREADS:
         thread.kill()
         thread.join()
@@ -30,10 +33,11 @@ def terminate(signal_number, stack_frame):
 
 def main(listen_interface, listen_port, connect_host, connect_port):
     """Runs everything."""
+    global SOCKET
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((listen_interface, listen_port))
-        sock.settimeout(1)
+        SOCKET = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        SOCKET.bind((listen_interface, listen_port))
+        SOCKET.settimeout(1)
     except IOError as ioe:
         print('Unable to listen on port: {ioe}'.format(ioe=ioe))
         sys.exit(1)
@@ -72,7 +76,7 @@ def main(listen_interface, listen_port, connect_host, connect_port):
         'telemetry': telemetry,
     }
 
-    message_router = MessageRouter(sock, message_type_to_service)
+    message_router = MessageRouter(SOCKET, message_type_to_service)
 
     message_router.start()
     command.start()
@@ -85,7 +89,7 @@ def main(listen_interface, listen_port, connect_host, connect_port):
     # Once we get here, message_router has died and there's no point in
     # continuing because we're not receiving telemetry messages any more, so
     # close the socket and stop the command module
-    sock.close()
+    SOCKET.close()
     command.stop()
     command.join(100000000000)
 

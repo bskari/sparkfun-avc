@@ -35,6 +35,14 @@ class Telemetry(object):
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""
         #import json; print(json.dumps(message, sort_keys=True, indent=1))
+        # The Android phone is mounted rotated 90 degrees, so we need to
+        # rotate the compass heading
+        if 'heading' in message:
+            heading = message['heading'] - 90.0
+            if heading < 0.0:
+                heading += 360.0
+            message['heading'] = heading
+
         self._data = message
 
     @staticmethod
