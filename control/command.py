@@ -60,35 +60,6 @@ class Command(threading.Thread):
         elif message['command'] == 'stop':
             self.stop()
 
-
-    @staticmethod
-    def is_turn_left(our_bearing_d, goal_bearing_d):
-        return True
-
-    @staticmethod
-    def relative_degrees(
-        latitude_d_1,
-        longitude_d_1,
-        latitude_d_2,
-        longitude_d_2
-    ):
-        """Computes the relative degrees from the first waypoint to the second,
-        where north is 0.
-        """
-        relative_y_m = latitude_d_1 - latitude_d_2
-        relative_x_m = longitude_d_1 - longitude_d_2
-        degrees = math.degrees(math.atan(relative_y_m / relative_x_m))
-        if relative_x_m > 0.0:
-            if relative_y_m > 0.0:
-                return 90.0 - degrees
-            else:
-                return 90.0 + degrees
-        else:
-            if relative_y_m > 0.0:
-                return 270.0 + degrees
-            else:
-                return 180.0 + degrees
-
     @staticmethod
     def _generate_test_waypoints(position_d, meters, points_count):
         """Generates a generator of test waypoints originating from the current
@@ -169,7 +140,7 @@ class Command(threading.Thread):
                 self._run_course_iteration()
             return
 
-        degrees = self.relative_degrees(
+        degrees = Telemetry.relative_degrees(
             telemetry['latitude'],
             telemetry['longitude'],
             current_waypoint[0],

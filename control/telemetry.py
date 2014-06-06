@@ -92,3 +92,21 @@ class Telemetry(object):
         if cross_product > 0:
             return True
         return False
+
+    @staticmethod
+    def relative_degrees(
+        latitude_d_1,
+        longitude_d_1,
+        latitude_d_2,
+        longitude_d_2
+    ):
+        """Computes the relative degrees from the first waypoint to the second,
+        where north is 0.
+        """
+        relative_y_m = float(latitude_d_2) - latitude_d_1
+        relative_x_m = float(longitude_d_2) - longitude_d_1
+        degrees = math.degrees(math.atan(relative_y_m / relative_x_m))
+        if relative_x_m > 0.0:
+            return 90.0 - degrees
+        else:
+            return 270.0 - degrees
