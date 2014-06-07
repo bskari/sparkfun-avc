@@ -1,5 +1,7 @@
 """Main command module that starts the different threads."""
+import datetime
 import json
+import logging
 import signal
 import socket
 import sys
@@ -31,7 +33,7 @@ def terminate(signal_number, stack_frame):
     sys.exit(0)
 
 
-def main(listen_interface, listen_port, connect_host, connect_port):
+def main(listen_interface, listen_port, connect_host, connect_port, logger):
     """Runs everything."""
     global SOCKET
     try:
@@ -39,7 +41,7 @@ def main(listen_interface, listen_port, connect_host, connect_port):
         SOCKET.bind((listen_interface, listen_port))
         SOCKET.settimeout(1)
     except IOError as ioe:
-        print('Unable to listen on port: {ioe}'.format(ioe=ioe))
+        logger.critical('Unable to listen on port: {ioe}'.format(ioe=ioe))
         sys.exit(1)
 
     class DgramSocketWrapper(object):
@@ -67,20 +69,20 @@ def main(listen_interface, listen_port, connect_host, connect_port):
 
             self._socket.sendto(message_str, (self._host, self._port))
 
-    telemetry = Telemetry()
+    telemetry = Telemetry(logger)
     dgram_socket_wrapper = DgramSocketWrapper(connect_host, connect_port)
-    command = Command(telemetry, dgram_socket_wrapper, dgram_socket_wrapper)
+    command = Command(telemetry, dgram_socket_wrapper, dgram_socket_wrapper, logger)
 
     message_type_to_service = {
         'command': command,
         'telemetry': telemetry,
     }
 
-    message_router = MessageRouter(SOCKET, message_type_to_service)
+    message_router = MessageRouter(SOCKET, message_type_to_service, logger)
 
     message_router.start()
     command.start()
-    print('Started all threads')
+    logger.info('Started all threads')
     global THREADS
     THREADS = [message_router, command]
 
@@ -96,4 +98,37 @@ def main(listen_interface, listen_port, connect_host, connect_port):
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, terminate)
-    main('0.0.0.0', 8384, '127.1', 12345)
+
+    logger = logging.getLogger(__name__)
+    # Log everything; filtering will be handled by the handlers
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        '%(asctime)s:%(levelname)s %(message)s'
+    )
+
+    file_handler = None
+    try:
+        now = datetime.datetime.now()
+        file_handler = logging.FileHandler(
+            '/media/USB/sparkfun-{date}.log'.format(
+                date=datetime.datetime.strftime(
+                    now,
+                    '%Y-%m-%d-%H-%M'
+                )
+            )
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler)
+    except Exception as e:
+        logging.warning('Could not create file log: ' + str(e))
+        pass
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.setFormatter(formatter)
+    logger.addHandler(stdout_handler)
+
+    logger.info('test')
+
+    main('0.0.0.0', 8384, '127.1', 12345, logger)

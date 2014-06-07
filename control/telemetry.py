@@ -1,6 +1,8 @@
 """Telemetry class that takes raw sensor data and filters it to remove noise
 and provide more accurate telemetry data.
 """
+import collections
+import json
 import math
 
 
@@ -12,8 +14,11 @@ class Telemetry(object):
     EQUATORIAL_RADIUS_M = 6378.1370 * 1000
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
 
-    def __init__(self):
+    def __init__(self, logger):
         self._data = {}
+        self._past_latitude_longitude = collections.deque()
+        self._past_length = 20
+        self._logger = logger
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -34,7 +39,6 @@ class Telemetry(object):
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""
-        #import json; print(json.dumps(message, sort_keys=True, indent=1))
         # The Android phone is mounted rotated 90 degrees, so we need to
         # rotate the compass heading
         if 'heading' in message:
@@ -43,7 +47,57 @@ class Telemetry(object):
                 heading += 360.0
             message['heading'] = heading
 
+        try:
+            # Android is not calculating this itself, so let's do it
+            if 'bearing' not in message or message['bearing'] == 0.0:
+                if message['bearing'] == 0.0:
+                    del message['bearing']
+                for index in range(len(self._past_latitude_longitude) - 1, -1, -1):
+                    distance_m = self.distance_m(
+                        self._past_latitude_longitude[index]['latitude'],
+                        self._past_latitude_longitude[index]['longitude'],
+                        message['latitude'],
+                        message['longitude']
+                    )
+                    if distance_m > 0.5:
+                        message['bearing'] = self.relative_degrees(
+                            self._past_latitude_longitude[index]['latitude'],
+                            self._past_latitude_longitude[index]['longitude'],
+                            message['latitude'],
+                            message['longitude']
+                        )
+                        self._logger.debug(
+                            'Computed {bearing} from {latitude_1} {longitude_1} to {latitude_2} {longitude_2}'.format(
+                                bearing=message['bearing'],
+                                latitude_1=self._past_latitude_longitude[0]['latitude'],
+                                longitude_1=self._past_latitude_longitude[0]['longitude'],
+                                latitude_2=message['latitude'],
+                                longitude_2=message['longitude'],
+                            )
+                        )
+                        break
+        except:
+            pass
+
         self._data = message
+        self._logger.debug(json.dumps(message))
+
+        if 'latitude' in message and 'longitude' in message:
+            if (
+                len(self._past_latitude_longitude) == 0 or
+                (
+                    message['latitude'] != self._past_latitude_longitude[0]['latitude'] and
+                    message['longitude'] != self._past_latitude_longitude[0]['longitude']
+                )
+            ):
+                self._past_latitude_longitude.appendleft({
+                    'latitude': message['latitude'],
+                    'longitude': message['longitude'],
+                    'timestamp': message['timestamp']
+                })
+
+        if len(self._past_latitude_longitude) > self._past_length:
+            self._past_latitude_longitude.pop()
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):

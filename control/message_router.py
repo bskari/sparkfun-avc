@@ -13,11 +13,12 @@ import time
 
 class MessageRouter(threading.Thread):
     """Receives and routes UDP messages."""
-    def __init__(self, sock, type_to_handler):
+    def __init__(self, sock, type_to_handler, logger):
         super(MessageRouter, self).__init__()
         self._socket = sock
         self._run = True
         self._type_to_handler = type_to_handler
+        self._logger = logger
 
     def run(self):
         """Run in a thread, routes messages to the appropriate handlers."""
@@ -35,13 +36,13 @@ class MessageRouter(threading.Thread):
                 except IOError:
                     return
 
-                print('Socket error: {error}'.format(error=str(socket_error)))
+                self._logger.warning('Socket error: {error}'.format(error=str(socket_error)))
                 continue
 
             try:
                 message = json.loads(message)
             except ValueError:
-                print(
+                self._logger.warning(
                     'Unable to parse message: {message}'.format(
                         message=message
                     )
@@ -49,6 +50,12 @@ class MessageRouter(threading.Thread):
                 continue
 
             if 'requestResponse' in message:
+                self._logger.info(
+                    '{time}: {message}'.format(
+                        time=time.time(),
+                        message=message,
+                    )
+                )
                 self._socket.sendto(
                     json.dumps({
                         'messageReceived': time.time(),
@@ -61,7 +68,7 @@ class MessageRouter(threading.Thread):
                 if 'requestResponse' in message and len(message) == 1:
                     continue
                 else:
-                    print(
+                    self._logger.warning(
                         'Type missing from message: {message}'.format(
                             message=message
                         )
@@ -75,7 +82,7 @@ class MessageRouter(threading.Thread):
                 message['timestamp'] = time.time()
 
             if message['type'] not in self._type_to_handler:
-                print(
+                self._logger.warning(
                     'Unknown or missing handler for message type "{t}"'.format(
                         t=message['type']
                     )

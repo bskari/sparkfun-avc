@@ -19,6 +19,7 @@ class Command(threading.Thread):
         telemetry,
         send_socket,
         commands,
+        logger,
         sleep_time_milliseconds=None
     ):
         """Create the Command thread. send_socket is just a wrapper around
@@ -34,6 +35,7 @@ class Command(threading.Thread):
             self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
         self._send_socket = send_socket
         self._commands = commands
+        self._logger = logger
         self._run = True
         self._run_course = False
         self._last_iteration_seconds = None
@@ -44,11 +46,11 @@ class Command(threading.Thread):
         """Handles command messages, e.g. 'start' or 'stop'."""
         # TODO: Process the message and stop using test data
         if 'command' not in message:
-            print('No command in command message')
+            self._logger.info('No command in command message')
             return
 
         if message['command'] not in self._valid_commands:
-            print(
+            self._logger.warning(
                 'Unknown command: "{command}"'.format(
                     command=message['command']
                 )
@@ -97,26 +99,23 @@ class Command(threading.Thread):
                 if not self._run:
                     return
 
-                print('Running course iteration')
+                self._logger.info('Running course iteration')
 
                 telemetry = self._telemetry.get_data()
                 position_d = (telemetry['latitude'], telemetry['longitude'])
-                self._waypoints = self._generate_test_waypoints(
-                    position_d,
-                    5,
-                    4
-                )
+                self._waypoints = collections.deque([
+                    (40.041384, -105.249758),
+                    (40.021411, -105.250189),
+                ])
 
                 while self._run and self._run_course:
                     self._last_iteration_seconds = time.time()
                     self._run_course_iteration()
                     time.sleep(self._sleep_time_seconds)
-                print('Stopping course')
+                self._logger.info('Stopping course')
 
-        # For testing, I want stack dumps, so don't catch anything
-        except ZeroDivisionError as exception:
-        #except Exception as exception:
-            print('Command thread had exception, ignoring: ' + str(exception))
+        except Exception as exception:
+            self._logger.warning('Command thread had exception, ignoring: ' + str(exception))
 
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
@@ -130,10 +129,10 @@ class Command(threading.Thread):
             current_waypoint[1]
         )
         if distance < 0.5:
-            print('Reached ' + str(current_waypoint))
+            self._logger.info('Reached ' + str(current_waypoint))
             self._waypoints.popleft()
             if len(self._waypoints) == 0:
-                print('Stopping')
+                self._logger.info('Stopping')
                 self.send_command(0.0, 0.0)
             else:
                 # I know I shouldn't use recursion here, but I'm lazy
@@ -147,14 +146,23 @@ class Command(threading.Thread):
             current_waypoint[1]
         )
 
-        if 'heading' not in telemetry:
-            return
-        heading_d = telemetry['heading']
+        if 'bearing' not in telemetry:
+            if 'heading' not in telemetry:
+                return
+            heading_d = telemetry['heading']
+        else:
+            heading_d = telemetry['bearing']
 
         diff_d = abs(heading_d - degrees)
         if diff_d > 180.0:
             diff_d -= 180.0
 
+        self._logger.debug(
+            'command: My heading: {heading}, goal heading: {goal}'.format(
+                heading=heading_d,
+                goal=degrees,
+            )
+        )
         if diff_d < 10.0:
             self.send_command(speed, 0.0)
             return
@@ -197,7 +205,7 @@ class Command(threading.Thread):
             if last_command[0] == throttle and last_command[1] == turn:
                 return
         self._last_command = (throttle, turn)
-        print(
+        self._logger.debug(
             'throttle:{throttle} turn:{turn} time:{time}'.format(
                 throttle=throttle,
                 turn=turn,
