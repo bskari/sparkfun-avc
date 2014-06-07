@@ -78,7 +78,7 @@ class Command(threading.Thread):
         waypoints = collections.deque()
         for _ in range(4):
             waypoints.append(last_waypoint_d)
-            step_m = Telemetry.rotate_radians(step_m, step_r)
+            step_m = Telemetry.rotate_radians_clockwise(step_m, step_r)
             last_waypoint_d = (
                 last_waypoint_d[0] + step_m[1] / Telemetry.M_PER_D_LATITUDE,
                 last_waypoint_d[1] + step_m[0] / m_per_d_longitude

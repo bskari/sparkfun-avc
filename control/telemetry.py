@@ -46,34 +46,42 @@ class Telemetry(object):
         self._data = message
 
     @staticmethod
-    def rotate_radians(point, radians):
+    def rotate_radians_clockwise(point, radians):
         """Rotates the point by radians."""
         pt_x, pt_y = point
-        cosine = math.cos(radians)
-        sine = math.sin(radians)
+        cosine = math.cos(-radians)
+        sine = math.sin(-radians)
         return (
             pt_x * cosine - pt_y * sine,
             pt_x * sine + pt_y * cosine
         )
 
     @classmethod
-    def latitude_to_m_per_d_longitude(cls, latitude_d):
+    def latitude_to_m_per_d_longitude(cls, latitude_d, cache=None):
         """Returns the number of meters per degree longitude at a given
         latitude.
         """
+        def calculate(latitude_d):
+            radius_m = \
+                math.cos(math.radians(latitude_d)) * cls.EQUATORIAL_RADIUS_M
+            circumference_m = 2.0 * math.pi * radius_m
+            return circumference_m / 360.0
+
+        if cache is not None and cache:
+            return calculate(latitude_d)
+
         if 'cache' not in Telemetry.latitude_to_m_per_d_longitude.__dict__:
-            Telemetry.latitude_to_m_per_d_longitude.__dict__['cache'] = None
+            Telemetry.latitude_to_m_per_d_longitude.__dict__['cache'] = [
+                latitude_d,
+                calculate(latitude_d)
+            ]
 
         cache = Telemetry.latitude_to_m_per_d_longitude.cache
-        if cache is not None and latitude_d - 1.0 < cache[0] < latitude_d + 1.0:
+        if cache is not None and latitude_d - 0.1 < cache[0] < latitude_d + 0.1:
             return cache[1]
-
-        # Assume the Earth is a perfect sphere
-        radius_m = \
-            math.cos(math.radians(latitude_d)) * cls.EQUATORIAL_RADIUS_M
-        circumference_m = 2.0 * math.pi * radius_m
-        cache = (latitude_d, circumference_m / 360.0)
-        return circumference_m / 360.0
+        cache[0] = latitude_d
+        cache[1] = calculate(latitude_d)
+        return cache[1]
 
     @classmethod
     def distance_m(cls, latitude_d_1, longitude_d_1, latitude_d_2, longitude_d_2):
