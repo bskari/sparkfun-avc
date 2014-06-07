@@ -57,6 +57,10 @@ class Telemetry(object):
         )
 
     @classmethod
+    def m_per_d_latitude(cls):
+        return cls.M_PER_D_LATITUDE
+
+    @classmethod
     def latitude_to_m_per_d_longitude(cls, latitude_d, cache=None):
         """Returns the number of meters per degree longitude at a given
         latitude.
@@ -88,7 +92,7 @@ class Telemetry(object):
         """Returns the distance in meters between two waypoints in degrees."""
         diff_latitude_d = latitude_d_1 - latitude_d_2
         diff_longitude_d = longitude_d_1 - longitude_d_2
-        diff_1_m = diff_latitude_d * cls.M_PER_D_LATITUDE
+        diff_1_m = diff_latitude_d * cls.m_per_d_latitude()
         diff_2_m = (
             diff_longitude_d
             * Telemetry.latitude_to_m_per_d_longitude(latitude_d_1)
@@ -97,8 +101,8 @@ class Telemetry(object):
 
     @staticmethod
     def is_turn_left(heading_d, goal_heading_d):
-        pt_1 = Telemetry.rotate_radians((1, 0), math.radians(heading_d))
-        pt_2 = Telemetry.rotate_radians((1, 0), math.radians(goal_heading_d))
+        pt_1 = Telemetry.rotate_radians_clockwise((1, 0), math.radians(heading_d))
+        pt_2 = Telemetry.rotate_radians_clockwise((1, 0), math.radians(goal_heading_d))
         pt_1 = list(pt_1) + [0]
         pt_2 = list(pt_2) + [0]
         cross_product = \
