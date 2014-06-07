@@ -38,13 +38,13 @@ class Command(threading.Thread):
         self._logger = logger
         self._run = True
         self._run_course = False
+        self._start_time = None
         self._last_iteration_seconds = None
         self._waypoints = collections.deque()
         self._last_command = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
-        # TODO: Process the message and stop using test data
         if 'command' not in message:
             self._logger.info('No command in command message')
             return
@@ -101,9 +101,8 @@ class Command(threading.Thread):
 
                 self._logger.info('Running course iteration')
 
-                telemetry = self._telemetry.get_data()
-                position_d = (telemetry['latitude'], telemetry['longitude'])
                 self._waypoints = collections.deque([
+                    # In front of the Hacker Space
                     (40.041384, -105.249758),
                     (40.021411, -105.250189),
                 ])
@@ -120,6 +119,11 @@ class Command(threading.Thread):
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
         speed = 0.25
+        # Drive straight for 2 seconds at the start to get GPS bearing
+        if time.time() < self._start_time + 2:
+            self.send_command(1.0, 0.0)
+            return
+
         telemetry = self._telemetry.get_data()
         current_waypoint = self._waypoints[0]
         distance = Telemetry.distance_m(
@@ -145,6 +149,16 @@ class Command(threading.Thread):
             current_waypoint[0],
             current_waypoint[1]
         )
+        self._logger.debug(
+            '{latitude_1} {longitude_1} to {latitude_2} {longitude_2} is {degrees}'.format(
+                latitude_1=telemetry['latitude'],
+                longitude_1=telemetry['longitude'],
+                latitude_2=current_waypoint[0],
+                longitude_2=current_waypoint[1],
+                degrees=degrees,
+            )
+        )
+
 
         if 'bearing' not in telemetry:
             if 'heading' not in telemetry:
@@ -158,7 +172,7 @@ class Command(threading.Thread):
             diff_d -= 180.0
 
         self._logger.debug(
-            'command: My heading: {heading}, goal heading: {goal}'.format(
+            'My heading: {heading}, goal heading: {goal}'.format(
                 heading=heading_d,
                 goal=degrees,
             )
@@ -174,6 +188,7 @@ class Command(threading.Thread):
 
     def run_course(self):
         """Starts the RC car running the course."""
+        self._start_time = time.time()
         self._run_course = True
 
     def stop(self):
@@ -190,15 +205,19 @@ class Command(threading.Thread):
         -1.0 for reverse and 1.0 for forward. Turn should be a float between
         -1.0 for left and 1.0 for right.
         """
-        assert -1.0 <= throttle <= 1.0
-        assert -1.0 <= turn <= 1.0
+        assert -1.0 <= throttle <= 1.0, 'Bad throttle in command'
+        assert -1.0 <= turn <= 1.0, 'Bad turn in command'
 
         self._telemetry.process_drive_command(throttle, turn)
 
         throttle = int(throttle * 16.0 + 16.0)
+        throttle = min(throttle, 31)
         # Turning too sharply causes the servo to push harder than it can go,
         # so limit this
-        turn = int(turn * 24.0 + 32.0)
+        # Add 33 instead of 32 because the car drifts left
+        turn = int(turn * 24.0 + 33.0)
+        turn = min(turn, 57)
+        turn = max(turn, 8)
 
         if self._last_command is not None:
             last_command = self._last_command

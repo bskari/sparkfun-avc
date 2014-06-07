@@ -43,10 +43,10 @@ def ones_count(number):
 
 def command(throttle, turn):
     """Returns a JSON formatted control command for the Dune Warrior."""
-    assert throttle >= 0 and throttle < 32
+    assert throttle >= 0 and throttle < 32, 'Bad throttle in dune_warrior'
     # Turning too sharply causes the servo to push harder than it can
     # go, so limit this
-    assert turn >= 8 and turn < 58
+    assert turn >= 8 and turn < 58, 'Bad turn in dune_warrior'
 
     frequency = 27.145
     even_parity_bit = to_bit(
@@ -81,8 +81,8 @@ def command(throttle, turn):
         0,
         0
     )
-    assert(len(bit_pattern) == 22)
-    assert(sum(bit_pattern) % 2 == 0)
+    assert len(bit_pattern) == 22, 'Wrong bit pattern length in dune_warrior'
+    assert sum(bit_pattern) % 2 == 0, 'Wrong bit pattern checksum in dune_warrior'
 
     command = [format_command(frequency, 500)]
     total_useconds = 0

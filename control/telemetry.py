@@ -34,8 +34,8 @@ class Telemetry(object):
         into the telemetry immediately, because GPS sensors and what not
         normally have a slight delay.
         """
-        assert -1.0 <= throttle <= 1.0
-        assert -1.0 <= turn <= 1.0
+        assert -1.0 <= throttle <= 1.0, 'Bad throttle in telemetry'
+        assert -1.0 <= turn <= 1.0, 'Bad turn in telemetry'
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""

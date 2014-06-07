@@ -64,7 +64,7 @@ def main(listen_interface, listen_port, connect_host, connect_port, logger):
             else:
                 # If somebody's already converted to a string, then
                 # request_response won't do anything
-                assert not request_response
+                assert not request_response, 'Already converted to string in main'
                 message_str = message
 
             self._socket.sendto(message_str, (self._host, self._port))
@@ -100,7 +100,6 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, terminate)
 
     logger = logging.getLogger(__name__)
-    # Log everything; filtering will be handled by the handlers
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         '%(asctime)s:%(levelname)s %(message)s'
@@ -129,6 +128,6 @@ if __name__ == '__main__':
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
 
-    logger.info('test')
+    logger.debug('test')
 
     main('0.0.0.0', 8384, '127.1', 12345, logger)
