@@ -25,6 +25,7 @@ public class SensorDumpThread extends Thread {
 	final int frequencyMilliseconds;
 	final InetAddress address;
 	final int port;
+	final LocationManager locationManager;
 
 	final SensorManager sensorManager;
 
@@ -46,6 +47,7 @@ public class SensorDumpThread extends Thread {
 			final Context context) {
 		super("SensorDumpThread");
 		this.datagramSocket = datagramSocket;
+		this.locationManager = manager;
 		this.address = address;
 		this.port = port;
 		this.frequencyMilliseconds = frequencyMilliseconds;
@@ -95,7 +97,8 @@ public class SensorDumpThread extends Thread {
 	@Override
 	public void run() {
 		while (!datagramSocket.isClosed() && running) {
-			final Location location = locationListener.location;
+			final Location location =
+					locationManager.getLastKnownLocation("gps");
 
 			try {
 				JSONObject root = new JSONObject();
@@ -131,7 +134,7 @@ public class SensorDumpThread extends Thread {
 				putArray(root, "gyroscope", gyroscopeListener.values);
 				putArray(root, "linearAcceleration",
 						linearAccelerationListener.values);
-				putArray(root, "magneticField", magneticFieldListener.values);
+				//putArray(root, "magneticField", magneticFieldListener.values);
 				putArray(root, "accelerometer", accelerometerListener.values);
 
 				if (root.length() <= 1) {
@@ -201,12 +204,12 @@ public class SensorDumpThread extends Thread {
 		}
 	}
 
+	// I don't even know if this is necessary anymore because I'm using
+	// getLastKNownLocation with a provider directly
 	private class MyLocationListener implements LocationListener {
-		public Location location;
 
 		@Override
 		public void onLocationChanged(Location location) {
-			this.location = location;
 		}
 
 		@Override

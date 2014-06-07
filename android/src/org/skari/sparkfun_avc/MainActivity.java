@@ -8,7 +8,6 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 
 import android.app.AlertDialog;
-import android.location.Criteria;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -25,7 +24,6 @@ public class MainActivity extends ActionBarActivity {
 
 	private SensorDumpThread sensorDumpThread = null;
 	private LocationManager locationManager = null;
-	private String bestProvider;
 	private DatagramSocket socket;
 
 	@Override
@@ -39,17 +37,6 @@ public class MainActivity extends ActionBarActivity {
 		}
 
 		locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
-		Criteria criteria = new Criteria();
-		criteria.setAccuracy(Criteria.ACCURACY_FINE);
-		criteria.setPowerRequirement(Criteria.NO_REQUIREMENT);
-		criteria.setAltitudeRequired(false);
-		// criteria.setBearingAccuracy(Criteria.ACCURACY_FINE); // Requires API
-		// level 9
-		criteria.setBearingRequired(true);
-		// criteria.setSpeedAccuracy(Criteria.ACCURACY_FINE); // Requires API
-		// level 9
-		criteria.setSpeedRequired(true);
-		bestProvider = locationManager.getBestProvider(criteria, true);
 	}
 
 	@Override
