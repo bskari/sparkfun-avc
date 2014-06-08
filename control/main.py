@@ -1,4 +1,5 @@
 """Main command module that starts the different threads."""
+import argparse
 import datetime
 import json
 import logging
@@ -96,7 +97,69 @@ def main(listen_interface, listen_port, connect_host, connect_port, logger):
     command.join(100000000000)
 
 
+def make_parser():
+    """Builds and returns an argument parser."""
+    parser = argparse.ArgumentParser(
+        description='Command and control software for the Sparkfun AVC.'
+    )
+
+    parser.add_argument(
+        '-p',
+        '--listen-port',
+        dest='listen_port',
+        help='The port to lisetn for messages on.',
+        default=8384,
+        type=int
+    )
+
+    parser.add_argument(
+        '-c',
+        '--command-port',
+        dest='command_port',
+        help='The port to send drive commands to.',
+        default='12345'
+    )
+    parser.add_argument(
+        '-s',
+        '--command-server',
+        dest='server',
+        help='The server to send drive commands to.',
+        default='127.1',
+        type=str
+    )
+
+    now = datetime.datetime.now()
+    parser.add_argument(
+        '-l',
+        '--log',
+        dest='log',
+        help='The file to log to.',
+        default=(
+            '/media/USB/sparkfun-{date}.log'.format(
+                date=datetime.datetime.strftime(
+                    now,
+                    '%Y-%m-%d-%H-%M'
+                )
+            )
+        ),
+        type=str
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        dest='verbose',
+        help='Increase output.',
+        action='store_true'
+    )
+
+    return parser
+
+
 if __name__ == '__main__':
+    parser = make_parser()
+    args = parser.parse_args()
+
     signal.signal(signal.SIGINT, terminate)
 
     logger = logging.getLogger(__name__)
@@ -107,27 +170,23 @@ if __name__ == '__main__':
 
     file_handler = None
     try:
-        now = datetime.datetime.now()
-        file_handler = logging.FileHandler(
-            '/media/USB/sparkfun-{date}.log'.format(
-                date=datetime.datetime.strftime(
-                    now,
-                    '%Y-%m-%d-%H-%M'
-                )
-            )
-        )
+        file_handler = logging.FileHandler(args.log)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
     except Exception as e:
         logging.warning('Could not create file log: ' + str(e))
+        logger.setLevel(logging.INFO)
         pass
 
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.INFO)
+    if args.verbose:
+        stdout_handler.setLevel(logging.DEBUG)
+    else:
+        stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
 
-    logger.debug('test')
+    logger.debug('Calling main')
 
-    main('0.0.0.0', 8384, '127.1', 12345, logger)
+    main('0.0.0.0', args.listen_port, args.server, args.command_port, logger)
