@@ -110,16 +110,16 @@ public class SensorDumpThread extends Thread {
 						final double latitude = location.getLatitude();
 						final double longitude = location.getLongitude();
 						final float accuracy = location.getAccuracy();
-						final float bearing = location.getBearing();
 						final float speed = location.getSpeed();
-						final long timeStampMilliseconds = location.getTime();
 
 						root.put("latitude", latitude);
 						root.put("longitude", longitude);
 						root.put("accuracy", accuracy);
-						root.put("bearing", bearing);
 						root.put("speed", speed);
-						root.put("timestamp", timeStampMilliseconds / 1000.0f);
+						if (location.hasBearing()) {
+							final float bearing = location.getBearing();
+							root.put("bearing", bearing);
+						}
 						try {
 							final float heading = getHeading();
 							root.put("heading", heading);
