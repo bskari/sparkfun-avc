@@ -117,7 +117,8 @@ def make_parser():
         '--command-port',
         dest='command_port',
         help='The port to send drive commands to.',
-        default='12345'
+        default=12345,
+        type=int
     )
     parser.add_argument(
         '-s',
