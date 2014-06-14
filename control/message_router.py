@@ -5,6 +5,7 @@ processing.
 """
 import json
 import socket
+import sys
 import threading
 import time
 
@@ -39,6 +40,9 @@ class MessageRouter(threading.Thread):
                 self._logger.warning('Socket error: {error}'.format(error=str(socket_error)))
                 continue
 
+            if sys.version_info.major >= 3 and isinstance(message, bytes):
+                message = bytes.decode(message, 'utf-8')
+
             try:
                 message = json.loads(message)
             except ValueError:
@@ -56,12 +60,14 @@ class MessageRouter(threading.Thread):
                         message=message,
                     )
                 )
-                self._socket.sendto(
-                    json.dumps({
-                        'messageReceived': time.time(),
-                    }),
-                    (address[0], 5001)
-                )
+
+                message_bytes = json.dumps({
+                    'messageReceived': time.time(),
+                })
+                if sys.version_info.major >= 3:
+                    message_bytes = bytes(message_bytes, 'utf-8')
+
+                self._socket.sendto(message_bytes, (address[0], 5001))
 
             if 'type' not in message:
                 # Only asking for a response is a valid message

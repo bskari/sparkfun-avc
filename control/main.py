@@ -68,6 +68,8 @@ def main(listen_interface, listen_port, connect_host, connect_port, logger):
                 assert not request_response, 'Already converted to string in main'
                 message_str = message
 
+            if sys.version_info.major >= 3 and isinstance(message_str, str):
+                message_str = bytes(message_str, 'utf-8')
             self._socket.sendto(message_str, (self._host, self._port))
 
     telemetry = Telemetry(logger)
