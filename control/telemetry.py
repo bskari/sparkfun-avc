@@ -4,6 +4,7 @@ and provide more accurate telemetry data.
 import collections
 import json
 import math
+from i2clibraries import i2c_hmc5883l
 
 
 class Telemetry(object):
@@ -19,6 +20,9 @@ class Telemetry(object):
         self._past_latitude_longitude = collections.deque()
         self._past_length = 20
         self._logger = logger
+        self.hmc5883l = i2c_hmc5883l.i2c_hmc5883l(1)
+        self.hmc5883l.setContinuousMode()
+        self.hmc5883l.setDeclination(8, 32)
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -184,3 +188,6 @@ class Telemetry(object):
             return 90.0 - degrees
         else:
             return 270.0 - degrees
+
+    def heading_from_digital_compass(self):
+        return self.hmc5883l.getHeading()[0]

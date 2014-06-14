@@ -159,13 +159,7 @@ class Command(threading.Thread):
             )
         )
 
-
-        if 'bearing' not in telemetry:
-            if 'heading' not in telemetry:
-                return
-            heading_d = telemetry['heading']
-        else:
-            heading_d = telemetry['bearing']
+        heading_d = self._telemetry.heading_from_digital_compass()
 
         diff_d = abs(heading_d - degrees)
         if diff_d > 180.0:
