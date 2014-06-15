@@ -1,12 +1,18 @@
+"""Tests the Telemetry class."""
 import math
 import mock
 import unittest
 
 from telemetry import Telemetry
 
+#pylint: disable=invalid-name
+#pylint: disable=too-many-public-methods
+
 
 class TestTelemetry(unittest.TestCase):
+    """Tests the Telemetry class."""
     def test_rotate_radians_clockwise(self):
+        """Tests rotating a vector radians clockwise."""
         base = (1.0, 0.0)
 
         not_rotated = Telemetry.rotate_radians_clockwise(base, 0.0)
@@ -46,6 +52,7 @@ class TestTelemetry(unittest.TestCase):
         self.assertAlmostEqual(negative_ninety[1], two_seventy[1])
 
     def test_latitude_to_m_per_d_longitude(self):
+        """Tests the conversion from latitude to meters per degree longitude."""
         # Assume Earth is a sphere
         self.assertAlmostEqual(
             Telemetry.EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0,
@@ -173,3 +180,29 @@ class TestTelemetry(unittest.TestCase):
                     Telemetry.distance_m(0, 0, mult_1 * 4, mult_2 * 3),
                     5
                 )
+
+    def test_acceleration_mss_velocity_ms_to_ds(self):
+        """Tests the conversion from acceleration m/s^s and velocity m/s
+        to rotational speed d/s."""
+        # Examples taken from
+        # www.mattawanschools.org/14662062013835470/lib/14662062013935470/
+        # Ch_8_Problem_set.pdf
+        velocity_ms = 2 * math.pi * 4.0 / 2.0
+        acceleration_mss = velocity_ms ** 2 / 4.0
+        self.assertAlmostEqual(
+            4.0 * 0.5 * 360.0,  # 2 seconds per revolution
+            Telemetry.acceleration_mss_velocity_ms_to_ds(
+                acceleration_mss,
+                velocity_ms
+            )
+        )
+
+        velocity_ms = 2 * math.pi * 5e4 / 1.8e3
+        acceleration_mss = velocity_ms ** 2 / 5e4
+        self.assertAlmostEqual(
+            30 * 60 * 360.0,  # 1 revolution per 30 minutes
+            Telemetry.acceleration_mss_velocity_ms_to_ds(
+                acceleration_mss,
+                velocity_ms
+            )
+        )

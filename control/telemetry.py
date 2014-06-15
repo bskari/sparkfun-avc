@@ -5,6 +5,8 @@ import collections
 import json
 import math
 
+#pylint: disable=invalid-name
+
 
 class Telemetry(object):
     """Provides up to date telemetry data to other modules. This class will use
@@ -184,3 +186,30 @@ class Telemetry(object):
             return 90.0 - degrees
         else:
             return 270.0 - degrees
+
+    @staticmethod
+    def acceleration_mss_velocity_ms_to_radius_m(
+        acceleration_m_s_s,
+        velocity_m_s
+    ):
+        """Converts the lateral acceleration force (accessible from the Android
+        phone) and the car's velocity to the car's turn radius in meters.
+        """
+        # centripetal acceleration = velocity ^ 2 / radius
+        return velocity_m_s ** 2 / acceleration_m_s_s
+
+    @staticmethod
+    def acceleration_mss_velocity_ms_to_ds(
+        acceleration_m_s_s,
+        velocity_m_s
+    ):
+        """Converts the lateral acceleration force (accessible from the Android
+        phone) and the car's velocity to the car's turn rate in degrees per
+        second.
+        """
+        radius_m = Telemetry.acceleration_mss_velocity_ms_to_radius_m(
+            acceleration_m_s_s,
+            velocity_m_s
+        )
+        circumference_m = 2 * math.pi * radius_m
+        return circumference_m / float(velocity_m_s) * 360.0
