@@ -1,4 +1,5 @@
 """Main command module that starts the different threads."""
+from xml.etree import ElementTree
 import argparse
 import datetime
 import json
@@ -6,6 +7,7 @@ import logging
 import signal
 import socket
 import sys
+import zipfile
 
 from command import Command
 from message_router import MessageRouter
@@ -34,7 +36,60 @@ def terminate(signal_number, stack_frame):
     sys.exit(0)
 
 
-def main(listen_interface, listen_port, connect_host, connect_port, logger):
+def load_waypoints(kml_string):
+    import pdb; pdb.set_trace()
+    root = ElementTree.fromstring(kml_string)
+    if 'kml' not in root.tag:
+        raise ValueError('Not a KML file')
+
+    document = None
+    for child in root:
+        if 'Document' in child.tag:
+            document = child
+            break
+    if document is None:
+        raise ValueError('No document')
+
+    placemark = None
+    for child in document:
+        if 'Placemark' in child.tag:
+            placemark = child
+            break
+    if placemark is None:
+        raise ValueError('No placemark')
+
+    line_string = None
+    for child in placemark:
+        if 'LineString' in child.tag:
+            line_string = child
+            break
+    if line_string is None:
+        raise ValueError('No line string')
+
+    coordinates = None
+    for child in line_string:
+        if 'coordinates' in child.tag:
+            coordinates = child
+            break
+    if coordinates is None:
+        raise ValueError('No coordinates')
+
+    waypoints = []
+    text = coordinates.text.strip()
+    for csv in text.split(' '):
+        longitude, latitude, altitude = csv.split(',')
+        waypoints.append((float(latitude), float(longitude)))
+    return waypoints
+
+
+def main(
+    listen_interface,
+    listen_port,
+    connect_host,
+    connect_port,
+    waypoints,
+    logger
+):
     """Runs everything."""
     global SOCKET
     try:
@@ -74,7 +129,13 @@ def main(listen_interface, listen_port, connect_host, connect_port, logger):
 
     telemetry = Telemetry(logger)
     dgram_socket_wrapper = DgramSocketWrapper(connect_host, connect_port)
-    command = Command(telemetry, dgram_socket_wrapper, dgram_socket_wrapper, logger)
+    command = Command(
+        telemetry,
+        dgram_socket_wrapper,
+        dgram_socket_wrapper,
+        logger,
+        waypoints=waypoints
+    )
 
     message_type_to_service = {
         'command': command,
@@ -156,14 +217,23 @@ def make_parser():
         action='store_true'
     )
 
+    parser.add_argument(
+        '-k',
+        '--kml',
+        dest='kml_file',
+        help='The KML file from which to load waypoints.',
+        default=None,
+        type=str,
+    )
+
     return parser
 
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, terminate)
+
     parser = make_parser()
     args = parser.parse_args()
-
-    signal.signal(signal.SIGINT, terminate)
 
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
@@ -190,6 +260,31 @@ if __name__ == '__main__':
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
 
+    if args.kml_file is not None:
+        try:
+            with zipfile.ZipFile(args.kml_file) as archive:
+                kml_string = archive.open('doc.kml').read()
+                waypoints = load_waypoints(kml_string)
+                logger.info(
+                    'Loaded {length} waypoints'.format(
+                        length=len(waypoints)
+                    )
+                )
+        except Exception as exception:
+            logger.error(
+                'Unable to load kml file: {exception}'.format(
+                    exception=str(exception)
+                )
+            )
+            waypoints = None
+
     logger.debug('Calling main')
 
-    main('0.0.0.0', args.listen_port, args.server, args.command_port, logger)
+    main(
+        '0.0.0.0',
+        args.listen_port,
+        args.server,
+        args.command_port,
+        waypoints,
+        logger
+    )

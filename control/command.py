@@ -1,6 +1,7 @@
 """Class to control the RC car."""
 
 import collections
+import copy
 import math
 import threading
 import time
@@ -20,7 +21,8 @@ class Command(threading.Thread):
         send_socket,
         commands,
         logger,
-        sleep_time_milliseconds=None
+        sleep_time_milliseconds=None,
+        waypoints=None
     ):
         """Create the Command thread. send_socket is just a wrapper around
         some other kind of socket that has a simple "send" method.
@@ -40,7 +42,15 @@ class Command(threading.Thread):
         self._run_course = False
         self._start_time = None
         self._last_iteration_seconds = None
-        self._waypoints = collections.deque()
+        if waypoints is None:
+            self._base_waypoints = collections.deque((
+                # In front of the Hacker Space
+                (40.021391, -105.249860),
+                (40.021394, -105.250176),
+            ))
+        else:
+            self._base_waypoints = colletions.deque(waypoints)
+        self._waypoints = None
         self._last_command = None
 
     def handle_message(self, message):
@@ -91,6 +101,10 @@ class Command(threading.Thread):
     def run(self):
         """Run in a thread, controls the RC car."""
         error_count = 0
+        if self._waypoints is None or len(self._waypoints) == 0:
+            self._logger.info('Resetting waypoints')
+            self._waypoints = copy.deepcopy(self._base_waypoints)
+
         while self._run:
             try:
                 while self._run and not self._run_course:
@@ -100,12 +114,6 @@ class Command(threading.Thread):
                     return
 
                 self._logger.info('Running course iteration')
-
-                self._waypoints = collections.deque([
-                    # In front of the Hacker Space
-                    (40.021391, -105.249860),
-                    (40.021394, -105.250176),
-                ])
 
                 while self._run and self._run_course:
                     self._last_iteration_seconds = time.time()
