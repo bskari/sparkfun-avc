@@ -20,9 +20,9 @@ class Telemetry(object):
         self._past_latitude_longitude = collections.deque()
         self._past_length = 20
         self._logger = logger
-        self.hmc5883l = i2c_hmc5883l.i2c_hmc5883l(1)
-        self.hmc5883l.setContinuousMode()
-        self.hmc5883l.setDeclination(8, 32)
+        #self.hmc5883l = i2c_hmc5883l.i2c_hmc5883l(1)
+        #self.hmc5883l.setContinuousMode()
+        #self.hmc5883l.setDeclination(8, 32)
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""

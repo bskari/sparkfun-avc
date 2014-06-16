@@ -90,9 +90,9 @@ class Command(threading.Thread):
 
     def run(self):
         """Run in a thread, controls the RC car."""
-        try:
-            while self._run:
-
+        error_count = 0
+        while self._run:
+            try:
                 while self._run and not self._run_course:
                     time.sleep(self._sleep_time_seconds)
 
@@ -103,8 +103,8 @@ class Command(threading.Thread):
 
                 self._waypoints = collections.deque([
                     # In front of the Hacker Space
-                    (40.041384, -105.249758),
-                    (40.021411, -105.250189),
+                    (40.021391, -105.249860),
+                    (40.021394, -105.250176),
                 ])
 
                 while self._run and self._run_course:
@@ -113,31 +113,43 @@ class Command(threading.Thread):
                     time.sleep(self._sleep_time_seconds)
                 self._logger.info('Stopping course')
 
-        except Exception as exception:
-            self._logger.warning('Command thread had exception, ignoring: ' + str(exception))
+            except Exception as exception:
+                self._logger.warning(
+                    'Command thread had exception, ignoring: ' \
+                        + str(type(exception)) + ':' + str(exception)
+                )
+                error_count += 1
+                if error_count > 10:
+                    self._logger.warning('Too many exceptions, stopping')
+                    self.stop()
+
 
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
         speed = 0.25
-        # Drive straight for 2 seconds at the start to get GPS bearing
-        if time.time() < self._start_time + 2:
-            self.send_command(1.0, 0.0)
-            return
 
         telemetry = self._telemetry.get_data()
+
+        if len(self._waypoints) == 0:
+            self._logger.info('No waypoints, stopping')
+            self.send_command(0.0, 0.0)
+            self.stop()
+            return
         current_waypoint = self._waypoints[0]
+
         distance = Telemetry.distance_m(
             telemetry['latitude'],
             telemetry['longitude'],
             current_waypoint[0],
             current_waypoint[1]
         )
-        if distance < 0.5:
+        if distance < 5.0:
             self._logger.info('Reached ' + str(current_waypoint))
             self._waypoints.popleft()
             if len(self._waypoints) == 0:
                 self._logger.info('Stopping')
                 self.send_command(0.0, 0.0)
+                self.stop()
             else:
                 # I know I shouldn't use recursion here, but I'm lazy
                 self._run_course_iteration()
@@ -159,23 +171,30 @@ class Command(threading.Thread):
             )
         )
 
-        heading_d = self._telemetry.heading_from_digital_compass()
+        #heading_d = self._telemetry.heading_from_digital_compass()
+        heading_d = telemetry['heading']
+        heading_d = 180.0 - heading_d
+        if heading_d < 0.0:
+            heading_d += 360.0
+
 
         diff_d = abs(heading_d - degrees)
         if diff_d > 180.0:
             diff_d -= 180.0
 
         self._logger.debug(
-            'My heading: {heading}, goal heading: {goal}'.format(
+            'my heading: {heading}, goal heading: {goal}, distance: {distance}'.format(
                 heading=heading_d,
                 goal=degrees,
+                distance=distance,
             )
         )
-        if diff_d < 10.0:
+        if diff_d < 20.0:
             self.send_command(speed, 0.0)
             return
 
-        turn = min(diff_d / 20.0, 1.0)
+        #turn = min(diff_d / 30.0, 1.0)
+        turn = 0.5
         if Telemetry.is_turn_left(heading_d, degrees):
             turn = -turn
         self.send_command(speed, turn)
@@ -219,7 +238,7 @@ class Command(threading.Thread):
                 return
         self._last_command = (throttle, turn)
         self._logger.debug(
-            'throttle:{throttle} turn:{turn} time:{time}'.format(
+            'throttle:{throttle} turn:{turn}'.format(
                 throttle=throttle,
                 turn=turn,
                 time=time.time()
