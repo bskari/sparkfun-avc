@@ -37,7 +37,6 @@ def terminate(signal_number, stack_frame):
 
 
 def load_waypoints(kml_string):
-    import pdb; pdb.set_trace()
     root = ElementTree.fromstring(kml_string)
     if 'kml' not in root.tag:
         raise ValueError('Not a KML file')
