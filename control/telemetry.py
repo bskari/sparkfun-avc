@@ -3,6 +3,7 @@ and provide more accurate telemetry data.
 """
 import json
 import math
+import time
 
 #pylint: disable=invalid-name
 
@@ -26,7 +27,19 @@ class Telemetry(object):
 
     def get_data(self):
         """Returns the approximated telemetry data."""
-        return self.get_raw_data()
+
+        values = {
+            'heading': self._data['heading'],
+            'accelerometer': self._data['accelerometer'],
+        }
+
+        if 'latitude' in self._data:
+            values.update({
+                'latitude': self._data['latitude'],
+                'longitude': self._data['longitude'],
+            })
+
+        return values
 
     def process_drive_command(self, throttle, turn):
         """Process a drive command. When the command module tells the car to do
@@ -36,6 +49,8 @@ class Telemetry(object):
         """
         assert -1.0 <= throttle <= 1.0, 'Bad throttle in telemetry'
         assert -1.0 <= turn <= 1.0, 'Bad turn in telemetry'
+        self._turn_time = time.time()
+        self._turn_rate = turn
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""
@@ -181,3 +196,21 @@ class Telemetry(object):
         )
         circumference_m = 2 * math.pi * radius_m
         return circumference_m / float(velocity_m_s) * 360.0
+
+    @staticmethod
+    def wrap_degrees(degrees):
+        """Wraps a degree value that's too high or too low."""
+        dividend = int(degrees) // 360
+        return (degrees + (dividend + 1) * 360.0) % 360.0
+
+    @staticmethod
+    def difference_d(heading_1_d, heading_2_d):
+        """Calculates the absolute difference in degrees between two
+        headings.
+        """
+        wrap_1_d = Telemetry.wrap_degrees(heading_1_d)
+        wrap_2_d = Telemetry.wrap_degrees(heading_2_d)
+        diff_d = abs(wrap_1_d - wrap_2_d)
+        if diff_d > 180.0:
+            diff_d = 360.0 - diff_d
+        return diff_d

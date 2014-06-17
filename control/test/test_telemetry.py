@@ -206,3 +206,23 @@ class TestTelemetry(unittest.TestCase):
                 velocity_ms
             )
         )
+
+    def test_wrap_degrees(self):
+        """Tests wrap degrees."""
+        for d in range(0, 360):
+            self.assertAlmostEqual(d, Telemetry.wrap_degrees(d))
+
+        self.assertAlmostEqual(0.0, Telemetry.wrap_degrees(0.0))
+        self.assertAlmostEqual(0.0, Telemetry.wrap_degrees(360.0))
+        self.assertAlmostEqual(359.0, Telemetry.wrap_degrees(-1.0))
+        self.assertAlmostEqual(359.0, Telemetry.wrap_degrees(-361.0))
+        self.assertAlmostEqual(1.0, Telemetry.wrap_degrees(361.0))
+        self.assertAlmostEqual(1.0, Telemetry.wrap_degrees(721.0))
+
+    def test_difference_d(self):
+        """Tests the difference calculation between two headings."""
+        self.assertAlmostEqual(Telemetry.difference_d(359.0, 0.0), 1.0)
+        self.assertAlmostEqual(Telemetry.difference_d(0.0, 1.0), 1.0)
+        self.assertAlmostEqual(Telemetry.difference_d(359.0, 1.0), 2.0)
+        self.assertAlmostEqual(Telemetry.difference_d(360.0, 365.0), 5.0)
+        self.assertAlmostEqual(Telemetry.difference_d(-355.0, 365.0), 0.0)
