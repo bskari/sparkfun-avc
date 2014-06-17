@@ -26,9 +26,6 @@ class KalmanFilter(object):
             self._matrix_multiply(self._transition_matrix, estimates) \
             + self._update_matrix * time_diff
 
-    def error_estimates(self):
-        return [0.0]
-
     @staticmethod
     def _matrix_multiply(matrix1, matrix2):
         """Multiplies two matrices."""

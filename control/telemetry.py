@@ -1,10 +1,8 @@
 """Telemetry class that takes raw sensor data and filters it to remove noise
 and provide more accurate telemetry data.
 """
-import collections
 import json
 import math
-from i2clibraries import i2c_hmc5883l
 
 #pylint: disable=invalid-name
 
@@ -19,12 +17,8 @@ class Telemetry(object):
 
     def __init__(self, logger):
         self._data = {}
-        self._past_latitude_longitude = collections.deque()
         self._past_length = 20
         self._logger = logger
-        #self.hmc5883l = i2c_hmc5883l.i2c_hmc5883l(1)
-        #self.hmc5883l.setContinuousMode()
-        #self.hmc5883l.setDeclination(8, 32)
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -53,57 +47,8 @@ class Telemetry(object):
                 heading += 360.0
             message['heading'] = heading
 
-        try:
-            # Android is not calculating this itself, so let's do it
-            if 'bearing' not in message or message['bearing'] == 0.0:
-                if message['bearing'] == 0.0:
-                    del message['bearing']
-                for index in range(len(self._past_latitude_longitude) - 1, -1, -1):
-                    distance_m = self.distance_m(
-                        self._past_latitude_longitude[index]['latitude'],
-                        self._past_latitude_longitude[index]['longitude'],
-                        message['latitude'],
-                        message['longitude']
-                    )
-                    if distance_m > 0.5:
-                        message['bearing'] = self.relative_degrees(
-                            self._past_latitude_longitude[index]['latitude'],
-                            self._past_latitude_longitude[index]['longitude'],
-                            message['latitude'],
-                            message['longitude']
-                        )
-                        self._logger.debug(
-                            'Computed {bearing} from {latitude_1} {longitude_1} to {latitude_2} {longitude_2}'.format(
-                                bearing=message['bearing'],
-                                latitude_1=self._past_latitude_longitude[0]['latitude'],
-                                longitude_1=self._past_latitude_longitude[0]['longitude'],
-                                latitude_2=message['latitude'],
-                                longitude_2=message['longitude'],
-                            )
-                        )
-                        break
-        except:
-            pass
-
         self._data = message
         self._logger.debug(json.dumps(message))
-
-        if 'latitude' in message and 'longitude' in message:
-            if (
-                len(self._past_latitude_longitude) == 0 or
-                (
-                    message['latitude'] != self._past_latitude_longitude[0]['latitude'] and
-                    message['longitude'] != self._past_latitude_longitude[0]['longitude']
-                )
-            ):
-                self._past_latitude_longitude.appendleft({
-                    'latitude': message['latitude'],
-                    'longitude': message['longitude'],
-                    'timestamp': message['timestamp']
-                })
-
-        if len(self._past_latitude_longitude) > self._past_length:
-            self._past_latitude_longitude.pop()
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):
@@ -118,6 +63,7 @@ class Telemetry(object):
 
     @classmethod
     def m_per_d_latitude(cls):
+        """Returns the numbers of meters per degree of latitude."""
         return cls.M_PER_D_LATITUDE
 
     @classmethod
@@ -126,6 +72,9 @@ class Telemetry(object):
         latitude.
         """
         def calculate(latitude_d):
+            """Calculates the number of meters per degree longitude at a
+            given latitude.
+            """
             radius_m = \
                 math.cos(math.radians(latitude_d)) * cls.EQUATORIAL_RADIUS_M
             circumference_m = 2.0 * math.pi * radius_m
@@ -148,7 +97,13 @@ class Telemetry(object):
         return cache[1]
 
     @classmethod
-    def distance_m(cls, latitude_d_1, longitude_d_1, latitude_d_2, longitude_d_2):
+    def distance_m(
+        cls,
+        latitude_d_1,
+        longitude_d_1,
+        latitude_d_2,
+        longitude_d_2
+    ):
         """Returns the distance in meters between two waypoints in degrees."""
         diff_latitude_d = latitude_d_1 - latitude_d_2
         diff_longitude_d = longitude_d_1 - longitude_d_2
@@ -161,8 +116,17 @@ class Telemetry(object):
 
     @staticmethod
     def is_turn_left(heading_d, goal_heading_d):
-        pt_1 = Telemetry.rotate_radians_clockwise((1, 0), math.radians(heading_d))
-        pt_2 = Telemetry.rotate_radians_clockwise((1, 0), math.radians(goal_heading_d))
+        """Determines if the vehicle facing a heading in degrees needs to turn
+        left to reach a goal heading in degrees.
+        """
+        pt_1 = Telemetry.rotate_radians_clockwise(
+            (1, 0),
+            math.radians(heading_d)
+        )
+        pt_2 = Telemetry.rotate_radians_clockwise(
+            (1, 0),
+            math.radians(goal_heading_d)
+        )
         pt_1 = list(pt_1) + [0]
         pt_2 = list(pt_2) + [0]
         cross_product = \
@@ -190,9 +154,6 @@ class Telemetry(object):
             return 90.0 - degrees
         else:
             return 270.0 - degrees
-
-    def heading_from_digital_compass(self):
-        return self.hmc5883l.getHeading()[0]
 
     @staticmethod
     def acceleration_mss_velocity_ms_to_radius_m(

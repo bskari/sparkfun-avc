@@ -1,3 +1,5 @@
+"""Functions for driving the Radio Shack Dune Warrior."""
+
 def dead_frequency(frequency):
     """Returns an approprtiate dead signal frequency for the given
     signal.
@@ -82,16 +84,17 @@ def command(throttle, turn):
         0
     )
     assert len(bit_pattern) == 22, 'Wrong bit pattern length in dune_warrior'
-    assert sum(bit_pattern) % 2 == 0, 'Wrong bit pattern checksum in dune_warrior'
+    assert sum(bit_pattern) % 2 == 0, \
+        'Wrong bit pattern checksum in dune_warrior'
 
-    command = [format_command(frequency, 500)]
+    command_list = [format_command(frequency, 500)]
     total_useconds = 0
     for bit in bit_pattern[:-1]:
         if bit == 0:
             useconds = 127
         else:
             useconds = 200
-        command.append(format_command(27.145, useconds))
+        command_list.append(format_command(27.145, useconds))
         total_useconds += useconds
 
     if bit_pattern[-1] == 0:
@@ -99,7 +102,7 @@ def command(throttle, turn):
     else:
         useconds = 200
     total_useconds += useconds
-    command.append({
+    command_list.append({
         'frequency': frequency,
         'dead_frequency': dead_frequency(frequency),
         'burst_us': useconds,
@@ -107,4 +110,4 @@ def command(throttle, turn):
         'repeats': 1,
     })
 
-    return command
+    return command_list

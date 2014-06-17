@@ -10,16 +10,17 @@ from dune_warrior import command
 from telemetry import Telemetry
 
 # pylint: disable=superfluous-parens
+# pylint: disable=broad-except
 
 
 class Command(threading.Thread):
     """Processes telemetry data and controls the RC car."""
+    VALID_COMMANDS = {'start', 'stop'}
 
     def __init__(
         self,
         telemetry,
         send_socket,
-        commands,
         logger,
         sleep_time_milliseconds=None,
         waypoints=None
@@ -29,19 +30,15 @@ class Command(threading.Thread):
         """
         super(Command, self).__init__()
 
-        self._valid_commands = {'start', 'stop'}
         self._telemetry = telemetry
         if sleep_time_milliseconds is None:
             self._sleep_time_seconds = .02
         else:
             self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
         self._send_socket = send_socket
-        self._commands = commands
         self._logger = logger
         self._run = True
         self._run_course = False
-        self._start_time = None
-        self._last_iteration_seconds = None
         if waypoints is None:
             self._base_waypoints = collections.deque((
                 # In front of the Hacker Space
@@ -49,7 +46,7 @@ class Command(threading.Thread):
                 (40.021394, -105.250176),
             ))
         else:
-            self._base_waypoints = colletions.deque(waypoints)
+            self._base_waypoints = collections.deque(waypoints)
         self._waypoints = None
         self._last_command = None
 
@@ -59,7 +56,7 @@ class Command(threading.Thread):
             self._logger.info('No command in command message')
             return
 
-        if message['command'] not in self._valid_commands:
+        if message['command'] not in self.VALID_COMMANDS:
             self._logger.warning(
                 'Unknown command: "{command}"'.format(
                     command=message['command']
@@ -77,7 +74,9 @@ class Command(threading.Thread):
         """Generates a generator of test waypoints originating from the current
         position.
         """
-        m_per_d_longitude = Telemetry.latitude_to_m_per_d_longitude(position_d[0])
+        m_per_d_longitude = Telemetry.latitude_to_m_per_d_longitude(
+            position_d[0]
+        )
 
         step_d = 360.0 / points_count
         step_r = math.radians(step_d)
@@ -116,7 +115,6 @@ class Command(threading.Thread):
                 self._logger.info('Running course iteration')
 
                 while self._run and self._run_course:
-                    self._last_iteration_seconds = time.time()
                     self._run_course_iteration()
                     time.sleep(self._sleep_time_seconds)
                 self._logger.info('Stopping course')
@@ -128,9 +126,19 @@ class Command(threading.Thread):
                 )
                 error_count += 1
                 if error_count > 10:
-                    self._logger.warning('Too many exceptions, stopping')
+                    self._logger.warning('Too many exceptions, pausing')
                     self.stop()
 
+                    for _ in range(10):
+                        # If we want to kill the thread or continue running the
+                        # course again, then stop the pause
+                        if not self._run or self._run_course:
+                            break
+                        time.sleep(0.5)
+
+                    self.run_course()
+                    self._logger.warning('Restarting after pause')
+                    error_count = 0
 
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
@@ -170,7 +178,8 @@ class Command(threading.Thread):
             current_waypoint[1]
         )
         self._logger.debug(
-            '{latitude_1} {longitude_1} to {latitude_2} {longitude_2} is {degrees}'.format(
+            '{latitude_1} {longitude_1} to {latitude_2} {longitude_2}'
+            ' is {degrees}'.format(
                 latitude_1=telemetry['latitude'],
                 longitude_1=telemetry['longitude'],
                 latitude_2=current_waypoint[0],
@@ -179,19 +188,18 @@ class Command(threading.Thread):
             )
         )
 
-        #heading_d = self._telemetry.heading_from_digital_compass()
         heading_d = telemetry['heading']
         heading_d = 180.0 - heading_d
         if heading_d < 0.0:
             heading_d += 360.0
-
 
         diff_d = abs(heading_d - degrees)
         if diff_d > 180.0:
             diff_d -= 180.0
 
         self._logger.debug(
-            'my heading: {heading}, goal heading: {goal}, distance: {distance}'.format(
+            'my heading: {heading}, goal heading: {goal},'
+            ' distance: {distance}'.format(
                 heading=heading_d,
                 goal=degrees,
                 distance=distance,
@@ -209,7 +217,6 @@ class Command(threading.Thread):
 
     def run_course(self):
         """Starts the RC car running the course."""
-        self._start_time = time.time()
         self._run_course = True
 
     def stop(self):
@@ -240,10 +247,8 @@ class Command(threading.Thread):
         turn = min(turn, 57)
         turn = max(turn, 8)
 
-        if self._last_command is not None:
-            last_command = self._last_command
-            if last_command[0] == throttle and last_command[1] == turn:
-                return
+        if self._last_command == (throttle, turn):
+            return
         self._last_command = (throttle, turn)
         self._logger.debug(
             'throttle:{throttle} turn:{turn}'.format(

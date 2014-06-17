@@ -15,6 +15,7 @@ from telemetry import Telemetry
 
 # pylint: disable=superfluous-parens
 # pylint: disable=global-statement
+# pylint: disable=broad-except
 
 
 THREADS = []
@@ -37,41 +38,24 @@ def terminate(signal_number, stack_frame):
 
 
 def load_waypoints(kml_string):
+    """Loads and returns the waypoints from a KML path file."""
+
+    def get_child(element, tag_name):
+        """Returns the child element with the given tag name."""
+        for child in element:
+            if tag_name in child.tag:
+                return child
+        raise ValueError('No {tag} element found'.format(tag=tag_name))
+
     root = ElementTree.fromstring(kml_string)
     if 'kml' not in root.tag:
         raise ValueError('Not a KML file')
 
-    document = None
-    for child in root:
-        if 'Document' in child.tag:
-            document = child
-            break
-    if document is None:
-        raise ValueError('No document')
-
-    placemark = None
-    for child in document:
-        if 'Placemark' in child.tag:
-            placemark = child
-            break
-    if placemark is None:
-        raise ValueError('No placemark')
-
-    line_string = None
-    for child in placemark:
-        if 'LineString' in child.tag:
-            line_string = child
-            break
-    if line_string is None:
-        raise ValueError('No line string')
-
-    coordinates = None
-    for child in line_string:
-        if 'coordinates' in child.tag:
-            coordinates = child
-            break
-    if coordinates is None:
-        raise ValueError('No coordinates')
+    document = get_child(root, 'Document')
+    placemark = get_child(document, 'Placemark')
+    line_string = get_child(placemark, 'LineString')
+    # Unlike all of the other tag names, "coordinates" is not capitalized
+    coordinates = get_child(line_string, 'coordinates')
 
     waypoints = []
     text = coordinates.text.strip()
@@ -81,7 +65,7 @@ def load_waypoints(kml_string):
     return waypoints
 
 
-def main(
+def start_threads(
     listen_interface,
     listen_port,
     connect_host,
@@ -119,7 +103,7 @@ def main(
             else:
                 # If somebody's already converted to a string, then
                 # request_response won't do anything
-                assert not request_response, 'Already converted to string in main'
+                assert not request_response, 'Already string in start threads'
                 message_str = message
 
             if sys.version_info.major >= 3 and isinstance(message_str, str):
@@ -130,7 +114,6 @@ def main(
     dgram_socket_wrapper = DgramSocketWrapper(connect_host, connect_port)
     command = Command(
         telemetry,
-        dgram_socket_wrapper,
         dgram_socket_wrapper,
         logger,
         waypoints=waypoints
@@ -228,7 +211,8 @@ def make_parser():
     return parser
 
 
-if __name__ == '__main__':
+def main():
+    """Sets up logging, signal handling, etc. and starts the threads."""
     signal.signal(signal.SIGINT, terminate)
 
     parser = make_parser()
@@ -246,10 +230,9 @@ if __name__ == '__main__':
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
-    except Exception as e:
-        logging.warning('Could not create file log: ' + str(e))
+    except Exception as exception:
+        logging.warning('Could not create file log: ' + str(exception))
         logger.setLevel(logging.INFO)
-        pass
 
     stdout_handler = logging.StreamHandler(sys.stdout)
     if args.verbose:
@@ -259,6 +242,7 @@ if __name__ == '__main__':
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
 
+    waypoints = None
     if args.kml_file is not None:
         try:
             with zipfile.ZipFile(args.kml_file) as archive:
@@ -275,11 +259,10 @@ if __name__ == '__main__':
                     exception=str(exception)
                 )
             )
-            waypoints = None
 
-    logger.debug('Calling main')
+    logger.debug('Calling start_threads')
 
-    main(
+    start_threads(
         '0.0.0.0',
         args.listen_port,
         args.server,
@@ -287,3 +270,7 @@ if __name__ == '__main__':
         waypoints,
         logger
     )
+
+
+if __name__ == '__main__':
+    main()
