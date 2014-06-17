@@ -218,7 +218,7 @@ def main():
     parser = make_parser()
     args = parser.parse_args()
 
-    logger = logging.getLogger(__name__)
+    logger = logging.Logger('sparkfun')
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         '%(asctime)s:%(levelname)s %(message)s'
@@ -232,7 +232,6 @@ def main():
         logger.addHandler(file_handler)
     except Exception as exception:
         logging.warning('Could not create file log: ' + str(exception))
-        logger.setLevel(logging.INFO)
 
     stdout_handler = logging.StreamHandler(sys.stdout)
     if args.verbose:
