@@ -5,6 +5,8 @@ import json
 import math
 import time
 
+from estimated_compass import EstimatedCompass
+
 #pylint: disable=invalid-name
 
 
@@ -20,6 +22,7 @@ class Telemetry(object):
         self._data = {}
         self._past_length = 20
         self._logger = logger
+        self._estimated_compass = EstimatedCompass()
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -27,17 +30,19 @@ class Telemetry(object):
 
     def get_data(self):
         """Returns the approximated telemetry data."""
-
         values = {
-            'heading': self._data['heading'],
+            'heading': self._estimated_compass.get_estimated_heading(
+                self._data['heading']
+            ),
             'accelerometer': self._data['accelerometer'],
         }
 
         if 'latitude' in self._data:
-            values.update({
-                'latitude': self._data['latitude'],
-                'longitude': self._data['longitude'],
-            })
+            values['latitude'] = self._data['latitude']
+            values['longitude'] = self._data['longitude']
+
+        if 'bearing' in self._data:
+            values['bearing'] = self._data['bearing']
 
         return values
 
@@ -51,6 +56,12 @@ class Telemetry(object):
         assert -1.0 <= turn <= 1.0, 'Bad turn in telemetry'
         self._turn_time = time.time()
         self._turn_rate = turn
+        if 'heading' in self._data:
+            self._estimated_compass.process_drive_command(
+                throttle,
+                turn,
+                self._data['heading']
+            )
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""
