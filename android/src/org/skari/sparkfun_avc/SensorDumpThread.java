@@ -134,7 +134,7 @@ public class SensorDumpThread extends Thread {
 				putArray(root, "gyroscope", gyroscopeListener.values);
 				putArray(root, "linearAcceleration",
 						linearAccelerationListener.values);
-				//putArray(root, "magneticField", magneticFieldListener.values);
+				putArray(root, "magneticField", magneticFieldListener.values);
 				putArray(root, "accelerometer", accelerometerListener.values);
 
 				if (root.length() <= 1) {
@@ -178,8 +178,14 @@ public class SensorDumpThread extends Thread {
 	}
 
 	private float getHeading() throws Exception {
-		final float[] mGravity = accelerometerListener.values;
-		final float[] mGeomagnetic = magneticFieldListener.values;
+		//final float[] mGravity = accelerometerListener.values;
+		final float[] mGravity = {0.0f, 0.0f, 9.8f}; // Assume we're always facing down
+		final float[] mGeomagnetic = {
+				// Subtract biases introduced by the car
+				magneticFieldListener.values[0] - 27.625f,
+				magneticFieldListener.values[1] - 5.9375f,
+				magneticFieldListener.values[2] - -9.125f
+		};
 		if (mGravity != null && mGeomagnetic != null) {
 			float R[] = new float[9];
 			float I[] = new float[9];
