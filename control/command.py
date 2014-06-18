@@ -177,21 +177,8 @@ class Command(threading.Thread):
             current_waypoint[0],
             current_waypoint[1]
         )
-        self._logger.debug(
-            '{latitude_1} {longitude_1} to {latitude_2} {longitude_2}'
-            ' is {degrees}'.format(
-                latitude_1=telemetry['latitude'],
-                longitude_1=telemetry['longitude'],
-                latitude_2=current_waypoint[0],
-                longitude_2=current_waypoint[1],
-                degrees=degrees,
-            )
-        )
 
         heading_d = telemetry['heading']
-        heading_d = 180.0 - heading_d
-        if heading_d < 0.0:
-            heading_d += 360.0
 
         diff_d = abs(heading_d - degrees)
         if diff_d > 180.0:
@@ -228,28 +215,31 @@ class Command(threading.Thread):
         """Kills the thread."""
         self._run = False
 
-    def send_command(self, throttle, turn):
+    def send_command(self, throttle_percentage, turn_percentage):
         """Sends a command to the RC car. Throttle should be a float between
         -1.0 for reverse and 1.0 for forward. Turn should be a float between
         -1.0 for left and 1.0 for right.
         """
-        assert -1.0 <= throttle <= 1.0, 'Bad throttle in command'
-        assert -1.0 <= turn <= 1.0, 'Bad turn in command'
+        assert -1.0 <= throttle_percentage <= 1.0, 'Bad throttle in command'
+        assert -1.0 <= turn_percentage <= 1.0, 'Bad turn in command'
 
-        self._telemetry.process_drive_command(throttle, turn)
-
-        throttle = int(throttle * 16.0 + 16.0)
+        throttle = int(throttle_percentage * 16.0 + 16.0)
         throttle = min(throttle, 31)
         # Turning too sharply causes the servo to push harder than it can go,
         # so limit this
         # Add 33 instead of 32 because the car drifts left
-        turn = int(turn * 24.0 + 33.0)
+        turn = int(turn_percentage * 24.0 + 33.0)
         turn = min(turn, 57)
         turn = max(turn, 8)
 
         if self._last_command == (throttle, turn):
             return
         self._last_command = (throttle, turn)
+
+        self._telemetry.process_drive_command(
+            throttle_percentage,
+            turn_percentage
+        )
         self._logger.debug(
             'throttle:{throttle} turn:{turn}'.format(
                 throttle=throttle,

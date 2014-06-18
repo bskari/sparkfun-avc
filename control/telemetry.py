@@ -22,7 +22,7 @@ class Telemetry(object):
         self._data = {}
         self._past_length = 20
         self._logger = logger
-        self._estimated_compass = EstimatedCompass()
+        self._estimated_compass = EstimatedCompass(logger)
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -31,11 +31,13 @@ class Telemetry(object):
     def get_data(self):
         """Returns the approximated telemetry data."""
         values = {
-            'heading': self._estimated_compass.get_estimated_heading(
-                self._data['heading']
-            ),
             'accelerometer': self._data['accelerometer'],
         }
+
+        if 'heading' in self._data:
+            values['heading'] = self._estimated_compass.get_estimated_heading(
+                self._data['heading']
+            )
 
         if 'latitude' in self._data:
             values['latitude'] = self._data['latitude']
@@ -69,6 +71,7 @@ class Telemetry(object):
         # rotate the compass heading
         if 'heading' in message:
             heading = message['heading'] - 90.0
+            heading = 180.0 - heading
             if heading < 0.0:
                 heading += 360.0
             message['heading'] = heading

@@ -6,11 +6,14 @@ import time
 class EstimatedCompass(object):
     """Estimates readings from the compass, because it's slow to update."""
     DEAD_TIME_S = 0.25
-    TRAVEL_RATE_D_S = 90.0
+    TRAVEL_RATE_D_S = 60.0
 
-    def __init__(self):
+    def __init__(self, logger):
+        self._logger = logger
+
         self._turn_time = None
         self._update_time = None
+        self._last_turn = 0
         self._turn = 0
         self._speed = 0
         self._estimated_compass = None
@@ -28,11 +31,20 @@ class EstimatedCompass(object):
         self._update_time = now
 
         if turn > 0.1 or turn < -0.1:
-            self._delay = True
+            # If we're switching directions, then we need to delay
+            if (
+                self._last_turn is None
+                or self._last_turn == 0
+                or (self._last_turn > 0.0 and turn < 0.0)
+                or (self._last_turn < 0.0 and turn > 0.0)
+            ):
+                self._delay = True
+                self._logger.debug('Delaying compass estimate')
+
+            if not self._compass_turning is None:
+                self._estimated_heading = compass_heading
             self._compass_turning = True
             self._estimated_compass = compass_heading
-            if self._estimated_heading is None:
-                self._estimated_heading = compass_heading
 
     def get_estimated_heading(self, compass_heading):
         """Returns the estimated heading. If the car has been driving straight
@@ -45,6 +57,11 @@ class EstimatedCompass(object):
         # second. The latter formula should take into account the car's speed
         # and turn rate, but we'll have to take more observations to tweak it.
         if not self._compass_turning:
+            self._logger.debug(
+                'Compass not turning, returning {raw}'.format(
+                    raw=compass_heading
+                )
+            )
             return compass_heading
 
         now = time.time()
@@ -54,13 +71,17 @@ class EstimatedCompass(object):
         # Import here to prevent circular imports
         from telemetry import Telemetry
 
-        self._estimated_heading += Telemetry.wrap_degrees(
-            self._car_turn_rate_d_s() * time_diff_s
+        self._estimated_heading = Telemetry.wrap_degrees(
+            self._estimated_heading + self._car_turn_rate_d_s() * time_diff_s
         )
 
         if self._delay:
-            if self._turn_time + EstimatedCompass.DEAD_TIME_S <= now:
+            if (
+                self._turn_time is not None
+                and self._turn_time + EstimatedCompass.DEAD_TIME_S < now
+            ):
                 self._delay = False
+                self._logger.debug('Done delaying compass estimate')
         else:
             step_d = self._compass_turn_rate_d_s() * time_diff_s
             self._estimated_compass += step_d
@@ -69,8 +90,17 @@ class EstimatedCompass(object):
                 self._estimated_compass,
                 self._estimated_heading
             ) < abs(step_d):
+                self._logger.debug('Compass done turning')
                 self._compass_turning = False
 
+        self._logger.debug(
+            'Estimated heading: {estimated}, estimated compass: {compass},'
+            ' raw compass: {raw}'.format(
+                estimated=self._estimated_heading,
+                compass=self._estimated_compass,
+                raw=compass_heading,
+            )
+        )
         return self._estimated_heading
 
     def _car_turn_rate_d_s(self):
@@ -86,4 +116,6 @@ class EstimatedCompass(object):
         second for the given speed and turn value.
         """
         # TODO: Validate this with some observations of the compass
-        return 90.0
+        if self._turn < 0.0:
+            return -self.TRAVEL_RATE_D_S
+        return self.TRAVEL_RATE_D_S
