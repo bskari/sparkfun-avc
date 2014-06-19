@@ -191,6 +191,82 @@ public class MainActivity extends ActionBarActivity {
 		}
 	}
 
+	public void sendCalibration(View view) {
+		InetAddress address;
+		try {
+			address = getAddress();
+		} catch (UnknownHostException uhe) {
+			alert(getString(R.string.server_not_found));
+			return;
+		}
+
+		byte[] buffer = "{\"type\": \"telemetry\", \"calibrate\": true, \"requestResponse\": true}"
+				.getBytes();
+		DatagramPacket packet = new DatagramPacket(buffer, buffer.length,
+				address, 8384);
+		try {
+			if (socket == null || socket.isClosed()) {
+				socket = new DatagramSocket();
+			}
+		} catch (SocketException se) {
+			alert(getString(R.string.create_socket_error));
+			return;
+		}
+
+		boolean responseReceived = false;
+		final DatagramSocket listenSocket;
+
+		try {
+			listenSocket = new DatagramSocket(5001,
+					InetAddress.getByName("0.0.0.0"));
+		} catch (UnknownHostException e) {
+			alert(getString(R.string.create_socket_error));
+			return;
+		} catch (SocketException e) {
+			alert(getString(R.string.create_socket_error));
+			return;
+		}
+
+		final byte[] receiveBuffer = new byte[1024];
+		final DatagramPacket receivePacket = new DatagramPacket(receiveBuffer,
+				receiveBuffer.length, address, 8384);
+		try {
+			listenSocket.setSoTimeout(100);
+
+			// Try to get a response a few times, because we're using UDP
+			// which might get randomly dropped
+			for (int i = 0; i < 3 && !responseReceived; ++i) {
+				try {
+					socket.send(packet);
+				} catch (IOException ioe) {
+					continue;
+				}
+
+				try {
+					listenSocket.receive(receivePacket);
+					responseReceived = true;
+				} catch (IOException ioe) {
+					// Ignore
+				}
+			}
+		} catch (SocketException se) {
+			alert(getString(R.string.create_socket_error));
+			return;
+		} finally {
+			if (listenSocket != null) {
+				listenSocket.close();
+			}
+		}
+
+		if (responseReceived) {
+			sensorDumpThread = new SensorDumpThread(socket, locationManager,
+					address, 8384, 100, this);
+			sensorDumpThread.start();
+		} else {
+			alert(getString(R.string.server_not_responding));
+		}
+	}
+
 	private void startOrStop(final boolean start) {
 		if (start && (sensorDumpThread == null || !sensorDumpThread.isAlive())) {
 			alert(getString(R.string.not_running));

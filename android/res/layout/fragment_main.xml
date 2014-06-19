@@ -22,7 +22,6 @@
 	    
 	    <Button
 	        android:id="@+id/button1"
-	        style="?android:attr/buttonStyleSmall"
 	        android:layout_width="wrap_content"
 	        android:layout_height="wrap_content"
 	        android:text="@string/button_send_sensor_data"
@@ -30,11 +29,17 @@
 	
 	    <Button
 	        android:id="@+id/button2"
-	        style="?android:attr/buttonStyleSmall"
 	        android:layout_width="wrap_content"
 	        android:layout_height="wrap_content"
 	        android:text="@string/button_stop_sensor_data"
 	        android:onClick="stopSensorData" />
+
+	    <Button
+	        android:id="@+id/button3"
+	        android:layout_width="wrap_content"
+	        android:layout_height="wrap_content"
+	        android:text="@string/button_calibrate"
+	        android:onClick="sendCalibration" />
 	    
 	</LinearLayout>
 	

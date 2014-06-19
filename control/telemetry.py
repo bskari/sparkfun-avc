@@ -23,6 +23,8 @@ class Telemetry(object):
         self._past_length = 20
         self._logger = logger
         self._estimated_compass = EstimatedCompass(logger)
+        self._latitude_offset = None
+        self._longitude_offset = None
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -42,6 +44,9 @@ class Telemetry(object):
         if 'latitude' in self._data:
             values['latitude'] = self._data['latitude']
             values['longitude'] = self._data['longitude']
+            if self._lattiude_offset is None:
+                values['latitude'] += self._latitude_offset
+                values['longitude'] += self._longitude_offset
 
         if 'bearing' in self._data:
             values['bearing'] = self._data['bearing']
@@ -76,8 +81,62 @@ class Telemetry(object):
                 heading += 360.0
             message['heading'] = heading
 
+        if 'calibrate' in message:
+            self._calibrate()
+            return
+
         self._data = message
         self._logger.debug(json.dumps(message))
+
+    def _calibrate(self):
+        """Calibrates the GPS to a nearby known waypoint."""
+        known_waypoints = (
+            ('Rally parking lot, northern-most edge of western island', 40.021172, -105.248476),
+            ('Solid State Depot, northern-most edge of curb on west side of 33rd between SSD and Boulder Engineering Studio rear parking lot', 40.021367, -105.249689),
+            ('Sparkfun AVC, eastern-most edge of starting island', 40.071324, -105.229466),
+        )
+        best = known_waypoints[0]
+        shortest_distance = 10000000000
+        for waypoint in known_waypoints:
+            description, latitude, longitude = waypoint
+            distance = self.distance_m(
+                self._data['latitude'],
+                self._data['longitude'],
+                latitude,
+                longitude
+            )
+            if distance < shortest_distance:
+                best = waypoint
+                shortest_distance = distance
+
+        description, latitude, longitude = best
+        distance = self.distance_m(
+            self._data['latitude'],
+            self._data['longitude'],
+            latitude,
+            longitude
+        )
+        self._logger.info(
+            'Calibrated to waypoint {latitude} {longitude}'.format(
+                latitude=latitude,
+                longitude=longitude
+            )
+        )
+        self._logger.info(description)
+        heading = self.relative_degrees(
+            latitude,
+            longitude,
+            self._data['latitude'],
+            self._data['longitude']
+        )
+        self._logger.info(
+            'GPS is {distance} @ {heading} off'.format(
+                distance=distance,
+                heading=heading
+            )
+        )
+        self._latitude_offset = latitude - self._data['latitude']
+        self._longitude_offset = longitude - self._data['longitude']
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):
