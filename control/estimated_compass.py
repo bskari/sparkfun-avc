@@ -6,7 +6,7 @@ import time
 class EstimatedCompass(object):
     """Estimates readings from the compass, because it's slow to update."""
     DEAD_TIME_S = 0.25
-    TRAVEL_RATE_D_S = 60.0
+    COMPASS_TRAVEL_RATE_D_S = 90.0
 
     def __init__(self, logger):
         self._logger = logger
@@ -15,15 +15,15 @@ class EstimatedCompass(object):
         self._update_time = None
         self._last_turn = 0
         self._turn = 0
-        self._speed = 0
+        self._throttle = 0
         self._estimated_compass = None
         self._estimated_heading = None
         self._delay = False
         self._compass_turning = False
 
-    def process_drive_command(self, speed, turn, compass_heading):
+    def process_drive_command(self, throttle, turn, compass_heading):
         """Takes into account the vehicle's turn."""
-        self._speed = speed
+        self._throttle = throttle 
         self._turn = turn
 
         now = time.time()
@@ -107,9 +107,77 @@ class EstimatedCompass(object):
         """Returns the approximate turn rate of the car in degrees per second
         for the given speed and turn value.
         """
-        # TODO: Validate this with some observations of the car and incorporate
-        # speed
-        return self._turn * 90.0
+        # In 4 seconds: (throttle, turn)
+        # (0.25, 0.25) => ?? Noisy data, maybe just assume 90 from observation
+        # (0.25, 0.50) => 126 (62 to 188)
+        # (0.25, 0.75) => 287 (53 to 340)
+        # (0.25, 1.00) => 343 (43 to 26)
+        # (0.50, 0.25) => crashed
+        # (0.50, 0.50) => 172 (37 to 209)
+        # (0.50, 0.75) => 388 (23 to 51)
+        # (0.50, 1.00) => 545 (45 to 230)
+        # (0.75, 0.25) => crashed?
+        # (0.75, 0.50) => 178 (155 to 333)
+        # (0.75, 0.75) => 410 (146 to 196)
+        # (0.75, 1.00) => 441 (178 to 259)
+        # Note that for the next measurement, the car was drifting left more
+        # when it was supposed to be going straight then it was when it was
+        # supposed to be turning right, sooooo this migth be way off
+        # (1.00, 0.25) => 45 (180 to 225)
+        # (1.00, 0.50) => 180 (323 to 142)
+        # (1.00, 0.75) => 330 (310 to 280)
+        # (1.00, 1.00) => 320 (320 to 280)
+
+        # Linear least squares regression gives us -32.42961301, 443.08020191
+        # That's actually a terrible estimate... uh, let's just average the
+        # closest measurement and the least squares
+        reverse = False
+        if self._turn < 0:
+            turn = -turn
+            reverse = True
+
+        throttle_multiplier = -32.42961301
+        turn_multiplier = 443.08020191
+        observed_throttle_to_turn_to_degrees = {
+            0.25: {
+                0.5: 126,
+                0.75: 287,
+                1.0: 343,
+            },
+            0.5: {
+                0.5: 172.
+                0.75: 388,
+                1.0: 545,
+            },
+            0.75: {
+                0.5: 178,
+                0.75: 410,
+                1.0: 441,
+            },
+            1.0: {
+                0.25: 45,
+                0.5: 180,
+                0.75: 330,
+                1.0: 320,
+            }
+        }
+
+        min_diff_throttle = 10000
+        for throttle in observed_throttle_to_turn_to_degrees:
+            if abs(self._throttle - throttle)) < min_diff_throttle:
+                min_diff_throttle = throttle
+        min_diff_turn = 10000
+        for turn in observed_throttle_to_turn_to_degrees[min_diff_throttle]:
+            if abs(self._turn - turn)) < min_diff_turn:
+                min_diff_turn = turn
+        observed_rate = observed_throttle_to_turn_to_degrees[min_diff_throttle][min_diff_turn]
+
+        least_squares_rate = self._throttle * -32.42961301 + self._turn * 443.080201901
+
+        degrees = (observed_rate + least_squares_rate) / 2
+        if reverse:
+            return -degrees
+        return degrees
 
     def _compass_turn_rate_d_s(self):
         """Returns the approximate turn rate of the compass in degrees per
@@ -117,5 +185,5 @@ class EstimatedCompass(object):
         """
         # TODO: Validate this with some observations of the compass
         if self._turn < 0.0:
-            return -self.TRAVEL_RATE_D_S
-        return self.TRAVEL_RATE_D_S
+            return -self.COMPASS_TRAVEL_RATE_D_S
+        return self.COMPASS_TRAVEL_RATE_D_S
