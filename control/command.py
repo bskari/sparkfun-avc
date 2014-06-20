@@ -267,4 +267,4 @@ class Command(threading.Thread):
 
     def unstuck_yourself(self):
         """commands the car to reverse and try to get off an obstacle"""
-        self.send_command(-.5, _reverse_turn_options)
+        self.send_command(-.5, self._reverse_turn_direction)
