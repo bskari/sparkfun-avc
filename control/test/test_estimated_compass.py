@@ -12,6 +12,17 @@ from estimated_compass import EstimatedCompass
 
 class TestEstimatedCompass(unittest.TestCase):
     """Tests the EstimatedCompass class."""
+    @classmethod
+    def setUpClass(cls):
+        class FakeLogger(object):
+            def warning(self, o):
+                pass
+            def info(self, o):
+                pass
+            def debug(self, o):
+                pass
+
+        cls.logger = FakeLogger()
 
     @mock.patch.object(time, 'time')
     def test_turn_then_straight(self, mock_time):
@@ -23,9 +34,9 @@ class TestEstimatedCompass(unittest.TestCase):
 
         mock_time.side_effect = [i * step_time_s for i in range(step_count * 2)]
 
-        estimated_compass = EstimatedCompass()
+        estimated_compass = EstimatedCompass(self.logger)
         initial_heading_d = 180.0
-        estimated_compass.process_command(1.0, 1.0, 180.0)
+        estimated_compass.process_drive_command(1.0, 1.0, 180.0)
         self.assertEqual(mock_time.call_count, 1)
         self.assertTrue(estimated_compass._compass_turning)
 
@@ -40,7 +51,7 @@ class TestEstimatedCompass(unittest.TestCase):
 
         # We should eventually get the compass back
         final_heading_d = 270.0
-        estimated_compass.process_command(1.0, 0.0, 270.0)
+        estimated_compass.process_drive_command(1.0, 0.0, 270.0)
         for _ in range(10):
             estimated_compass.get_estimated_heading(final_heading_d)
 
@@ -49,3 +60,26 @@ class TestEstimatedCompass(unittest.TestCase):
             final_heading_d
         )
         self.assertFalse(estimated_compass._compass_turning)
+
+    def test_sanity(self):
+        """Test that calculations are sane."""
+        estimated_compass = EstimatedCompass(self.logger)
+
+        estimated_compass.process_drive_command(1.0, 1.0, 0)
+        right = estimated_compass._car_turn_rate_d_s()
+        self.assertGreater(right, 0)
+
+        estimated_compass.process_drive_command(1.0, -1.0, 0)
+        left = estimated_compass._car_turn_rate_d_s()
+        self.assertLess(left, 0)
+
+    def test_blending(self):
+        """Test that calculations are blended with observations."""
+        estimated_compass = EstimatedCompass(self.logger)
+
+        estimated_compass.process_drive_command(1.0, 1.0, 0)
+        right = estimated_compass._car_turn_rate_d_s()
+
+        estimated_compass.process_drive_command(1.0, 0.9, 0)
+        lesser_right = estimated_compass._car_turn_rate_d_s()
+        self.assertGreater(right, lesser_right)

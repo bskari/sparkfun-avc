@@ -23,7 +23,7 @@ class EstimatedCompass(object):
 
     def process_drive_command(self, throttle, turn, compass_heading):
         """Takes into account the vehicle's turn."""
-        self._throttle = throttle 
+        self._throttle = throttle
         self._turn = turn
 
         now = time.time()
@@ -129,55 +129,9 @@ class EstimatedCompass(object):
         # (1.00, 1.00) => 320 (320 to 280)
 
         # Linear least squares regression gives us -32.42961301, 443.08020191
-        # That's actually a terrible estimate... uh, let's just average the
-        # closest measurement and the least squares
-        reverse = False
-        if self._turn < 0:
-            turn = -turn
-            reverse = True
-
-        throttle_multiplier = -32.42961301
-        turn_multiplier = 443.08020191
-        observed_throttle_to_turn_to_degrees = {
-            0.25: {
-                0.5: 126,
-                0.75: 287,
-                1.0: 343,
-            },
-            0.5: {
-                0.5: 172.
-                0.75: 388,
-                1.0: 545,
-            },
-            0.75: {
-                0.5: 178,
-                0.75: 410,
-                1.0: 441,
-            },
-            1.0: {
-                0.25: 45,
-                0.5: 180,
-                0.75: 330,
-                1.0: 320,
-            }
-        }
-
-        min_diff_throttle = 10000
-        for throttle in observed_throttle_to_turn_to_degrees:
-            if abs(self._throttle - throttle)) < min_diff_throttle:
-                min_diff_throttle = throttle
-        min_diff_turn = 10000
-        for turn in observed_throttle_to_turn_to_degrees[min_diff_throttle]:
-            if abs(self._turn - turn)) < min_diff_turn:
-                min_diff_turn = turn
-        observed_rate = observed_throttle_to_turn_to_degrees[min_diff_throttle][min_diff_turn]
-
-        least_squares_rate = self._throttle * -32.42961301 + self._turn * 443.080201901
-
-        degrees = (observed_rate + least_squares_rate) / 2
-        if reverse:
-            return -degrees
-        return degrees
+        throttle_multiplier = -32.42961301 / 4.0
+        turn_multiplier = 443.08020191 / 4.0
+        return self._throttle * throttle_multiplier + self._turn * turn_multiplier
 
     def _compass_turn_rate_d_s(self):
         """Returns the approximate turn rate of the compass in degrees per
