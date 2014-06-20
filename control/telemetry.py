@@ -298,7 +298,7 @@ class Telemetry(object):
         return diff_d
 
     def is_moving(self):
-	"""determines if the RC car is moving based on readings from the accelerometer"""
+        """Determines if the RC car is moving based on readings from the accelerometer."""
         if len(self._accelerometer_history) < self.HISTORICAL_ACCELEROMETER_READINGS_COUNT:
             self._logger.warning('cannot determine if crashed because accelerometer history does not contain ' + str(self.HISTORICAL_ACCELEROMETER_READINGS_COUNT) + " data points.")
             return False
@@ -306,8 +306,8 @@ class Telemetry(object):
             self._logger.warning('cannot determine if crashed because accelerometer reading is not in self._data')
             return False
         standard_deviation = statistics.stdev(self._accelerometer_history)
-	self._logger.debug("standard deviation of accelerometer reading is ' + str(standard_deviation))
-	if standard_deviation < self.STD_DEV_LIMIT:
+        self._logger.debug('standard deviation of accelerometer reading is ' + str(standard_deviation))
+        if standard_deviation < self.STD_DEV_LIMIT:
             self._logger.info('RC car is not moving according to standard deviation of accelerometer')
             self._accelerometer_history.clear()
             return True
