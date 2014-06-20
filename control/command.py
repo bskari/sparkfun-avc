@@ -146,19 +146,17 @@ class Command(threading.Thread):
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
         speed = 0.25
-
         telemetry = self._telemetry.get_data()
-
         if self._crash_time is None and self._telemetry.is_stopped():
             self._crash_time = time.time()
-	    if random.randint(0,1) > 0:
-		    self._reverse_turn_direction *= -1
+            if random.randint(0,1) > 0:
+                self._reverse_turn_direction *= -1
         if self._crash_time is not None:
             if time.time() - self._crash_time > 2:
                 self._crash_time = None
             else:
                 self.unstuck_yourself()
-                return
+            return
 
         if len(self._waypoints) == 0:
             self._logger.info('No waypoints, stopping')
