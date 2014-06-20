@@ -148,7 +148,7 @@ class Command(threading.Thread):
         speed = 0.25
 
         telemetry = self._telemetry.get_data()
-        if self._crash_time is None and self._telemetry.is_crashed():
+        if self._crash_time is None and self._telemetry.is_moving():
             self._crash_time = time.time()
         if self._crash_time is not None:
             if time.time() - self._crash_time > 2:
@@ -265,4 +265,4 @@ class Command(threading.Thread):
     def unstuck_yourself(self):
         """commands the car to reverse and try to get off an obstacle"""
         turn = self._reverse_turn_options[random.randint(0,1)]
-        self.send_command(-.2, turn)
+        self.send_command(-.5, turn)
