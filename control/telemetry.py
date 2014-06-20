@@ -21,6 +21,7 @@ class Telemetry(object):
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
     HISTORICAL_ACCELEROMETER_READINGS_COUNT = 10
     STD_DEV_LIMIT = .5 
+    ACCELEROMETER_AXIS_FOR_MOVEMENT_DETECTION = 0
 
     def __init__(self, logger):
         self._data = {}
@@ -75,7 +76,7 @@ class Telemetry(object):
                 self._data['heading']
             )
         if 'accelerometer' in self._data:
-            self._accelerometer_history.append(self._data['accelerometer'][0])
+            self._accelerometer_history.append(self._data['accelerometer'][self.ACCELEROMETER_AXIS_FOR_MOVEMENT_DETECTION])
             while len(self._accelerometer_history) > self.HISTORICAL_ACCELEROMETER_READINGS_COUNT + 1:
                 self._accelerometer_history.popleft()
 
