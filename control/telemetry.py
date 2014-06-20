@@ -4,6 +4,8 @@ and provide more accurate telemetry data.
 import json
 import math
 import time
+import statistics
+import collections
 
 from estimated_compass import EstimatedCompass
 
@@ -17,6 +19,7 @@ class Telemetry(object):
     """
     EQUATORIAL_RADIUS_M = 6378.1370 * 1000
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
+    HISTORICAL_ACCELEROMETER_READINGS_COUNT = 10
 
     def __init__(self, logger):
         self._data = {}
@@ -25,6 +28,7 @@ class Telemetry(object):
         self._estimated_compass = EstimatedCompass(logger)
         self._latitude_offset = None
         self._longitude_offset = None
+        self._accelerometer_history = collections.deque()
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -44,7 +48,7 @@ class Telemetry(object):
         if 'latitude' in self._data:
             values['latitude'] = self._data['latitude']
             values['longitude'] = self._data['longitude']
-            if self._lattiude_offset is None:
+            if self._latitude_offset is not None:
                 values['latitude'] += self._latitude_offset
                 values['longitude'] += self._longitude_offset
 
@@ -69,6 +73,11 @@ class Telemetry(object):
                 turn,
                 self._data['heading']
             )
+        if 'accelerometer' in self._data:
+            self._accelerometer_history.append(self._data['accelerometer'][0])
+            while len(self._accelerometer_history) > self.HISTORICAL_ACCELEROMETER_READINGS_COUNT + 1:
+                self._accelerometer_history.popleft()
+
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""
@@ -130,7 +139,7 @@ class Telemetry(object):
             self._data['longitude']
         )
         self._logger.info(
-            'GPS is {distance} @ {heading} off'.format(
+            'GPS is {distance} meters @ {heading} degres off'.format(
                 distance=distance,
                 heading=heading
             )
@@ -287,3 +296,22 @@ class Telemetry(object):
         if diff_d > 180.0:
             diff_d = 360.0 - diff_d
         return diff_d
+
+    def is_crashed(self):
+        # TODO: Fix this
+        return False
+        if len(self._accelerometer_history) < self.HISTORICAL_ACCELEROMETER_READINGS_COUNT:
+            self._logger.warning('cannot determine if crashed because accelerometer history does not contain ' + str(self.HISTORICAL_ACCELEROMETER_READINGS_COUNT) + " data points.")
+            return False
+        if 'accelerometer' not in self._data:
+            self._logger.warning('cannot determine if crashed because accelerometer reading is not in self._data')
+            return False
+        current_accelerometer = self._data['accelerometer'][0]
+        standard_deviation = statistics.stdev(self._accelerometer_history)
+        self._logger.debug('current accelerometer is ' + str(current_accelerometer) + ', and standard deviation is ' + str(standard_deviation))
+        if current_accelerometer * h < standard_deviation:
+            self._logger.info('A crash occurred.')
+            self._accelerometer_history.clear()
+            return True
+        return False
+

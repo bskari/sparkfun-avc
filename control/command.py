@@ -5,6 +5,7 @@ import copy
 import math
 import threading
 import time
+import random
 
 from dune_warrior import command
 from telemetry import Telemetry
@@ -49,6 +50,8 @@ class Command(threading.Thread):
             self._base_waypoints = collections.deque(waypoints)
         self._waypoints = None
         self._last_command = None
+        self._crash_time = None
+        self._reverse_turn_options = [-1, 1]
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -145,6 +148,14 @@ class Command(threading.Thread):
         speed = 0.25
 
         telemetry = self._telemetry.get_data()
+        if self._crash_time is None and self._telemetry.is_crashed():
+            self._crash_time = time.time()
+        if self._crash_time is not None:
+            if time.time() - self._crash_time > 2:
+                self._crash_time = None
+            else:
+                self.unstuck_yourself()
+                return
 
         if len(self._waypoints) == 0:
             self._logger.info('No waypoints, stopping')
@@ -159,6 +170,7 @@ class Command(threading.Thread):
             current_waypoint[0],
             current_waypoint[1]
         )
+
         if distance < 5.0:
             self._logger.info('Reached ' + str(current_waypoint))
             self._waypoints.popleft()
@@ -249,3 +261,8 @@ class Command(threading.Thread):
         )
 
         self._send_socket.send(command(throttle, turn))
+
+    def unstuck_yourself(self):
+        """commands the car to reverse and try to get off an obstacle"""
+        turn = self._reverse_turn_options[random.randint(0,1)]
+        self.send_command(-.2, turn)
