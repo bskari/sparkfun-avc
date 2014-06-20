@@ -51,7 +51,7 @@ class Command(threading.Thread):
         self._waypoints = None
         self._last_command = None
         self._crash_time = None
-        self._reverse_turn_options = [-1, 1]
+        self._reverse_turn_direction = 1
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -148,8 +148,11 @@ class Command(threading.Thread):
         speed = 0.25
 
         telemetry = self._telemetry.get_data()
-        if self._crash_time is None and self._telemetry.is_moving():
+
+        if self._crash_time is None and self._telemetry.is_stopped():
             self._crash_time = time.time()
+	    if random.randint(0,1) > 0:
+		    self._reverse_turn_direction *= -1
         if self._crash_time is not None:
             if time.time() - self._crash_time > 2:
                 self._crash_time = None
@@ -264,5 +267,4 @@ class Command(threading.Thread):
 
     def unstuck_yourself(self):
         """commands the car to reverse and try to get off an obstacle"""
-        turn = self._reverse_turn_options[random.randint(0,1)]
-        self.send_command(-.5, turn)
+        self.send_command(-.5, _reverse_turn_options)

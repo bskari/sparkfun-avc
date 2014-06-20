@@ -20,7 +20,8 @@ class Telemetry(object):
     EQUATORIAL_RADIUS_M = 6378.1370 * 1000
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
     HISTORICAL_ACCELEROMETER_READINGS_COUNT = 10
-    STD_DEV_LIMIT = 1 
+    STD_DEV_LIMIT = .5 
+
     def __init__(self, logger):
         self._data = {}
         self._past_length = 20
@@ -297,7 +298,7 @@ class Telemetry(object):
             diff_d = 360.0 - diff_d
         return diff_d
 
-    def is_moving(self):
+    def is_stopped(self):
         """Determines if the RC car is moving based on readings from the accelerometer."""
         if len(self._accelerometer_history) < self.HISTORICAL_ACCELEROMETER_READINGS_COUNT:
             self._logger.warning('cannot determine if crashed because accelerometer history does not contain ' + str(self.HISTORICAL_ACCELEROMETER_READINGS_COUNT) + " data points.")
