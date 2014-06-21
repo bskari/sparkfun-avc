@@ -18,6 +18,7 @@ class Command(threading.Thread):
     """Processes telemetry data and controls the RC car."""
     VALID_COMMANDS = {'start', 'stop'}
     STRAIGHT_TIME_S = 1.0
+    MIN_RUN_TIME_S = 3.0
 
     def __init__(
         self,
@@ -55,6 +56,7 @@ class Command(threading.Thread):
         self._reverse_turn_direction = 1
         self._turn_time = None
         self._turn_duration_s = None
+        self._run_time = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -124,6 +126,7 @@ class Command(threading.Thread):
                     self._run_course_iteration()
                     time.sleep(self._sleep_time_seconds)
                 self._logger.info('Stopping course')
+                self.send_command(0.0, 0.0)
 
             except Exception as exception:
                 self._logger.warning(
@@ -148,15 +151,19 @@ class Command(threading.Thread):
 
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
-        speed = 0.5
+        now = time.time()
         telemetry = self._telemetry.get_data()
-        if self._crash_time is None and self._telemetry.is_stopped():
+        if self._run_time + self.MIN_RUN_TIME_S < now and self._crash_time is None and self._telemetry.is_stopped():
             self._crash_time = time.time()
             if random.randint(0, 1) > 0:
                 self._reverse_turn_direction *= -1
-        if self._crash_time is not None:
-            if time.time() - self._crash_time > 2:
+        if self._run_time + self.MIN_RUN_TIME_S < now and self._crash_time is not None:
+            if now - self._crash_time > 2:
                 self._crash_time = None
+                self._run_time = now
+                # Also force the car to drive for a little while
+                self._turn_time = now
+                self._turn_duration_s = 0.0
             else:
                 self.unstuck_yourself()
             return
@@ -168,14 +175,14 @@ class Command(threading.Thread):
             return
         current_waypoint = self._waypoints[0]
 
-        distance = Telemetry.distance_m(
+        distance_m = Telemetry.distance_m(
             telemetry['latitude'],
             telemetry['longitude'],
             current_waypoint[0],
             current_waypoint[1]
         )
 
-        if distance < 3.0:
+        if distance_m < 3.0:
             self._logger.info('Reached ' + str(current_waypoint))
             self._waypoints.popleft()
             if len(self._waypoints) == 0:
@@ -187,6 +194,13 @@ class Command(threading.Thread):
                 self._run_course_iteration()
             return
 
+        if distance_m > 10.0:
+            speed = 0.5
+            turn = 0.5
+        else:
+            speed = 0.25
+            turn = 0.5
+
         degrees = Telemetry.relative_degrees(
             telemetry['latitude'],
             telemetry['longitude'],
@@ -196,7 +210,6 @@ class Command(threading.Thread):
 
         heading_d = telemetry['heading']
 
-        now = time.time()
         if self._turn_time is not None:
             if self._turn_time + self._turn_duration_s > now:
                 # Just keep on turning
@@ -213,15 +226,13 @@ class Command(threading.Thread):
             ' distance: {distance}'.format(
                 heading=heading_d,
                 goal=degrees,
-                distance=distance,
+                distance=distance_m,
             )
         )
         if diff_d < 20.0:
             self.send_command(speed, 0.0)
             return
 
-        #turn = min(diff_d / 30.0, 1.0)
-        turn = 0.5
         if Telemetry.is_turn_left(heading_d, degrees):
             turn = -turn
         self._turn_time = now
@@ -232,6 +243,7 @@ class Command(threading.Thread):
     def run_course(self):
         """Starts the RC car running the course."""
         self._run_course = True
+        self._run_time = time.time()
 
     def stop(self):
         """Stops the RC car from running the course."""
