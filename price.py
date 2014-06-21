@@ -14,7 +14,6 @@ def main():
         'Pi Tin clear': 7.95,
         'Raspberry Pi camera': 29.95,
         'Raspberry Pi camera case': 6.95,
-        'compass module': 14.99,
         '6600 mAh USB battery pack': 29.95,
         'Android phone': 39.99,
         'pcDuino USB WiFi dongle': 14.95,
