@@ -4,7 +4,6 @@ and provide more accurate telemetry data.
 import json
 import math
 import time
-import statistics
 import collections
 
 from estimated_compass import EstimatedCompass
@@ -19,9 +18,7 @@ class Telemetry(object):
     """
     EQUATORIAL_RADIUS_M = 6378.1370 * 1000
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
-    HISTORICAL_ACCELEROMETER_READINGS_COUNT = 10
-    STD_DEV_LIMIT = .5 
-    ACCELEROMETER_AXIS_FOR_MOVEMENT_DETECTION = 0
+    HISTORICAL_SPEED_READINGS_COUNT = 20
 
     def __init__(self, logger):
         self._data = {}
@@ -30,7 +27,7 @@ class Telemetry(object):
         self._estimated_compass = EstimatedCompass(logger)
         self._latitude_offset = None
         self._longitude_offset = None
-        self._accelerometer_history = collections.deque()
+        self._speed_history = collections.deque()
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -75,11 +72,6 @@ class Telemetry(object):
                 turn,
                 self._data['heading']
             )
-        if 'accelerometer' in self._data:
-            self._accelerometer_history.append(self._data['accelerometer'][self.ACCELEROMETER_AXIS_FOR_MOVEMENT_DETECTION])
-            while len(self._accelerometer_history) > self.HISTORICAL_ACCELEROMETER_READINGS_COUNT + 1:
-                self._accelerometer_history.popleft()
-
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""
@@ -95,6 +87,11 @@ class Telemetry(object):
         if 'calibrate' in message:
             self._calibrate()
             return
+
+        if 'speed' in self._data:
+            self._speed_history.append(self._data['speed'])
+            while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
+                self._speed_history.popleft()
 
         self._data = message
         self._logger.debug(json.dumps(message))
@@ -300,14 +297,19 @@ class Telemetry(object):
         return diff_d
 
     def is_stopped(self):
-        """Determines if the RC car is moving based on readings from the accelerometer."""
-        if len(self._accelerometer_history) < self.HISTORICAL_ACCELEROMETER_READINGS_COUNT:
-            self._logger.warning('cannot determine if crashed because accelerometer history does not contain ' + str(self.HISTORICAL_ACCELEROMETER_READINGS_COUNT) + " data points.")
+        """Determines if the RC car is moving."""
+        if len(self._speed_history) < self.HISTORICAL_SPEED_READINGS_COUNT:
+            self._logger.warning('cannot determine if crashed because speed history does not contain ' + str(self.HISTORICAL_SPEED_READINGS_COUNT) + ' data points.')
             return False
-        standard_deviation = statistics.stdev(self._accelerometer_history)
-        self._logger.debug('standard deviation of accelerometer reading is ' + str(standard_deviation))
-        if standard_deviation < self.STD_DEV_LIMIT:
-            self._logger.info('RC car is not moving according to standard deviation of accelerometer')
-            self._accelerometer_history.clear()
+
+        all_zero = True
+        for speed in self._speed_history:
+            if speed != 0:
+                all_zero = False
+                break
+
+        if all_zero:
+            self._logger.info('RC car is not moving according to speed history')
+            self._speed_history.clear()
             return True
         return False
