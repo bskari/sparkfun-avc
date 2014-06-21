@@ -304,9 +304,6 @@ class Telemetry(object):
         if len(self._accelerometer_history) < self.HISTORICAL_ACCELEROMETER_READINGS_COUNT:
             self._logger.warning('cannot determine if crashed because accelerometer history does not contain ' + str(self.HISTORICAL_ACCELEROMETER_READINGS_COUNT) + " data points.")
             return False
-        if 'accelerometer' not in self._data:
-            self._logger.warning('cannot determine if crashed because accelerometer reading is not in self._data')
-            return False
         standard_deviation = statistics.stdev(self._accelerometer_history)
         self._logger.debug('standard deviation of accelerometer reading is ' + str(standard_deviation))
         if standard_deviation < self.STD_DEV_LIMIT:
