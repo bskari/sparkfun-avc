@@ -6,6 +6,7 @@ import json
 import logging
 import signal
 import socket
+import subprocess
 import sys
 import zipfile
 
@@ -20,6 +21,7 @@ from telemetry import Telemetry
 
 THREADS = []
 SOCKET = None
+POPEN = None
 
 
 def terminate(signal_number, stack_frame):
@@ -29,6 +31,13 @@ def terminate(signal_number, stack_frame):
             signal_number=signal_number
         )
     )
+    if POPEN is not None and POPEN.poll() is None:
+        print('Killing image capture')
+        try:
+            POPEN.kill()
+        except OSError:
+            pass
+
     if SOCKET is not None:
         SOCKET.close()
     for thread in THREADS:
@@ -217,6 +226,12 @@ def main():
 
     parser = make_parser()
     args = parser.parse_args()
+
+    try:
+        global POPEN
+        POPEN = subprocess.Popen('raspivid -o /media/USB/video/run.h264 -w 1024 -h 576 -b 6000000')
+    except Exception:
+        logging.warning('Unable to save video')
 
     logger = logging.Logger('sparkfun')
     logger.setLevel(logging.DEBUG)
