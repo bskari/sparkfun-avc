@@ -43,9 +43,9 @@ class Telemetry(object):
         }
 
         if 'heading' in self._data:
-            values['heading'] = self._estimated_compass.get_estimated_heading(
-                self._data['heading']
-            )
+            values['heading'] = self._data['heading']
+        elif 'bearing' in self._data:
+            values['heading'] = self._data['bearing']
 
         if 'latitude' in self._data:
             values['latitude'] = self._data['latitude']

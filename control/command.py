@@ -17,6 +17,7 @@ from telemetry import Telemetry
 class Command(threading.Thread):
     """Processes telemetry data and controls the RC car."""
     VALID_COMMANDS = {'start', 'stop'}
+    STRAIGHT_TIME_S = 1.0
 
     def __init__(
         self,
@@ -52,6 +53,8 @@ class Command(threading.Thread):
         self._last_command = None
         self._crash_time = None
         self._reverse_turn_direction = 1
+        self._turn_time = None
+        self._turn_duration_s = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -145,11 +148,11 @@ class Command(threading.Thread):
 
     def _run_course_iteration(self):
         """Runs a single iteration of the course navigation loop."""
-        speed = 0.25
+        speed = 0.5
         telemetry = self._telemetry.get_data()
         if self._crash_time is None and self._telemetry.is_stopped():
             self._crash_time = time.time()
-            if random.randint(0,1) > 0:
+            if random.randint(0, 1) > 0:
                 self._reverse_turn_direction *= -1
         if self._crash_time is not None:
             if time.time() - self._crash_time > 2:
@@ -172,7 +175,7 @@ class Command(threading.Thread):
             current_waypoint[1]
         )
 
-        if distance < 5.0:
+        if distance < 3.0:
             self._logger.info('Reached ' + str(current_waypoint))
             self._waypoints.popleft()
             if len(self._waypoints) == 0:
@@ -193,9 +196,17 @@ class Command(threading.Thread):
 
         heading_d = telemetry['heading']
 
-        diff_d = abs(heading_d - degrees)
-        if diff_d > 180.0:
-            diff_d -= 180.0
+        now = time.time()
+        if self._turn_time is not None:
+            if self._turn_time + self._turn_duration_s > now:
+                # Just keep on turning
+                return
+            if self._turn_time + self._turn_duration_s + self.STRAIGHT_TIME_S > now:
+                self.send_command(speed, 0.0)
+                return
+
+        # Otherwise figure out how long to turn for
+        diff_d = Telemetry.difference_d(heading_d, degrees)
 
         self._logger.debug(
             'my heading: {heading}, goal heading: {goal},'
@@ -213,6 +224,9 @@ class Command(threading.Thread):
         turn = 0.5
         if Telemetry.is_turn_left(heading_d, degrees):
             turn = -turn
+        self._turn_time = now
+        # We can overestimate this because it'll just turn again
+        self._turn_duration_s = diff_d / 60.0
         self.send_command(speed, turn)
 
     def run_course(self):
