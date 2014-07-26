@@ -245,6 +245,11 @@ class Telemetry(object):
         """
         relative_y_m = float(latitude_d_2) - latitude_d_1
         relative_x_m = float(longitude_d_2) - longitude_d_1
+        if relative_x_m == 0.0:
+            if relative_y_m > 0.0:
+                return 0.0
+            return 180.0
+
         degrees = math.degrees(math.atan(relative_y_m / relative_x_m))
         if relative_x_m > 0.0:
             return 90.0 - degrees
