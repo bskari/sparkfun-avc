@@ -52,10 +52,6 @@ class Command(threading.Thread):
             self._base_waypoints = collections.deque(waypoints)
         self._waypoints = None
         self._last_command = None
-        self._crash_time = None
-        self._reverse_turn_direction = 1
-        self._turn_time = None
-        self._turn_duration_s = None
         self._run_time = None
 
     def handle_message(self, message):
@@ -77,34 +73,6 @@ class Command(threading.Thread):
         elif message['command'] == 'stop':
             self.stop()
 
-    @staticmethod
-    def _generate_test_waypoints(position_d, meters, points_count):
-        """Generates a generator of test waypoints originating from the current
-        position.
-        """
-        m_per_d_longitude = Telemetry.latitude_to_m_per_d_longitude(
-            position_d[0]
-        )
-
-        step_d = 360.0 / points_count
-        step_r = math.radians(step_d)
-
-        step_m = (meters, 0.0)
-        last_waypoint_d = (
-            position_d[0] + step_m[1] / Telemetry.M_PER_D_LATITUDE,
-            position_d[1] + step_m[0] / m_per_d_longitude
-        )
-        waypoints = collections.deque()
-        for _ in range(4):
-            waypoints.append(last_waypoint_d)
-            step_m = Telemetry.rotate_radians_clockwise(step_m, step_r)
-            last_waypoint_d = (
-                last_waypoint_d[0] + step_m[1] / Telemetry.M_PER_D_LATITUDE,
-                last_waypoint_d[1] + step_m[0] / m_per_d_longitude
-            )
-
-        return waypoints
-
     def run(self):
         """Run in a thread, controls the RC car."""
         error_count = 0
@@ -122,9 +90,10 @@ class Command(threading.Thread):
 
                 self._logger.info('Running course iteration')
 
-                while self._run and self._run_course:
-                    self._run_course_iteration()
+                run_iterator = self._run_iterator()
+                while self._run and self._run_course and run_iterator.next():
                     time.sleep(self._sleep_time_seconds)
+
                 self._logger.info('Stopping course')
                 self.send_command(0.0, 0.0)
 
@@ -149,96 +118,92 @@ class Command(threading.Thread):
                     self._logger.warning('Restarting after pause')
                     error_count = 0
 
-    def _run_course_iteration(self):
+    def _run_iterator(self):
+        """Returns an iterator that drives everything."""
+        course_iterator = self._run_course_iterator()
+        while True:
+            if self._telemetry.is_stopped():
+                unstuck_iterator = self._unstuck_yourself_iterator(1.0)
+                while unstuck_iterator.next():
+                    yield True
+
+                # Force the car to drive for a little while
+                start = time.time()
+                while (
+                        self._run
+                        and self._run_course
+                        and time.time() < start + 3.0
+                        and course_iterator.next()
+                ):
+                    yield True
+
+            yield course_iterator.next()
+
+    def _run_course_iterator(self):
         """Runs a single iteration of the course navigation loop."""
-        now = time.time()
-        telemetry = self._telemetry.get_data()
-        if self._run_time + self.MIN_RUN_TIME_S < now and self._crash_time is None and self._telemetry.is_stopped():
-            self._crash_time = time.time()
-            if random.randint(0, 1) > 0:
-                self._reverse_turn_direction *= -1
-        if self._run_time + self.MIN_RUN_TIME_S < now and self._crash_time is not None:
-            if now - self._crash_time > 2:
-                self._crash_time = None
-                self._run_time = now
-                # Also force the car to drive for a little while
-                self._turn_time = now
-                self._turn_duration_s = 0.0
-            else:
-                self.unstuck_yourself()
-            return
+        while len(self._waypoints) > 0:
+            current_waypoint = self._waypoints[0]
+            telemetry = self._telemetry.get_data()
 
-        if len(self._waypoints) == 0:
-            self._logger.info('No waypoints, stopping')
-            self.send_command(0.0, 0.0)
-            self.stop()
-            return
-        current_waypoint = self._waypoints[0]
-
-        distance_m = Telemetry.distance_m(
-            telemetry['latitude'],
-            telemetry['longitude'],
-            current_waypoint[0],
-            current_waypoint[1]
-        )
-
-        if distance_m < 3.0:
-            self._logger.info('Reached ' + str(current_waypoint))
-            self._waypoints.popleft()
-            if len(self._waypoints) == 0:
-                self._logger.info('Stopping')
-                self.send_command(0.0, 0.0)
-                self.stop()
-            else:
-                # I know I shouldn't use recursion here, but I'm lazy
-                self._run_course_iteration()
-            return
-
-        if distance_m > 10.0:
-            speed = 0.5
-            turn = 0.5
-        else:
-            speed = 0.25
-            turn = 0.5
-
-        degrees = Telemetry.relative_degrees(
-            telemetry['latitude'],
-            telemetry['longitude'],
-            current_waypoint[0],
-            current_waypoint[1]
-        )
-
-        heading_d = telemetry['heading']
-
-        if self._turn_time is not None:
-            if self._turn_time + self._turn_duration_s > now:
-                # Just keep on turning
-                return
-            if self._turn_time + self._turn_duration_s + self.STRAIGHT_TIME_S > now:
-                self.send_command(speed, 0.0)
-                return
-
-        # Otherwise figure out how long to turn for
-        diff_d = Telemetry.difference_d(heading_d, degrees)
-
-        self._logger.debug(
-            'my heading: {heading}, goal heading: {goal},'
-            ' distance: {distance}'.format(
-                heading=heading_d,
-                goal=degrees,
-                distance=distance_m,
+            distance_m = Telemetry.distance_m(
+                telemetry['latitude'],
+                telemetry['longitude'],
+                current_waypoint[0],
+                current_waypoint[1]
             )
-        )
-        if diff_d < 20.0:
-            self.send_command(speed, 0.0)
-            return
 
-        if Telemetry.is_turn_left(heading_d, degrees):
-            turn = -turn
-        self._turn_time = now
-        # We can overestimate this because it'll just turn again
-        self._turn_duration_s = diff_d / 60.0
-        self.send_command(speed, turn)
+            self._logger.info(
+                'Distance to goal: {distance}'.format(
+                    distance=distance_m
+                )
+            )
+            if distance_m < 1.5:
+                self._logger.info('Reached ' + str(current_waypoint))
+                self._waypoints.popleft()
+                continue
+
+            if distance_m > 3.0:
+                speed = 1.0
+            else:
+                speed = 0.5
+
+            degrees = Telemetry.relative_degrees(
+                telemetry['latitude'],
+                telemetry['longitude'],
+                current_waypoint[0],
+                current_waypoint[1]
+            )
+
+            heading_d = telemetry['heading']
+
+            self._logger.info(
+                'My heading: {my_heading}, goal heading: {goal_heading}'.format(
+                    my_heading=heading_d,
+                    goal_heading=degrees,
+                )
+            )
+
+            diff_d = Telemetry.difference_d(degrees, heading_d)
+            if diff_d < 10.0:
+                self.send_command(speed, 0.0)
+                yield True
+                continue
+            elif diff_d > 90.0:
+                turn = 1.0
+            elif diff_d > 45.0:
+                turn = 0.5
+            else:
+                turn = 0.25
+
+            if Telemetry.is_turn_left(heading_d, degrees):
+                turn = -turn
+            self.send_command(speed, turn)
+            yield True
+
+        self._logger.info('No waypoints, stopping')
+        self.send_command(0.0, 0.0)
+        self.stop()
+        yield False
 
     def run_course(self):
         """Starts the RC car running the course."""
@@ -289,6 +254,11 @@ class Command(threading.Thread):
 
         self._send_socket.send(command(throttle, turn))
 
-    def unstuck_yourself(self):
-        """commands the car to reverse and try to get off an obstacle"""
-        self.send_command(-.5, self._reverse_turn_direction)
+    def _unstuck_yourself_iterator(self, seconds):
+        """Commands the car to reverse and try to get off an obstacle."""
+        start = time.time()
+        turn_direction = 1.0 if random.randint(0, 1) == 0 else -1.0
+        while time.time() < start + seconds:
+            self.send_command(-.5, turn_direction)
+            yield True
+        yield False
