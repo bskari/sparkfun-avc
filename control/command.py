@@ -52,7 +52,6 @@ class Command(threading.Thread):
             self._base_waypoints = collections.deque(waypoints)
         self._waypoints = None
         self._last_command = None
-        self._run_time = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -152,7 +151,7 @@ class Command(threading.Thread):
                 current_waypoint[1]
             )
 
-            self._logger.info(
+            self._logger.debug(
                 'Distance to goal: {distance}'.format(
                     distance=distance_m
                 )
@@ -176,7 +175,7 @@ class Command(threading.Thread):
 
             heading_d = telemetry['heading']
 
-            self._logger.info(
+            self._logger.debug(
                 'My heading: {my_heading}, goal heading: {goal_heading}'.format(
                     my_heading=heading_d,
                     goal_heading=degrees,
@@ -208,7 +207,6 @@ class Command(threading.Thread):
     def run_course(self):
         """Starts the RC car running the course."""
         self._run_course = True
-        self._run_time = time.time()
 
     def stop(self):
         """Stops the RC car from running the course."""
@@ -218,6 +216,9 @@ class Command(threading.Thread):
     def kill(self):
         """Kills the thread."""
         self._run = False
+
+    def is_running_course(self):
+        return self._run_course
 
     def send_command(self, throttle_percentage, turn_percentage):
         """Sends a command to the RC car. Throttle should be a float between
