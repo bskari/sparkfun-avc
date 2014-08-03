@@ -1,5 +1,6 @@
 """Tests the Kalman Filter."""
 
+import random
 import unittest
 
 from kalman_filter import KalmanFilter
@@ -65,6 +66,63 @@ class TestKalmanFilter(unittest.TestCase):
             [[1, 2, 3], [2, 3, 4]]
         )
 
+    def test_linear_estimates_constant_observation(self):
+        """Test the estimates of the Kalman filter. Use the voltage example
+        from http://bilgin.esme.org/BitsBytes/KalmanFilterforDummies.aspx .
+        """
+        constant_observation = 1.0
+
+        process_error_covariances = (0.0001,)  # We don't have an input process
+        measurement_error_covariances = (0.1,)
+        transition_matrix = ((1.0,),)  # Voltage(t) = Voltage(t-1)
+        observation_matrix = ((1.0,),)
+        # We'll purposely set this high to show how resilient the filter is
+        initial_estimates = (3.0 * constant_observation,)
+
+        filter_ = KalmanFilter(
+            initial_estimates,
+            process_error_covariances,
+            measurement_error_covariances,
+            transition_matrix,
+            observation_matrix
+        )
+        # Feed it constant values
+        for _ in range(20):
+            filter_.predict((constant_observation,))
+        estimated_voltage = filter_.predict((constant_observation,))[0]
+        self.assertAlmostEqual(estimated_voltage, constant_observation)
+
+    def test_linear_estimates_normal_observation(self):
+        """Test the estimates of the Kalman filter with noisy readings. Use the
+        voltage example from
+        http://bilgin.esme.org/BitsBytes/KalmanFilterforDummies.aspx .
+        """
+        constant_observation = 1.0
+        voltage_error_std_dev = 0.1
+
+        process_error_covariances = (0.0001,)  # We don't have an input process
+        measurement_error_covariances = (voltage_error_std_dev,)
+        transition_matrix = ((1.0,),)  # Voltage(t) = Voltage(t-1)
+        observation_matrix = ((1.0,),)
+        # We'll purposely set this high to show how resilient the filter is
+        initial_estimates = (3.0 * constant_observation,)
+
+        filter_ = KalmanFilter(
+            initial_estimates,
+            process_error_covariances,
+            measurement_error_covariances,
+            transition_matrix,
+            observation_matrix
+        )
+        # Feed it values with normal error
+        for _ in range(20):
+            filter_.predict((random.gauss(constant_observation, voltage_error_std_dev),))
+        estimated_voltage = filter_.predict((constant_observation,))[0]
+
+        # Because we have a lot of noise, we can't use assertAlmostEqual
+        self.assertTrue(constant_observation - voltage_error_std_dev < estimated_voltage)
+        self.assertTrue(estimated_voltage < constant_observation + voltage_error_std_dev)
+
     def test_estimates(self):
         """Test the estimates of the Kalman filter. Use the gravity example
         provided in Lindsay Kleeman's "Understanding and Applying Kalman
@@ -93,3 +151,7 @@ class TestKalmanFilter(unittest.TestCase):
                 kalman_filter.predict((100.0,))
             self.assertAlmostEqual(estimated_position, position)
             self.assertAlmostEqual(estimated_velocity, velocity)
+
+
+if __name__ == '__main__':
+    unittest.main()
