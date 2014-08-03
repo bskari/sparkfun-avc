@@ -226,3 +226,7 @@ class TestTelemetry(unittest.TestCase):
         self.assertAlmostEqual(Telemetry.difference_d(359.0, 1.0), 2.0)
         self.assertAlmostEqual(Telemetry.difference_d(360.0, 365.0), 5.0)
         self.assertAlmostEqual(Telemetry.difference_d(-355.0, 365.0), 0.0)
+
+
+if __name__ == '__main__':
+    unittest.main()

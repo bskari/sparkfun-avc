@@ -83,3 +83,7 @@ class TestEstimatedCompass(unittest.TestCase):
         estimated_compass.process_drive_command(1.0, 0.9, 0)
         lesser_right = estimated_compass._car_turn_rate_d_s()
         self.assertGreater(right, lesser_right)
+
+
+if __name__ == '__main__':
+    unittest.main()
