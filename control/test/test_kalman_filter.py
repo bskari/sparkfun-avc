@@ -1,5 +1,7 @@
 """Tests the Kalman Filter."""
 
+import math
+import operator
 import random
 import unittest
 
@@ -11,87 +13,6 @@ from kalman_filter import KalmanFilter
 
 class TestKalmanFilter(unittest.TestCase):
     """Tests the Kalman filter."""
-    def test_matrix_multiply(self):
-        """Tests matrix multiply."""
-        matrix1 = [
-            [1, 2, 3],
-            [2, 3, 4]
-        ]
-        matrix2 = [
-            [1],
-            [0],
-            [1]
-        ]
-        multiplied = KalmanFilter._matrix_multiply(matrix1, matrix2)
-        self.assertEqual(
-            multiplied,
-            [
-                [4],
-                [6]
-            ]
-        )
-
-    def test_scalar_multiply(self):
-        """Tests scalar matrix multiply."""
-        matrix1 = [
-            [1, 2, 3],
-            [4, 5, 6]
-        ]
-        matrix2 = KalmanFilter._scalar_multiply(3, matrix1)
-        self.assertEqual(
-            matrix2,
-            [
-                [3, 6, 9],
-                [12, 15, 18]
-            ]
-        )
-
-    def test_transpose(self):
-        """Tests matrix transpose."""
-        self.assertEqual(
-            KalmanFilter._transpose(
-                [[1, 2, 3]]
-            ),
-            [[1], [2], [3]]
-        )
-        self.assertEqual(
-            KalmanFilter._transpose(
-                [[1], [2], [3]],
-            ),
-            [[1, 2, 3]]
-        )
-        self.assertEqual(
-            KalmanFilter._transpose(
-                [[1, 2], [2, 3], [3, 4]],
-            ),
-            [[1, 2, 3], [2, 3, 4]]
-        )
-
-    def test_determinant(self):
-        """Tests matrix determinant."""
-        self.assertEqual(KalmanFilter._determinant([[2]]), 2)
-        self.assertEqual(KalmanFilter._determinant([[3, 8], [4, 6]]), -14)
-        self.assertEqual(
-            KalmanFilter._determinant(
-                [
-                    [6, 1, 1],
-                    [4, -2, 5],
-                    [2, 8, 7],
-                ]
-            ),
-            -306
-        )
-        self.assertEqual(
-            KalmanFilter._determinant(
-                [
-                    [3, 0, 2, -1],
-                    [1, 2, 0, -2],
-                    [4, 0, 6, -3],
-                    [5, 0, 2, 0],
-                ]
-            ),
-            20
-        )
 
     def test_linear_estimates_constant_observation(self):
         """Test the estimates of the Kalman filter. Use the voltage example
@@ -113,11 +34,111 @@ class TestKalmanFilter(unittest.TestCase):
             transition_matrix,
             observation_matrix
         )
-        # Feed it constant values
-        for _ in range(20):
+        for _ in range(100):
             filter_.predict((constant_observation,))
         estimated_voltage = filter_.predict((constant_observation,))[0]
         self.assertAlmostEqual(estimated_voltage, constant_observation)
+
+    def test_cannonball(self):
+        """Test the cannonball example from
+        http://greg.czerniak.info/guides/kalman1/
+        """
+        process_error_covariances = (
+            # Because we created the process, we can assume there is no error
+            (0.0, 0.0, 0.0, 0.0),
+            (0.0, 0.0, 0.0, 0.0),
+            (0.0, 0.0, 0.0, 0.0),
+            (0.0, 0.0, 0.0, 0.0),
+        )
+        measurement_error_covariances = (
+            (0.2, 0.2, 0.0, 0.0),
+            (0.0, 0.2, 0.0, 0.0),
+            (0.0, 0.0, 0.2, 0.2),
+            (0.0, 0.0, 0.0, 0.2),
+        )
+        transition_matrix = (
+            (1.0, 1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0, 1.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+        observation_matrix = (
+            (1.0, 0.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0, 0.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+        initial_estimates = (
+            0.0,
+            100.0 * math.cos(math.pi / 4.0),
+            # y should be 0, but we're going to set it way off to show how
+            # resilient it is anyway
+            500.0,
+            100.0 * math.sin(math.pi / 4.0),
+        )
+        control_matrix = (0.0, 0.0, -0.5, -1.0)
+
+        filter_ = KalmanFilter(
+            initial_estimates,
+            process_error_covariances,
+            measurement_error_covariances,
+            transition_matrix,
+            observation_matrix
+        )
+
+        class CannonBall(object):
+            ANGLE = 45.0
+            MUZZLE_VELOCITY = 100.0
+            GRAVITY = [0.0, -9.81]
+
+            def __init__(self, time_slice, noise_level):
+                self._time_slice = time_slice
+                self._noise_level = noise_level
+                self._location = [0.0, 0.0]
+                self._velocity = (
+                    self.MUZZLE_VELOCITY * math.cos(self.ANGLE * math.pi / 180.0),
+                    self.MUZZLE_VELOCITY * math.sin(self.ANGLE * math.pi / 180.0)
+                )
+            def get_x(self):
+                return self._location[0]
+            def get_y(self):
+                return self._location[1]
+            def get_x_with_noise(self):
+                return random.gauss(self.get_x(), self._noise_level)
+            def get_y_with_noise(self):
+                return random.gauss(self.get_y(), self._noise_level)
+            def get_x_velocity(self):
+                return self._velocity[0]
+            def get_y_velocity(self):
+                return self._velocity[1]
+            # Increment through the next time_slice of the simulation
+            def step(self):
+                # We're gonna use this vector to timeslice everything
+                time_slice_vector = [self._time_slice, self._time_slice]
+                # Break gravitational force into a smaller time slice
+                sliced_gravity = map(operator.mul, self.GRAVITY, time_slice_vector)
+                # The only force on the cannonball is gravity
+                sliced_acceleration = sliced_gravity
+                # Apply the acceleration to velocity
+                self._velocity = map(operator.add, self._velocity, sliced_acceleration)
+                sliced_velocity = map(operator.mul, self._velocity, time_slice_vector)
+                # Apply the velocity to location
+                self._location = map(operator.add, self._location, sliced_velocity)
+                # Cannonballs shouldn't go into the ground
+                if self._location[1] < 0:
+                    self._location[1] = 0
+
+        cannon_ball = CannonBall(1.0, 0.5)
+        for _ in range(20):
+            cannon_ball.step()
+            print(filter_.predict(
+                (
+                    cannon_ball.get_x_with_noise(),
+                    cannon_ball.get_x_velocity(),
+                    cannon_ball.get_y_with_noise(),
+                    cannon_ball.get_y_velocity(),
+                )
+            ))
 
     def test_linear_estimates_normal_observation(self):
         """Test the estimates of the Kalman filter with noisy readings. Use the
@@ -143,7 +164,9 @@ class TestKalmanFilter(unittest.TestCase):
         )
         # Feed it values with normal error
         for _ in range(20):
-            filter_.predict((random.gauss(constant_observation, voltage_error_std_dev),))
+            filter_.predict(
+                [random.gauss(constant_observation, voltage_error_std_dev)]
+            )
         estimated_voltage = filter_.predict((constant_observation,))[0]
 
         # Because we have a lot of noise, we can't use assertAlmostEqual
@@ -155,29 +178,32 @@ class TestKalmanFilter(unittest.TestCase):
         provided in Lindsay Kleeman's "Understanding and Applying Kalman
         Filtering".
         """
-        #def position_at_time(time):
-        #    return 100.0 - 0.5 * (time ** 2.0)
+        raise NotImplementedError
+        def position_at_time(time):
+            return 100.0 - 0.5 * (time ** 2.0)
 
-        #def velocity_at_time(time):
-        #    return -time
+        def velocity_at_time(time):
+            return -time
+
+        initial_estimates = (95.0, 1.0)
+        # We don't have an input process
+        process_error_covariances = ((0.00001, 0.0), (0.0, 0.00001))
+        measurement_error_covariances = ((1.0, 0.0), (0.0, 1.0))
+        transition_matrix = ((1.0, 1.0), (0.0, 2.0))
+        observation_matrix = ((1.0, 1.0),)
 
         kalman_filter = KalmanFilter(
-            (100,),
-            (1, 1)
+            initial_estimates,
+            process_error_covariances,
+            measurement_error_covariances,
+            transition_matrix,
+            observation_matrix
         )
 
-        expected_estimated_positions = (95.0, 99.63, 98.43, 95.21, 92.35, 87.68)
-        expected_estimated_velocities = (1.0, 0.38, -1.16, -2.91, -3.70, -4.84)
-
-        for position_velocity in zip(
-            expected_estimated_positions,
-            expected_estimated_velocities
-        ):
-            position, velocity = position_velocity
-            estimated_position, estimated_velocity = \
-                kalman_filter.predict((100.0,))
-            self.assertAlmostEqual(estimated_position, position)
-            self.assertAlmostEqual(estimated_velocity, velocity)
+        for time in xrange(1, 11):
+            print(kalman_filter.predict(
+                (position_at_time(time), velocity_at_time(time))
+            ))
 
 
 if __name__ == '__main__':

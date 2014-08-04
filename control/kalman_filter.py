@@ -1,5 +1,7 @@
 """Kalman filter, used to estimate the true values from noisy sensor data."""
 import collections
+import numpy
+
 
 class KalmanFilter(object):
     """Kalman filter, used to estimate the true values from noisy sensor
@@ -7,32 +9,49 @@ class KalmanFilter(object):
     """
     def __init__(
         self,
-        initial_estimates,
-        process_error_covariances,
-        measurement_error_covariances,
-        transition_matrix,
-        observation_matrix,
-        initial_time=None,
-        control_matrix=None
+        initial_estimates,  # Z_n
+        process_error_covariances,  # Q
+        measurement_error_covariances,  # R
+        transition_matrix,  # A
+        observation_matrix,  # H
+        control_matrix=None  # B
     ):
         self._estimates = self._to_matrix(initial_estimates)
+        if len(self._estimates[0]) > 1:
+            self._estimates = self._transpose(self._estimates)
+
         self._process_error_covariances = self._to_matrix(
             process_error_covariances
         )
+        if len(self._process_error_covariances[0]) > 1:
+            self._process_error_covariances = self._transpose(
+                self._process_error_covariances
+            )
+
         self._measurement_error_covariances = self._to_matrix(
             measurement_error_covariances
         )
-        self._transition_matrix = transition_matrix
-        self._observation_matrix = observation_matrix
-        if initial_time is None:
-            initial_time = 0.0
+        if len(self._measurement_error_covariances[0]) > 1:
+            self._measurement_error_covariances = self._transpose(
+                self._measurement_error_covariances
+            )
+
+        self._transition_matrix = numpy.array(transition_matrix)
+        self._observation_matrix = numpy.array(observation_matrix)
+        if control_matrix is not None:
+            self._control_matrix = numpy.array(control_matrix)
         else:
-            self._last_time = initial_time
-        self._control_matrix = control_matrix
+            self._control_matrix = None
 
     def predict(self, measurements, control_state=None):
         """Returns a prediction of the values."""
+        # This process derived from http://greg.czerniak.info/guides/kalman1/
+        if not isinstance(measurements, numpy.ndarray):
+            measurements = numpy.array(measurements)
+
         measurements = self._to_matrix(measurements)
+        if len(measurements[0]) > 1:
+            measurements = self._transpose(measurements)
 
         predicted_state = self._matrix_multiply(
             self._transition_matrix,
@@ -110,116 +129,44 @@ class KalmanFilter(object):
     @staticmethod
     def _matrix_multiply(matrix1, matrix2):
         """Multiplies two matrices."""
-        assert len(matrix1[0]) == len(matrix2)
-        result = []
-        for row in range(len(matrix1)):
-            sum_ = 0.0
-            result_column = []
-            for column in range(len(matrix2[0])):
-                for index in range(len(matrix1[0])):
-                    value1 = matrix1[row][index]
-                    value2 = matrix2[index][column]
-                    sum_ += value1 * value2
-                result_column.append(sum_)
-            result.append(result_column)
-        return result
+        return matrix1 * matrix2
 
     @staticmethod
     def _scalar_multiply(scalar, matrix):
         """Multiplies a matrix by a scalar value."""
-        return_value = []
-        for row in matrix:
-            return_value.append([])
-            for value in row:
-                return_value[-1].append(scalar * value)
-        return return_value
+        if isinstance(matrix, numpy.ndarray):
+            return matrix * scalar
+        return numpy.array(matrix) * scalar
 
     @staticmethod
     def _transpose(matrix):
         """Transposes a matrix."""
-        return_value = []
-        for column in range(len(matrix[0])):
-            return_row = []
-            for row in range(len(matrix)):
-                return_row.append(matrix[row][column])
-            return_value.append(return_row)
-        return return_value
+        return numpy.transpose(matrix)
 
     @staticmethod
     def _add(matrix1, matrix2):
         """Adds two matrices."""
-        matrix = []
-        for row_index in range(len(matrix1)):
-            matrix.append([])
-            for column_index in range(len(matrix1[row_index])):
-                matrix[column_index].append(
-                    matrix1[column_index][row_index] +
-                    matrix2[column_index][row_index]
-                )
-        return matrix
+        return matrix1 + matrix2
 
     @staticmethod
     def _subtract(matrix1, matrix2):
         """Subtracts two matrices."""
-        return KalmanFilter._add(
-            matrix1,
-            KalmanFilter._scalar_multiply(
-                -1.0,
-                matrix2
-            )
-        )
-
-    @staticmethod
-    def _determinant(matrix):
-        """Calculates the determinant of a matrix."""
-        m = matrix
-        if len(m) == 1:
-            return m[0][0]
-        if len(m) == 2:
-            return m[0][0] * m[1][1] - m[0][1] * m[1][0]
-        sub_arrays = []
-        for array in range(len(m)):
-            sub_arrays.append([])
-            for row in range(1, len(m)):
-                sub_arrays[array].append(m[row][:array] + m[row][array + 1:])
-        sum_ = 0.0
-        add_or_subtract = 1
-        for i in range(len(sub_arrays)):
-            sum_ += add_or_subtract * m[0][i] * KalmanFilter._determinant(sub_arrays[i])
-            add_or_subtract *= -1
-        return sum_
+        return matrix1 - matrix2
 
     @staticmethod
     def _inverse(matrix):
         """Inverts a matrix."""
-        m = matrix
-        if len(m) == 1:
-            return ((1.0 / m[0][0],),)
-        if len(m) == 2:
-            determinant = self._determinant(m)
-            return_value = [
-                [m[1][1], -m[0][1]],
-                [-m[1][0], m[0][0]]
-            ]
-            return KalmanFilter._scalar_multiply(
-                1.0 / determinant,
-                return_value
-            )
-        raise NotImplementedError(
-            'Inverse only supported for 1x1 and 2x2 matrices'
-        )
+        if len(matrix) == 1:
+            return matrix
+        return numpy.invert(matrix)
 
     @staticmethod
     def _identity(size):
         """Returns an identity matrix."""
-        matrix = []
-        for index in range(size):
-            matrix.append([0.0] * size)
-            matrix[-1][index] = 1.0
-        return matrix
+        return numpy.eye(size)
 
     @staticmethod
     def _to_matrix(vector_or_matrix):
         if isinstance(vector_or_matrix[0], collections.Iterable):
-            return vector_or_matrix
-        return (vector_or_matrix,)
+            return numpy.array(vector_or_matrix)
+        return numpy.array((vector_or_matrix,))
