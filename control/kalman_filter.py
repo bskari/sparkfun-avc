@@ -169,14 +169,34 @@ class KalmanFilter(object):
             )
         )
 
-    @classmethod
-    def _inverse(cls, matrix):
+    @staticmethod
+    def _determinant(matrix):
+        """Calculates the determinant of a matrix."""
+        m = matrix
+        if len(m) == 1:
+            return m[0][0]
+        if len(m) == 2:
+            return m[0][0] * m[1][1] - m[0][1] * m[1][0]
+        sub_arrays = []
+        for array in range(len(m)):
+            sub_arrays.append([])
+            for row in range(1, len(m)):
+                sub_arrays[array].append(m[row][:array] + m[row][array + 1:])
+        sum_ = 0.0
+        add_or_subtract = 1
+        for i in range(len(sub_arrays)):
+            sum_ += add_or_subtract * m[0][i] * KalmanFilter._determinant(sub_arrays[i])
+            add_or_subtract *= -1
+        return sum_
+
+    @staticmethod
+    def _inverse(matrix):
         """Inverts a matrix."""
         m = matrix
         if len(m) == 1:
             return ((1.0 / m[0][0],),)
         if len(m) == 2:
-            determinant = m[0][0] * m[1][1] - m[0][1] * m[1][0]
+            determinant = self._determinant(m)
             return_value = [
                 [m[1][1], -m[0][1]],
                 [-m[1][0], m[0][0]]

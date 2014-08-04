@@ -18,9 +18,9 @@ class TestKalmanFilter(unittest.TestCase):
             [2, 3, 4]
         ]
         matrix2 = [
-                [1],
-                [0],
-                [1]
+            [1],
+            [0],
+            [1]
         ]
         multiplied = KalmanFilter._matrix_multiply(matrix1, matrix2)
         self.assertEqual(
@@ -38,7 +38,8 @@ class TestKalmanFilter(unittest.TestCase):
             [4, 5, 6]
         ]
         matrix2 = KalmanFilter._scalar_multiply(3, matrix1)
-        self.assertEqual(matrix2,
+        self.assertEqual(
+            matrix2,
             [
                 [3, 6, 9],
                 [12, 15, 18]
@@ -64,6 +65,32 @@ class TestKalmanFilter(unittest.TestCase):
                 [[1, 2], [2, 3], [3, 4]],
             ),
             [[1, 2, 3], [2, 3, 4]]
+        )
+
+    def test_determinant(self):
+        """Tests matrix determinant."""
+        self.assertEqual(KalmanFilter._determinant([[2]]), 2)
+        self.assertEqual(KalmanFilter._determinant([[3, 8], [4, 6]]), -14)
+        self.assertEqual(
+            KalmanFilter._determinant(
+                [
+                    [6, 1, 1],
+                    [4, -2, 5],
+                    [2, 8, 7],
+                ]
+            ),
+            -306
+        )
+        self.assertEqual(
+            KalmanFilter._determinant(
+                [
+                    [3, 0, 2, -1],
+                    [1, 2, 0, -2],
+                    [4, 0, 6, -3],
+                    [5, 0, 2, 0],
+                ]
+            ),
+            20
         )
 
     def test_linear_estimates_constant_observation(self):
