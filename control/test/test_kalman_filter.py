@@ -2,6 +2,7 @@
 
 import math
 import operator
+import pylab
 import random
 import unittest
 
@@ -83,7 +84,8 @@ class TestKalmanFilter(unittest.TestCase):
             process_error_covariances,
             measurement_error_covariances,
             transition_matrix,
-            observation_matrix
+            observation_matrix,
+            control_matrix=control_matrix
         )
 
         class CannonBall(object):
@@ -96,49 +98,105 @@ class TestKalmanFilter(unittest.TestCase):
                 self._noise_level = noise_level
                 self._location = [0.0, 0.0]
                 self._velocity = (
-                    self.MUZZLE_VELOCITY * math.cos(self.ANGLE * math.pi / 180.0),
-                    self.MUZZLE_VELOCITY * math.sin(self.ANGLE * math.pi / 180.0)
+                    self.MUZZLE_VELOCITY * math.cos(math.radians(self.ANGLE)),
+                    self.MUZZLE_VELOCITY * math.sin(math.radians(self.ANGLE))
                 )
+
             def get_x(self):
                 return self._location[0]
+
             def get_y(self):
                 return self._location[1]
+
             def get_x_with_noise(self):
                 return random.gauss(self.get_x(), self._noise_level)
+
             def get_y_with_noise(self):
                 return random.gauss(self.get_y(), self._noise_level)
+
             def get_x_velocity(self):
                 return self._velocity[0]
+
             def get_y_velocity(self):
                 return self._velocity[1]
+
             # Increment through the next time_slice of the simulation
             def step(self):
                 # We're gonna use this vector to timeslice everything
-                time_slice_vector = [self._time_slice, self._time_slice]
+                time_slice_vector = (self._time_slice, self._time_slice)
                 # Break gravitational force into a smaller time slice
-                sliced_gravity = map(operator.mul, self.GRAVITY, time_slice_vector)
+                sliced_gravity = map(
+                    operator.mul,
+                    self.GRAVITY,
+                    time_slice_vector
+                )
                 # The only force on the cannonball is gravity
                 sliced_acceleration = sliced_gravity
                 # Apply the acceleration to velocity
-                self._velocity = map(operator.add, self._velocity, sliced_acceleration)
-                sliced_velocity = map(operator.mul, self._velocity, time_slice_vector)
-                # Apply the velocity to location
-                self._location = map(operator.add, self._location, sliced_velocity)
-                # Cannonballs shouldn't go into the ground
-                if self._location[1] < 0:
-                    self._location[1] = 0
-
-        cannon_ball = CannonBall(1.0, 0.5)
-        for _ in range(20):
-            cannon_ball.step()
-            print(filter_.predict(
-                (
-                    cannon_ball.get_x_with_noise(),
-                    cannon_ball.get_x_velocity(),
-                    cannon_ball.get_y_with_noise(),
-                    cannon_ball.get_y_velocity(),
+                self._velocity = map(
+                    operator.add,
+                    self._velocity,
+                    sliced_acceleration
                 )
-            ))
+                sliced_velocity = map(
+                    operator.mul,
+                    self._velocity,
+                    time_slice_vector
+                )
+                # Apply the velocity to location
+                self._location = map(
+                    operator.add,
+                    self._location,
+                    sliced_velocity
+                )
+                # Cannonballs shouldn't go into the ground
+                if self._location[1] < 0.0:
+                    self._location[1] = 0.0
+
+        time_slice = 0.1
+        cannon_ball = CannonBall(time_slice, 30.0)
+        # The control vector that adds acceleration to the kinematic equations
+        # 0          =>  x(n+1) =  x(n+1)
+        # 0          => vx(n+1) = vx(n+1)
+        # -9.81*ts^2 =>  y(n+1) =  y(n+1) + 0.5*-9.81*ts^2
+        # -9.81*ts   => vy(n+1) = vy(n+1) + -9.81*ts
+        control_vector = [
+            [0],
+            [0],
+            [0.5 * -9.81 * time_slice * time_slice],
+            [-9.81 * time_slice]
+        ]
+        real_x = []
+        real_y = []
+        reading_x = []
+        reading_y = []
+        kalman_x = []
+        kalman_y = []
+        for _ in range(int(12.0 / time_slice)):
+            cannon_ball.step()
+            real_x.append(cannon_ball.get_x())
+            real_y.append(cannon_ball.get_y())
+            reading_x.append(cannon_ball.get_x_with_noise())
+            reading_y.append(cannon_ball.get_y_with_noise())
+            prediction = filter_.predict(
+                (
+                    reading_x[-1],
+                    cannon_ball.get_x_velocity(),
+                    reading_y[-1],
+                    cannon_ball.get_y_velocity()
+                ),
+                control_state=control_vector
+            )
+            kalman_x.append(prediction[0])
+            kalman_y.append(prediction[1])
+            print(prediction[:2])
+
+        pylab.plot(real_x, real_y, '-', reading_x, reading_y, ':', kalman_x, kalman_y, '--')
+        pylab.xlabel('X position')
+        pylab.ylabel('Y position')
+        pylab.title('Measurement of a Cannonball in Flight')
+        pylab.legend(('true', 'measured', 'kalman'))
+        pylab.show()
 
     def test_linear_estimates_normal_observation(self):
         """Test the estimates of the Kalman filter with noisy readings. Use the

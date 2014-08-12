@@ -9,7 +9,7 @@ class KalmanFilter(object):
     """
     def __init__(
         self,
-        initial_estimates,  # Z_n
+        initial_estimates,  # Z_0
         process_error_covariances,  # Q
         measurement_error_covariances,  # R
         transition_matrix,  # A
@@ -46,13 +46,12 @@ class KalmanFilter(object):
     def predict(self, measurements, control_state=None):
         """Returns a prediction of the values."""
         # This process derived from http://greg.czerniak.info/guides/kalman1/
-        if not isinstance(measurements, numpy.ndarray):
-            measurements = numpy.array(measurements)
-
         measurements = self._to_matrix(measurements)
         if len(measurements[0]) > 1:
             measurements = self._transpose(measurements)
 
+        import random; random.seed(0)
+        import ipdb; ipdb.set_trace()
         predicted_state = self._matrix_multiply(
             self._transition_matrix,
             self._estimates
@@ -158,7 +157,7 @@ class KalmanFilter(object):
         """Inverts a matrix."""
         if len(matrix) == 1:
             return matrix
-        return numpy.invert(matrix)
+        return numpy.linalg.inv(matrix)
 
     @staticmethod
     def _identity(size):
