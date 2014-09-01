@@ -1,8 +1,8 @@
 """Tests the Kalman Filter."""
 
 import math
+import numpy
 import operator
-import pylab
 import random
 import unittest
 
@@ -44,6 +44,7 @@ class TestKalmanFilter(unittest.TestCase):
         """Test the cannonball example from
         http://greg.czerniak.info/guides/kalman1/
         """
+        time_slice = 0.1
         process_error_covariances = (
             # Because we created the process, we can assume there is no error
             (0.0, 0.0, 0.0, 0.0),
@@ -52,15 +53,15 @@ class TestKalmanFilter(unittest.TestCase):
             (0.0, 0.0, 0.0, 0.0),
         )
         measurement_error_covariances = (
-            (0.2, 0.2, 0.0, 0.0),
+            (0.2, 0.0, 0.0, 0.0),
             (0.0, 0.2, 0.0, 0.0),
-            (0.0, 0.0, 0.2, 0.2),
+            (0.0, 0.0, 0.2, 0.0),
             (0.0, 0.0, 0.0, 0.2),
         )
         transition_matrix = (
-            (1.0, 1.0, 0.0, 0.0),
+            (1.0, time_slice, 0.0, 0.0),
             (0.0, 1.0, 0.0, 0.0),
-            (0.0, 0.0, 1.0, 1.0),
+            (0.0, 0.0, 1.0, time_slice),
             (0.0, 0.0, 0.0, 1.0),
         )
         observation_matrix = (
@@ -77,14 +78,20 @@ class TestKalmanFilter(unittest.TestCase):
             500.0,
             100.0 * math.sin(math.pi / 4.0),
         )
-        control_matrix = (0.0, 0.0, -0.5, -1.0)
+        control_matrix = (
+            (0.0, 0.0, 0.0, 0.0),
+            (0.0, 0.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0, 0.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
 
         filter_ = KalmanFilter(
-            initial_estimates,
-            process_error_covariances,
-            measurement_error_covariances,
             transition_matrix,
             observation_matrix,
+            initial_estimates,
+            numpy.eye(4),
+            process_error_covariances,
+            measurement_error_covariances,
             control_matrix=control_matrix
         )
 
@@ -153,8 +160,8 @@ class TestKalmanFilter(unittest.TestCase):
                 if self._location[1] < 0.0:
                     self._location[1] = 0.0
 
-        time_slice = 0.1
-        cannon_ball = CannonBall(time_slice, 30.0)
+        error = 30.0
+        cannon_ball = CannonBall(time_slice, error)
         # The control vector that adds acceleration to the kinematic equations
         # 0          =>  x(n+1) =  x(n+1)
         # 0          => vx(n+1) = vx(n+1)
@@ -187,16 +194,13 @@ class TestKalmanFilter(unittest.TestCase):
                 ),
                 control_state=control_vector
             )
-            kalman_x.append(prediction[0])
-            kalman_y.append(prediction[1])
-            print(prediction[:2])
+            kalman_x.append(prediction[0].item())
+            kalman_y.append(prediction[2].item())
 
-        pylab.plot(real_x, real_y, '-', reading_x, reading_y, ':', kalman_x, kalman_y, '--')
-        pylab.xlabel('X position')
-        pylab.ylabel('Y position')
-        pylab.title('Measurement of a Cannonball in Flight')
-        pylab.legend(('true', 'measured', 'kalman'))
-        pylab.show()
+        for cannon_x, predicted_x in zip(real_x[-5:], kalman_x[-5:]):
+            self.assertTrue(abs(cannon_x - predicted_x) < error)
+        for cannon_y, predicted_y in zip(real_y[-5:], kalman_y[-5:]):
+            self.assertTrue(abs(cannon_y - predicted_y) < error)
 
     def test_linear_estimates_normal_observation(self):
         """Test the estimates of the Kalman filter with noisy readings. Use the
