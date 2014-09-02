@@ -3,10 +3,7 @@ and provide more accurate telemetry data.
 """
 import json
 import math
-import time
 import collections
-
-from estimated_compass import EstimatedCompass
 
 #pylint: disable=invalid-name
 
@@ -24,7 +21,6 @@ class Telemetry(object):
         self._data = {}
         self._past_length = 20
         self._logger = logger
-        self._estimated_compass = EstimatedCompass(logger)
         self._latitude_offset = None
         self._longitude_offset = None
         self._speed_history = collections.deque()
@@ -64,14 +60,6 @@ class Telemetry(object):
         """
         assert -1.0 <= throttle <= 1.0, 'Bad throttle in telemetry'
         assert -1.0 <= turn <= 1.0, 'Bad turn in telemetry'
-        self._turn_time = time.time()
-        self._turn_rate = turn
-        if 'heading' in self._data:
-            self._estimated_compass.process_drive_command(
-                throttle,
-                turn,
-                self._data['heading']
-            )
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from the phone."""
@@ -304,7 +292,12 @@ class Telemetry(object):
     def is_stopped(self):
         """Determines if the RC car is moving."""
         if len(self._speed_history) < self.HISTORICAL_SPEED_READINGS_COUNT:
-            self._logger.warning('cannot determine if crashed because speed history does not contain ' + str(self.HISTORICAL_SPEED_READINGS_COUNT) + ' data points.')
+            self._logger.warning(
+                'Cannot determine if crashed because speed history does not'
+                ' contain {count} data points.'.format(
+                    count=self.HISTORICAL_SPEED_READINGS_COUNT
+                )
+            )
             return False
 
         all_zero = True
