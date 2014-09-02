@@ -32,7 +32,7 @@ class KalmanFilter(object):
         self._measurement_error_estimate = self._to_matrix(measurement_error_estimate)
 
         if control_matrix is not None:
-            self._control_matrix = self._to_matrix(control_matrix)
+            self._control_matrix = self._to_matrix(control_matrix).transpose()
         else:
             self._control_matrix = None
 
