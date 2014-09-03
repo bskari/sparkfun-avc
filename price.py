@@ -26,12 +26,12 @@ def main():
 
     item_to_price = collections.OrderedDict(sorted(item_to_price.items()))
 
-    price_to_item = collections.OrderedDict(
-        sorted(
-            ((price, item) for item, price in item_to_price.items()),
-            reverse=True
-        )
+    price_to_item = sorted(
+        ((price, item) for item, price in item_to_price.items()),
+        reverse=True
     )
+
+    assert(len(item_to_price) == len(price_to_item))
 
     max_length = max((len(item) for item in item_to_price.keys()))
     format_string = '{{item: <{len_}}}${{price}}'.format(len_=max_length + 3)
@@ -42,7 +42,7 @@ def main():
     print('')
 
     print('    *** By price ***')
-    for price, item in price_to_item.items():
+    for price, item in price_to_item:
         print(format_string.format(item=item, price=price))
     print('')
 
