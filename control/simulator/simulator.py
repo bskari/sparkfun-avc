@@ -1,8 +1,17 @@
+"""Simulates the car with telemetry."""
 import math
+import mock
 import time
 
 from command import Command
 from telemetry import Telemetry
+
+# pylint: disable=missing-docstring
+# pylint: disable=no-self-use
+# pylint: disable=protected-access
+# pylint: disable=superfluous-parens
+# pylint: disable=too-few-public-methods
+
 
 class FakeLogger(object):
     def debug(self, message):
@@ -14,12 +23,13 @@ class FakeLogger(object):
     def error(self, message):
         print(message)
 
+
 class FakeSocket(object):
     def send(self, message):
         pass
 
-class TelemetrySimulator(object):
 
+class TelemetrySimulator(object):
     def __init__(self, first_way_point):
         self._latitude, self._longitude = first_way_point
         self._latitude -= 0.001
@@ -28,11 +38,13 @@ class TelemetrySimulator(object):
         self._throttle = 0.0
         self._turn = 0.0
 
+        self.update_count = 1000
+        self.command = None
+
     def get_raw_data(self):
         raise NotImplementedError
 
     def get_data(self):
-        self._update_position()
         values = {
             'heading': self._heading,
             'latitude': self._latitude,
@@ -51,6 +63,11 @@ class TelemetrySimulator(object):
         self._turn = turn
 
     def _update_position(self):
+        self.update_count -= 1
+        if self.update_count <= 0:
+            assert self.command is not None
+            self.command.kill()
+
         diff_time_s = 1.0
 
         if self._throttle > 0.0:
@@ -66,7 +83,9 @@ class TelemetrySimulator(object):
     def is_stopped(self):
         return False
 
+
 def main():
+    """Main function."""
     fake_logger = FakeLogger()
     box = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
     waypoints = [(x * .001 + 10, y * .001 + 10) for x, y in box]
@@ -79,19 +98,11 @@ def main():
         sleep_time_milliseconds=1,
         waypoints=waypoints,
     )
-    command.start()
-    print('Starting')
+    telemetry_simulator.command = command
+    command._wait = mock.Mock(side_effect=telemetry_simulator._update_position)
     command.run_course()
+    command.run()
 
-    run_time_s = 10
-    poll_time_s = 0.1
-    for _ in range(int(run_time_s / poll_time_s)):
-        if not command.is_running_course():
-            break
-        time.sleep(poll_time_s)
-
-    command.kill()
-    command.join()
 
 if __name__ == '__main__':
     main()

@@ -72,6 +72,12 @@ class Command(threading.Thread):
         elif message['command'] == 'stop':
             self.stop()
 
+    def _wait(self):
+        """We just define this function separately so that it's easy to patch
+        when testing.
+        """
+        time.sleep(self._sleep_time_seconds)
+
     def run(self):
         """Run in a thread, controls the RC car."""
         error_count = 0
@@ -82,7 +88,7 @@ class Command(threading.Thread):
         while self._run:
             try:
                 while self._run and not self._run_course:
-                    time.sleep(self._sleep_time_seconds)
+                    self._wait()
 
                 if not self._run:
                     return
@@ -90,8 +96,8 @@ class Command(threading.Thread):
                 self._logger.info('Running course iteration')
 
                 run_iterator = self._run_iterator()
-                while self._run and self._run_course and run_iterator.next():
-                    time.sleep(self._sleep_time_seconds)
+                while self._run and self._run_course and next(run_iterator):
+                    self._wait()
 
                 self._logger.info('Stopping course')
                 self.send_command(0.0, 0.0)
@@ -123,7 +129,7 @@ class Command(threading.Thread):
         while True:
             if self._telemetry.is_stopped():
                 unstuck_iterator = self._unstuck_yourself_iterator(1.0)
-                while unstuck_iterator.next():
+                while next(unstuck_iterator):
                     yield True
 
                 # Force the car to drive for a little while
@@ -132,11 +138,11 @@ class Command(threading.Thread):
                         self._run
                         and self._run_course
                         and time.time() < start + 3.0
-                        and course_iterator.next()
+                        and next(course_iterator)
                 ):
                     yield True
 
-            yield course_iterator.next()
+            yield next(course_iterator)
 
     def _run_course_iterator(self):
         """Runs a single iteration of the course navigation loop."""
