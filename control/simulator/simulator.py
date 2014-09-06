@@ -30,6 +30,8 @@ class FakeSocket(object):
 
 
 class TelemetrySimulator(object):
+    MAX_SPEED_M_S = 4.7  # From observation
+
     def __init__(self, first_way_point):
         self._latitude, self._longitude = first_way_point
         self._latitude -= 0.001
@@ -45,20 +47,19 @@ class TelemetrySimulator(object):
         raise NotImplementedError
 
     def get_data(self):
+        # The Android phone is rotated, so we need to mess with heading before
+        # we give it to the real Telemetry module to simulate the phone
+        android_heading = Telemetry.wrap_degrees(-self._heading - 90)
         values = {
-            'heading': self._heading,
+            'heading': android_heading,
             'latitude': self._latitude,
             'longitude': self._longitude,
+            'accelerometer': [],
+            'speed': self._throttle * self.MAX_SPEED_M_S,
         }
         return values
 
     def process_drive_command(self, throttle, turn):
-        print(
-            'Throttle: {throttle}, turn: {turn}'.format(
-                throttle=throttle,
-                turn=turn,
-            )
-        )
         self._throttle = throttle
         self._turn = turn
 
@@ -74,7 +75,8 @@ class TelemetrySimulator(object):
             self._heading += self._turn * 20.0
             self._heading = Telemetry.wrap_degrees(self._heading)
 
-            point = (0, diff_time_s * self._throttle * 1.0 / Telemetry.m_per_d_latitude())
+            step_m = diff_time_s * self._throttle * self.MAX_SPEED_M_S
+            point = (0, step_m / Telemetry.m_per_d_latitude())
             radians = math.radians(self._heading)
             point = Telemetry.rotate_radians_clockwise(point, radians)
             self._latitude += point[1]
@@ -89,19 +91,43 @@ def main():
     fake_logger = FakeLogger()
     box = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
     waypoints = [(x * .001 + 10, y * .001 + 10) for x, y in box]
-    telemetry_simulator = TelemetrySimulator(waypoints[0])
+
     fake_socket = FakeSocket()
-    command = Command(
-        telemetry_simulator,
-        fake_socket,
-        fake_logger,
-        sleep_time_milliseconds=1,
-        waypoints=waypoints,
-    )
-    telemetry_simulator.command = command
-    command._wait = mock.Mock(side_effect=telemetry_simulator._update_position)
-    command.run_course()
-    command.run()
+
+    telemetry = Telemetry(fake_logger)
+    telemetry_simulator = TelemetrySimulator(waypoints[0])
+    original_telemetry_get_data = telemetry.get_data
+    def call_and_return_original():
+        telemetry.handle_message(telemetry_simulator.get_data())
+        return original_telemetry_get_data()
+    original_telemetry_process = telemetry.process_drive_command
+    def call_both_processes(throttle, turn):
+        original_telemetry_process(throttle, turn)
+        telemetry_simulator.process_drive_command(throttle, turn)
+
+    with mock.patch.object(
+        telemetry,
+        'get_data',
+        new=call_and_return_original
+    ):
+        with mock.patch.object(
+            telemetry,
+            'process_drive_command',
+            new=call_both_processes
+        ):
+            command = Command(
+                telemetry,
+                fake_socket,
+                fake_logger,
+                sleep_time_milliseconds=1,
+                waypoints=waypoints,
+            )
+            telemetry_simulator.command = command
+            command._wait = mock.Mock(
+                side_effect=telemetry_simulator._update_position
+            )
+            command.run_course()
+            command.run()
 
 
 if __name__ == '__main__':
