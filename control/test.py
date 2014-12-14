@@ -17,7 +17,9 @@ STEERING_RIGHT_US = STEERING_NEUTRAL_US + STEERING_DIFF
 
 def main():
     def get_throttle(percentage):
-        if not (-1.0 <= percentage <= 1.0):
+        # Purposely limit the reverse in case we try to go back while still
+        # rolling - prevent damage to the gear box
+        if not (-0.25 <= percentage <= 1.0):
             raise ValueError('Bad throttle')
         return int(THROTTLE_NEUTRAL_US + THROTTLE_DIFF * percentage) // 10 * 10
 
