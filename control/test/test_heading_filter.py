@@ -90,22 +90,94 @@ class TestHeadingFilter(unittest.TestCase):
         )
 
     def test_inverse(self):
-        foo = [[2, 3],
-               [1, 4]]
+        """Tests the matrix inverse method."""
+        with self.assertRaises(ValueError):
+            HeadingFilter._inverse(
+                [[1, 2, 3],
+                 [1, 2, 3],
+                 [1, 2, 3]]
+            )
+
+        def assert_almost_equal(matrix1, matrix2):
+            """Matrix version of unittest.assertAlmostEqual."""
+            for row1, row2 in zip(matrix1, matrix2):
+                for item1, item2 in zip(row1, row2):
+                    self.assertAlmostEqual(item1, item2)
+
+        test = [[2, 3],
+                [1, 4]]
         identity = [[1, 0],
                     [0, 1]]
-        print(HeadingFilter._inverse(foo))
-        self.assertEqual(
+        assert_almost_equal(
             HeadingFilter._multiply(
-                foo,
-                HeadingFilter._inverse(foo)
+                test,
+                HeadingFilter._inverse(test)
             ),
             identity
         )
-        self.assertEqual(
+        assert_almost_equal(
             HeadingFilter._multiply(
-                HeadingFilter._inverse(foo),
-                foo
+                HeadingFilter._inverse(test),
+                test
             ),
             identity
+        )
+
+    def test_estimate_gps(self):
+        """Tests that the estimating of the headings via GPS is sane."""
+        # I'm not sure how to independently validate these tests for accuracy.
+        # The best I can think of is to do some sanity tests.
+        initial_heading = 100.0
+        heading_filter = HeadingFilter(initial_heading)
+
+        self.assertEqual(heading_filter.estimated_heading(), initial_heading)
+
+        heading = 200.0
+        for _ in range(100):
+            heading_filter.update_heading(heading)
+        self.assertAlmostEqual(heading_filter.estimated_heading(), heading, 3)
+
+    def test_estimate_turn(self):
+        """Tests that the estimating of the headings via turning is sane."""
+        # I'm not sure how to independently validate these tests for accuracy.
+        # The best I can think of is to do some sanity tests.
+        initial_heading = 100.0
+        heading_filter = HeadingFilter(initial_heading)
+
+        self.assertEqual(heading_filter.estimated_heading(), initial_heading)
+
+        heading_d_s = 1.0
+        measurements = [[0.0,], [heading_d_s,],]  # z
+        heading_filter._observer_matrix = [[0, 0], [0, 1]]
+
+        seconds = 50
+        for _ in range(seconds):
+            heading_filter._update(measurements, 1.0)
+        self.assertAlmostEqual(
+            heading_filter.estimated_heading(),
+            initial_heading + heading_d_s * seconds,
+            3
+        )
+
+    @unittest.skip('TODO')
+    def test_estimate(self):
+        """Tests that the estimating of the headings via both is sane."""
+        # Scenario: turning with an estimated turn rate for 5 seconds, then
+        # driving straight and getting GPS heading readings
+        initial_heading = 100.0
+        heading_filter = HeadingFilter(initial_heading)
+
+        self.assertEqual(heading_filter.estimated_heading(), initial_heading)
+
+        heading_d_s = 20.0
+        measurements = [[0.0,], [heading_d_s,],]  # z
+        heading_filter._observer_matrix = [[0, 0], [0, 1]]
+
+        seconds = 50
+        for _ in range(seconds):
+            heading_filter._update(measurements, 1.0)
+        self.assertAlmostEqual(
+            heading_filter.estimated_heading(),
+            initial_heading + heading_d_s * seconds,
+            3
         )
