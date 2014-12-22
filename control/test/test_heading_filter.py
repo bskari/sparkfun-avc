@@ -1,9 +1,6 @@
 """Tests the heading Kalman Filter."""
 
-import math
-import numpy
-import operator
-import random
+from telemetry import Telemetry
 import unittest
 
 from heading_filter import HeadingFilter
@@ -127,37 +124,99 @@ class TestHeadingFilter(unittest.TestCase):
         """Tests that the estimating of the headings via GPS is sane."""
         # I'm not sure how to independently validate these tests for accuracy.
         # The best I can think of is to do some sanity tests.
-        initial_heading = 100.0
-        heading_filter = HeadingFilter(initial_heading)
+        for initial_heading in range(0, 360, 30):
+            heading_filter = HeadingFilter(initial_heading)
 
-        self.assertEqual(heading_filter.estimated_heading(), initial_heading)
+            self.assertEqual(
+                heading_filter.estimated_heading(),
+                initial_heading
+            )
 
-        heading = 200.0
-        for _ in range(100):
-            heading_filter.update_heading(heading)
-        self.assertAlmostEqual(heading_filter.estimated_heading(), heading, 3)
+            for heading in range(15, 360, 30):
+                # Change this just to make stuff converge faster
+                heading_filter._measurement_noise = [[0.001, 0], [0, 0.001]]
+
+                for _ in range(5):
+                    heading_filter.update_heading(heading)
+                self.assertAlmostEqual(
+                    heading_filter.estimated_heading(),
+                    heading,
+                    2
+                )
+
+    def test_estimate_gps_rollover(self):
+        """Tests that the estimation moves in the right direction around the
+        0-360 rollover boundary.
+        """
+        # We also need to make sure that the estimation 'rolls over', i.e.
+        # if we're at 350 degrees and start feeding it 10 degree measurements,
+        # it increases instead of going down
+        for initial_heading, measurement in ((350, 10), (10, 350)):
+            heading_filter = HeadingFilter(initial_heading)
+            heading_filter.update_heading(measurement)
+            self.assertTrue(
+                (
+                    heading_filter.estimated_heading() > initial_heading
+                    or heading_filter.estimated_heading() < measurement
+                ),
+                '{low} < {heading} < {high} but should not be'.format(
+                    low=measurement,
+                    heading=heading_filter.estimated_heading(),
+                    high=initial_heading
+                )
+            )
 
     def test_estimate_turn(self):
         """Tests that the estimating of the headings via turning is sane."""
         # I'm not sure how to independently validate these tests for accuracy.
         # The best I can think of is to do some sanity tests.
         initial_heading = 100.0
-        heading_filter = HeadingFilter(initial_heading)
 
-        self.assertEqual(heading_filter.estimated_heading(), initial_heading)
+        for heading_d_s in (1.0, -1.0):
+            heading_filter = HeadingFilter(initial_heading)
+            self.assertEqual(
+                heading_filter.estimated_heading(),
+                initial_heading
+            )
 
-        heading_d_s = 1.0
-        measurements = [[0.0,], [heading_d_s,],]  # z
-        heading_filter._observer_matrix = [[0, 0], [0, 1]]
+            measurements = [[0.0,], [heading_d_s,],]  # z
+            heading_filter._observer_matrix = [[0, 0], [0, 1]]
 
-        seconds = 50
-        for _ in range(seconds):
-            heading_filter._update(measurements, 1.0)
-        self.assertAlmostEqual(
-            heading_filter.estimated_heading(),
-            initial_heading + heading_d_s * seconds,
-            3
-        )
+            seconds = 20
+            for _ in range(seconds):
+                heading_filter._update(measurements, 1.0)
+            self.assertAlmostEqual(
+                heading_filter.estimated_heading(),
+                initial_heading + heading_d_s * seconds,
+                3
+            )
+
+    def test_estimate_turn_rollover(self):
+        """Tests that the estimation moves in the right direction around the
+        0-360 rollover boundary.
+        """
+        # We also need to make sure that the estimation 'rolls over', i.e.  if
+        # we're at 350 degrees and start turning right, it increases instead of
+        # going down
+        #for initial_heading, d_per_s in ((350, 1), (10, -1)):
+        for initial_heading, d_per_s in ((10, -1),):
+            heading_filter = HeadingFilter(initial_heading)
+            self.assertEqual(
+                heading_filter.estimated_heading(),
+                initial_heading
+            )
+
+            measurements = [[0.0,], [d_per_s,],]  # z
+            heading_filter._observer_matrix = [[0, 0], [0, 1]]
+
+            seconds = 20
+            for _ in range(seconds):
+                heading_filter._update(measurements, 1.0)
+            self.assertAlmostEqual(
+                heading_filter.estimated_heading(),
+                Telemetry.wrap_degrees(initial_heading + d_per_s * seconds),
+                3
+            )
 
     @unittest.skip('TODO')
     def test_estimate(self):
