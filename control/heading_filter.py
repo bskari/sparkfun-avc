@@ -1,6 +1,4 @@
 """Kalman filter for the heading of the vehicle."""
-#pylint: disable=protected-access
-#pylint: disable=too-many-instance-attributes
 
 import sys
 import time
@@ -32,7 +30,6 @@ class HeadingFilter(object):
         # observer (H) matrices and measurement noise (R) matrices
         self._observer_matrix = [[1, 0], [0, 0]]
 
-        self._last_observation_s = time.time()
         # GPS updates don't rely on time, so ignore time_diff_s
         self._update(measurements, 0.0)
 

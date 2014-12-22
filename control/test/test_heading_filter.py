@@ -198,8 +198,7 @@ class TestHeadingFilter(unittest.TestCase):
         # We also need to make sure that the estimation 'rolls over', i.e.  if
         # we're at 350 degrees and start turning right, it increases instead of
         # going down
-        #for initial_heading, d_per_s in ((350, 1), (10, -1)):
-        for initial_heading, d_per_s in ((10, -1),):
+        for initial_heading, d_per_s in ((350, 1), (10, -1)):
             heading_filter = HeadingFilter(initial_heading)
             self.assertEqual(
                 heading_filter.estimated_heading(),
@@ -218,7 +217,6 @@ class TestHeadingFilter(unittest.TestCase):
                 3
             )
 
-    @unittest.skip('TODO')
     def test_estimate(self):
         """Tests that the estimating of the headings via both is sane."""
         # Scenario: turning with an estimated turn rate for 5 seconds, then
@@ -228,15 +226,41 @@ class TestHeadingFilter(unittest.TestCase):
 
         self.assertEqual(heading_filter.estimated_heading(), initial_heading)
 
+        update_hz = 10
+
+        # Turn
         heading_d_s = 20.0
+        turn_time_s = 5
         measurements = [[0.0,], [heading_d_s,],]  # z
         heading_filter._observer_matrix = [[0, 0], [0, 1]]
 
-        seconds = 50
-        for _ in range(seconds):
-            heading_filter._update(measurements, 1.0)
+        for _ in range(turn_time_s * update_hz):
+            heading_filter._update(measurements, 1.0 / update_hz)
         self.assertAlmostEqual(
             heading_filter.estimated_heading(),
-            initial_heading + heading_d_s * seconds,
-            3
+            initial_heading + heading_d_s * turn_time_s,
+            2
+        )
+        # Introduce some error
+        actual_heading = Telemetry.wrap_degrees(
+            initial_heading + heading_d_s * turn_time_s - 10
+        )
+
+        # And now straight
+        straight_time_s = 5
+        for _ in range(straight_time_s * update_hz):
+            # No turn
+            measurements = [[0.0,], [0.0,],]  # z
+            heading_filter._observer_matrix = [[0, 0], [0, 1]]
+            heading_filter._update(measurements, 1.0 / update_hz)
+
+            # GPS heading
+            measurements = [[actual_heading,], [0.0,],]  # z
+            heading_filter._observer_matrix = [[1, 0], [0, 0]]
+            heading_filter._update(measurements, 1.0 / update_hz)
+
+        self.assertAlmostEqual(
+            heading_filter.estimated_heading(),
+            actual_heading,
+            1
         )
