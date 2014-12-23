@@ -215,6 +215,7 @@ class Command(threading.Thread):
         self._run = False
 
     def is_running_course(self):
+        """Returns True if we're currently navigating the course."""
         return self._run_course
 
     def _unstuck_yourself_iterator(self, seconds):

@@ -77,13 +77,6 @@ class Telemetry(object):
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
-        # The Android phone is mounted rotated 90 degrees, so we need to
-        # rotate the compass heading
-        if 'heading' in message:
-            heading = message['heading'] - 90.0
-            heading = self.wrap_degrees(180.0 - heading)
-            message['heading'] = heading
-
         if 'calibrate' in message:
             self._calibrate()
             return

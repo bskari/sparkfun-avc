@@ -8,9 +8,9 @@ import subprocess
 import sys
 
 from command import Command
-from dummy_driver import DummyDriver
-from dummy_telemetry_data import DummyTelemetryData
 from kml_waypoint_generator import KmlWaypointGenerator
+from simulator.dummy_driver import DummyDriver
+from simulator.dummy_telemetry_data import DummyTelemetryData
 from telemetry import Telemetry
 
 # pylint: disable=global-statement
@@ -41,11 +41,9 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     sys.exit(0)
 
 
-
-
 def start_threads(
-    waypoint_generator,
-    logger
+        waypoint_generator,
+        logger
 ):
     """Runs everything."""
     telemetry = Telemetry(logger)
