@@ -3,8 +3,6 @@
 import sys
 import time
 
-from telemetry import Telemetry
-
 
 class HeadingFilter(object):
     """Kalman filter for the heading of the vehicle."""
@@ -144,6 +142,7 @@ class HeadingFilter(object):
 
     def estimated_heading(self):
         """Returns the estimated true heading."""
+        from telemetry import Telemetry
         return Telemetry.wrap_degrees(self._estimates_d[0][0])
 
     @staticmethod
