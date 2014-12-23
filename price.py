@@ -9,19 +9,16 @@ import collections
 def main():
     """Calculates the price of our car."""
     item_to_price = {
-        'Radio Shack Dune Warrior': 99.99,
-        'Raspberry Pi': 39.99,
-        'Pi Tin clear': 7.95,
+        'Tamiya Grasshopper RC Car': 89.41,
+        '7.2V Tenergy 3800mAh NiMH battery': 26.99,
+        'Raspberry Pi A+': 21.96,
+        '2200 mAh USB battery': 16.99,
         'Raspberry Pi camera': 29.95,
-        'Raspberry Pi camera case': 6.95,
-        '6600 mAh USB battery pack': 29.95,
-        'Android phone': 39.99,
-        'pcDuino USB WiFi dongle': 14.95,
-        'adhesive Velcro': 9.88,
-        'Velcro straps x 2': 15.98,
+        'Rosewill WiFi adapter': 5.99,
         'USB drive': 4.87,
-        '32 GiB microSDHC + adapter': 12.99,
+        '2 GiB microSDHC': 3.92,
         'jumper wires standard pack of 30': 4.95,
+        'Velcro straps': 7.99,
     }
 
     item_to_price = collections.OrderedDict(sorted(item_to_price.items()))
