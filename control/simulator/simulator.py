@@ -4,12 +4,13 @@ import mock
 import time
 
 from command import Command
+from dummy_driver import DummyDriver
+from kml_waypoint_generator import KmlWaypointGenerator
 from telemetry import Telemetry
 
 # pylint: disable=missing-docstring
 # pylint: disable=no-self-use
 # pylint: disable=protected-access
-# pylint: disable=superfluous-parens
 # pylint: disable=too-few-public-methods
 
 
@@ -22,11 +23,6 @@ class FakeLogger(object):
         print(message)
     def error(self, message):
         print(message)
-
-
-class FakeSocket(object):
-    def send(self, message):
-        pass
 
 
 class TelemetrySimulator(object):
@@ -90,12 +86,18 @@ def main():
     """Main function."""
     fake_logger = FakeLogger()
     box = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
-    waypoints = [(x * .001 + 10, y * .001 + 10) for x, y in box]
-
-    fake_socket = FakeSocket()
+    waypoint_generator = KmlWaypointGenerator(
+        fake_logger,
+        'paths/solid-state-depot.kmz'
+    )
+    waypoint_generator._waypoints.clear()
+    for x, y in ((x_ * .001 + 10, y_ * .001 + 10) for x_, y_ in box):
+        waypoint_generator._waypoints.append((x, y))
 
     telemetry = Telemetry(fake_logger)
-    telemetry_simulator = TelemetrySimulator(waypoints[0])
+    telemetry_simulator = TelemetrySimulator(
+        waypoint_generator.get_current_waypoint()
+    )
     original_telemetry_get_data = telemetry.get_data
     def call_and_return_original():
         telemetry.handle_message(telemetry_simulator.get_data())
@@ -115,12 +117,13 @@ def main():
             'process_drive_command',
             new=call_both_processes
         ):
+            driver = DummyDriver(telemetry, fake_logger)
             command = Command(
                 telemetry,
-                fake_socket,
+                driver,
+                waypoint_generator,
                 fake_logger,
                 sleep_time_milliseconds=1,
-                waypoints=waypoints,
             )
             telemetry_simulator.command = command
             command._wait = mock.Mock(

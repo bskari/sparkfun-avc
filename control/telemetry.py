@@ -5,6 +5,8 @@ import json
 import math
 import collections
 
+from heading_filter import HeadingFilter
+
 #pylint: disable=invalid-name
 
 
@@ -19,11 +21,12 @@ class Telemetry(object):
 
     def __init__(self, logger):
         self._data = {}
-        self._past_length = 20
         self._logger = logger
         self._latitude_offset = None
         self._longitude_offset = None
         self._speed_history = collections.deque()
+
+        self._heading_filter = None
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -35,10 +38,10 @@ class Telemetry(object):
             'accelerometer': self._data['accelerometer'],
         }
 
-        if 'heading' in self._data:
+        if self._heading_filter is not None:
+            values['heading'] = self._heading_filter.estimated_heading()
+        elif 'heading' in self._data:
             values['heading'] = self._data['heading']
-        elif 'bearing' in self._data:
-            values['heading'] = self._data['bearing']
 
         if 'latitude' in self._data:
             values['latitude'] = self._data['latitude']
@@ -46,9 +49,6 @@ class Telemetry(object):
             if self._latitude_offset is not None:
                 values['latitude'] += self._latitude_offset
                 values['longitude'] += self._longitude_offset
-
-        if 'bearing' in self._data:
-            values['bearing'] = self._data['bearing']
 
         return values
 
@@ -60,16 +60,28 @@ class Telemetry(object):
         """
         assert -1.0 <= throttle <= 1.0, 'Bad throttle in telemetry'
         assert -1.0 <= turn <= 1.0, 'Bad turn in telemetry'
+        if self._heading_filter is None:
+            return
+        d_per_s = 0.0
+        # TODO: What about coasting?
+        if throttle != 0.0 and turn != 0.0:
+            throttle_greater_than_zero = throttle > 0.0
+            turn_greater_than_zero = turn > 0.0
+            # TODO: Get better estimations here
+            d_per_s = 90.0
+            left = throttle_greater_than_zero != turn_greater_than_zero
+            if left:
+                d_per_s *= -1
+
+        self._heading_filter.update_heading_delta(d_per_s)
 
     def handle_message(self, message):
-        """Stores telemetry data from messages received from the phone."""
+        """Stores telemetry data from messages received from some source."""
         # The Android phone is mounted rotated 90 degrees, so we need to
         # rotate the compass heading
         if 'heading' in message:
             heading = message['heading'] - 90.0
-            heading = 180.0 - heading
-            if heading < 0.0:
-                heading += 360.0
+            heading = self.wrap_degrees(180.0 - heading)
             message['heading'] = heading
 
         if 'calibrate' in message:
@@ -80,6 +92,14 @@ class Telemetry(object):
             self._speed_history.append(self._data['speed'])
             while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
                 self._speed_history.popleft()
+
+        if self._heading_filter is None:
+            if 'bearing' in message:
+                # TODO: For the competition, just hard code this
+                self._heading_filter = HeadingFilter(message['bearing'])
+            elif 'heading' in message:
+                # TODO: For the competition, just hard code this
+                self._heading_filter = HeadingFilter(message['heading'])
 
         self._data = message
         self._logger.debug(json.dumps(message))
@@ -292,12 +312,6 @@ class Telemetry(object):
     def is_stopped(self):
         """Determines if the RC car is moving."""
         if len(self._speed_history) < self.HISTORICAL_SPEED_READINGS_COUNT:
-            self._logger.warning(
-                'Cannot determine if crashed because speed history does not'
-                ' contain {count} data points.'.format(
-                    count=self.HISTORICAL_SPEED_READINGS_COUNT
-                )
-            )
             return False
 
         all_zero = True

@@ -1,16 +1,11 @@
 """Class to control the RC car."""
 
-import collections
-import copy
-import math
 import threading
 import time
 import random
 
-from dune_warrior import command
 from telemetry import Telemetry
 
-# pylint: disable=superfluous-parens
 # pylint: disable=broad-except
 
 
@@ -23,14 +18,12 @@ class Command(threading.Thread):
     def __init__(
         self,
         telemetry,
-        send_socket,
+        driver,
+        waypoint_generator,
         logger,
         sleep_time_milliseconds=None,
-        waypoints=None
     ):
-        """Create the Command thread. send_socket is just a wrapper around
-        some other kind of socket that has a simple "send" method.
-        """
+        """Create the Command thread."""
         super(Command, self).__init__()
 
         self._telemetry = telemetry
@@ -38,19 +31,12 @@ class Command(threading.Thread):
             self._sleep_time_seconds = .02
         else:
             self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
-        self._send_socket = send_socket
+        self._driver = driver
         self._logger = logger
         self._run = True
         self._run_course = False
-        if waypoints is None:
-            self._base_waypoints = collections.deque((
-                # In front of the Hacker Space
-                (40.021391, -105.249860),
-                (40.021394, -105.250176),
-            ))
-        else:
-            self._base_waypoints = collections.deque(waypoints)
-        self._waypoints = None
+        self._waypoint_generator = waypoint_generator
+
         self._last_command = None
 
     def handle_message(self, message):
@@ -81,9 +67,9 @@ class Command(threading.Thread):
     def run(self):
         """Run in a thread, controls the RC car."""
         error_count = 0
-        if self._waypoints is None or len(self._waypoints) == 0:
-            self._logger.info('Resetting waypoints')
-            self._waypoints = copy.deepcopy(self._base_waypoints)
+        if self._waypoint_generator.done():
+            self._logger.info('All waypoints reached')
+            return
 
         while self._run:
             try:
@@ -100,7 +86,7 @@ class Command(threading.Thread):
                     self._wait()
 
                 self._logger.info('Stopping course')
-                self.send_command(0.0, 0.0)
+                self._driver.drive(0.0, 0.0)
 
             except Exception as exception:
                 self._logger.warning(
@@ -146,8 +132,8 @@ class Command(threading.Thread):
 
     def _run_course_iterator(self):
         """Runs a single iteration of the course navigation loop."""
-        while len(self._waypoints) > 0:
-            current_waypoint = self._waypoints[0]
+        while not self._waypoint_generator.done():
+            current_waypoint = self._waypoint_generator.get_current_waypoint()
             telemetry = self._telemetry.get_data()
 
             distance_m = Telemetry.distance_m(
@@ -162,9 +148,14 @@ class Command(threading.Thread):
                     distance=distance_m
                 )
             )
-            if distance_m < 1.5:
+            # We let the waypoint generator tell us if a waypoint has been
+            # reached so that it can do fancy algorithms, like "rabbit chase"
+            if self._waypoint_generator.reached(
+                telemetry['latitude'],
+                telemetry['longitude']
+            ):
                 self._logger.info('Reached ' + str(current_waypoint))
-                self._waypoints.popleft()
+                self._waypoint_generator.next()
                 continue
 
             if distance_m > 3.0:
@@ -190,7 +181,7 @@ class Command(threading.Thread):
 
             diff_d = Telemetry.difference_d(degrees, heading_d)
             if diff_d < 10.0:
-                self.send_command(speed, 0.0)
+                self._driver.drive(speed, 0.0)
                 yield True
                 continue
             elif diff_d > 90.0:
@@ -202,11 +193,11 @@ class Command(threading.Thread):
 
             if Telemetry.is_turn_left(heading_d, degrees):
                 turn = -turn
-            self.send_command(speed, turn)
+            self._driver.drive(speed, turn)
             yield True
 
         self._logger.info('No waypoints, stopping')
-        self.send_command(0.0, 0.0)
+        self._driver.drive(0.0, 0.0)
         self.stop()
         yield False
 
@@ -216,7 +207,7 @@ class Command(threading.Thread):
 
     def stop(self):
         """Stops the RC car from running the course."""
-        self.send_command(0.0, 0.0)
+        self._driver.drive(0.0, 0.0)
         self._run_course = False
 
     def kill(self):
@@ -226,46 +217,11 @@ class Command(threading.Thread):
     def is_running_course(self):
         return self._run_course
 
-    def send_command(self, throttle_percentage, turn_percentage):
-        """Sends a command to the RC car. Throttle should be a float between
-        -1.0 for reverse and 1.0 for forward. Turn should be a float between
-        -1.0 for left and 1.0 for right.
-        """
-        assert -1.0 <= throttle_percentage <= 1.0, 'Bad throttle in command'
-        assert -1.0 <= turn_percentage <= 1.0, 'Bad turn in command'
-
-        throttle = int(throttle_percentage * 16.0 + 16.0)
-        throttle = min(throttle, 31)
-        # Turning too sharply causes the servo to push harder than it can go,
-        # so limit this
-        # Add 33 instead of 32 because the car drifts left
-        turn = int(turn_percentage * 24.0 + 33.0)
-        turn = min(turn, 57)
-        turn = max(turn, 8)
-
-        if self._last_command == (throttle, turn):
-            return
-        self._last_command = (throttle, turn)
-
-        self._telemetry.process_drive_command(
-            throttle_percentage,
-            turn_percentage
-        )
-        self._logger.debug(
-            'throttle:{throttle} turn:{turn}'.format(
-                throttle=throttle,
-                turn=turn,
-                time=time.time()
-            )
-        )
-
-        self._send_socket.send(command(throttle, turn))
-
     def _unstuck_yourself_iterator(self, seconds):
         """Commands the car to reverse and try to get off an obstacle."""
         start = time.time()
         turn_direction = 1.0 if random.randint(0, 1) == 0 else -1.0
         while time.time() < start + seconds:
-            self.send_command(-.5, turn_direction)
+            self._driver.drive(-.5, turn_direction)
             yield True
         yield False
