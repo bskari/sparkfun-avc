@@ -16,7 +16,9 @@ STEERING_RIGHT_US = STEERING_NEUTRAL_US + STEERING_DIFF
 
 
 def main():
+    """Main function."""
     def get_throttle(percentage):
+        """Returns the throttle value."""
         # Purposely limit the reverse in case we try to go back while still
         # rolling - prevent damage to the gear box
         if not (-0.25 <= percentage <= 1.0):
@@ -24,6 +26,7 @@ def main():
         return int(THROTTLE_NEUTRAL_US + THROTTLE_DIFF * percentage) // 10 * 10
 
     def get_steering(percentage):
+        """Returns the steering value."""
         if not (-1.0 <= percentage <= 1.0):
             raise ValueError('Bad steering')
         return int(STEERING_NEUTRAL_US + STEERING_DIFF * percentage) // 10 * 10
@@ -41,16 +44,29 @@ def main():
     try:
         data = None
         while True:
-            print('Throttle: {}, steering: {}'.format(throttle_percentage, steering_percentage))
-            servo.set_servo(THROTTLE_GPIO_PIN, get_throttle(throttle_percentage))
-            print('Setting steering to {}'.format(steering_percentage))
-            servo.set_servo(STEERING_GPIO_PIN, get_steering(steering_percentage))
+            print(
+                'Throttle: {}, steering: {}'.format(
+                    throttle_percentage,
+                    steering_percentage
+                )
+            )
+            servo.set_servo(
+                THROTTLE_GPIO_PIN,
+                get_throttle(throttle_percentage)
+            )
+            print(
+                'Setting steering to {}'.format(steering_percentage)
+            )
+            servo.set_servo(
+                STEERING_GPIO_PIN,
+                get_steering(steering_percentage)
+            )
 
             try:
-                data, address = socket_.recvfrom(1024)
+                data, address = socket_.recvfrom(1024)  # pylint: disable=unused-variable
                 command = json.loads(data.decode())
-            except ValueError as ve:
-                print('Unable to parse JSON {}: {}'.format(data, ve))
+            except ValueError as value_error:
+                print('Unable to parse JSON {}: {}'.format(data, value_error))
                 continue
             except:
                 print('Timed out')
@@ -63,10 +79,9 @@ def main():
             if 'throttle' in command:
                 throttle_percentage = float(command['throttle'])
             if 'steering' in command:
-                print('Parsing steering')
                 steering_percentage = float(command['steering'])
-    except Exception as e:
-        print('Exception: {}'.format(e))
+    except Exception as exc:  # pylint: disable=broad-except
+        print('Exception: {}'.format(exc))
     finally:
         servo.stop_servo(THROTTLE_GPIO_PIN)
         servo.stop_servo(STEERING_GPIO_PIN)
