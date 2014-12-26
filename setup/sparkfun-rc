@@ -1,0 +1,78 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          sparkfun
+# Required-Start:
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Sparkfun AVC
+# Description:       Sparkfun AVC
+### END INIT INFO
+
+# Author: Brandon Skari <brandon@skari.org>
+
+# Do NOT "set -e"
+
+SCRIPTNAME='sparkfun'
+
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+	if [ -n "$(tmux ls 2>/dev/null | grep sparkfun)" ];
+	then
+		return 1
+	fi
+
+	sudo -u bs bash /home/bs/sparkdun-avc/setup/launch.sh
+	return 0
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	return 2
+}
+
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+do_reload() {
+	return 0
+}
+
+case "$1" in
+  start)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  status)
+	tmux ls | grep sparkfun
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|status}" >&2
+	exit 3
+	;;
+esac
+
+:
