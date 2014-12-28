@@ -132,73 +132,91 @@ class TestLocationFilter(unittest.TestCase):
         """Tests that the estimating of the locations via GPS is sane."""
         # I'm not sure how to independently validate these tests for accuracy.
         # The best I can think of is to do some sanity tests.
-        # TODO
-        return
-        for initial_location in range(0, 360, 30):
-            location_filter = LocationFilter(initial_location)
+        for coordinates in ((100, 50), (200, 500)):
+            location_filter = LocationFilter(coordinates[0], coordinates[1])
 
             self.assertEqual(
                 location_filter.estimated_location(),
-                initial_location
+                coordinates
             )
 
-            for location in range(15, 360, 30):
-                # Change this just to make stuff converge faster
-                location_filter._measurement_noise = [[0.001, 0], [0, 0.001]]
+            new_location = (150, 300)
 
-                for _ in range(5):
-                    location_filter.update_location(location)
-                self.assertAlmostEqual(
-                    location_filter.estimated_location(),
-                    location,
-                    2
+            # Change this just to make stuff converge faster
+            location_filter._measurement_noise = [
+                [0.01, 0.0, 0.0, 0.0],
+                [0.0, 0.01, 0.0, 0.0],
+                [0.0, 0.0, 0.1, 0.0],
+                [0.0, 0.0, 0.0, 0.1]
+            ]
+            for _ in range(5):
+                location_filter.update_location(
+                    new_location[0],
+                    new_location[1]
                 )
+            for estimated, expected in zip(
+                location_filter.estimated_location(),
+                new_location
+            ):
+                self.assertAlmostEqual(estimated, expected, 2)
+
+    def test_estimate_dead_reckoning(self):
+        """Tests that the estimating of the locations via dead reckoning is sane."""
+        # I'm not sure how to independently validate these tests for accuracy.
+        # The best I can think of is to do some sanity tests.
+        start_coordinates = (100, 100)
+        location_filter = LocationFilter(coordinates[0], coordinates[1])
+
+        self.assertEqual(
+            location_filter.estimated_location(),
+            coordinates
+        )
+
+        new_location = (150, 300)
+
+        # Change this just to make stuff converge faster
+        location_filter._measurement_noise = [
+            [0.01, 0.0, 0.0, 0.0],
+            [0.0, 0.01, 0.0, 0.0],
+            [0.0, 0.0, 0.1, 0.0],
+            [0.0, 0.0, 0.0, 0.1]
+        ]
+        for _ in range(5):
+            location_filter.update_location(
+                new_location[0],
+                new_location[1]
+            )
+        for estimated, expected in zip(
+            location_filter.estimated_location(),
+            new_location
+        ):
+            self.assertAlmostEqual(estimated, expected, 2)
 
     def test_estimate(self):
         """Tests that the estimating of the locations via both is sane."""
-        # TODO
-        return
-        initial_x = 100.0
-        initial_y = 1000.0
-        location_filter = LocationFilter(initial_x, initial_y)
+        initial_location = (100.0, 100.0)
+        location_filter = LocationFilter(
+            initial_location[0],
+            initial_location[1]
+        )
 
         self.assertEqual(location_filter.estimated_location(), initial_location)
 
-        update_hz = 10
+        delta_m_s = 1.0
 
-        # Turn
-        location_d_s = 20.0
-        turn_time_s = 5
-        measurements = [[0.0,], [location_d_s,],]  # z
-        location_filter._observer_matrix = [[0, 0], [0, 1]]
+        location_filter._observer_matrix = [
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ]
 
-        for _ in range(turn_time_s * update_hz):
-            location_filter._update(measurements, 1.0 / update_hz)
-        self.assertAlmostEqual(
-            location_filter.estimated_location(),
-            initial_location + location_d_s * turn_time_s,
-            2
-        )
-        # Introduce some error
-        actual_location = Telemetry.wrap_degrees(
-            initial_location + location_d_s * turn_time_s - 10
-        )
-
-        # And now straight
-        straight_time_s = 5
-        for _ in range(straight_time_s * update_hz):
-            # No turn
-            measurements = [[0.0,], [0.0,],]  # z
-            location_filter._observer_matrix = [[0, 0], [0, 1]]
-            location_filter._update(measurements, 1.0 / update_hz)
-
-            # GPS location
-            measurements = [[actual_location,], [0.0,],]  # z
-            location_filter._observer_matrix = [[1, 0], [0, 0]]
-            location_filter._update(measurements, 1.0 / update_hz)
-
-        self.assertAlmostEqual(
-            location_filter.estimated_location(),
-            actual_location,
-            1
-        )
+        for seconds in range(1, 5):
+            measurements = [[0.0], [0.0], [delta_m_s], [delta_m_s]]
+            location_filter._update(measurements, 1.0)
+            for index in range(2):
+                self.assertAlmostEqual(
+                    location_filter.estimated_location()[index],
+                    initial_location[index] + seconds * delta_m_s,
+                    2
+                )

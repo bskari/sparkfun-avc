@@ -182,7 +182,7 @@ class LocationFilter(object):
 
     def estimated_location(self):
         """Returns the estimated true location."""
-        return (self._estimates[0][0], self._estimates[1][1])
+        return (self._estimates[0][0], self._estimates[1][0])
 
     @staticmethod
     def _dimensions(matrix):
