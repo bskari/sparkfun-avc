@@ -182,12 +182,13 @@ class TestHeadingFilter(unittest.TestCase):
             measurements = [[0.0,], [heading_d_s,],]  # z
             heading_filter._observer_matrix = [[0, 0], [0, 1]]
 
-            seconds = 20
-            for _ in range(seconds):
-                heading_filter._update(measurements, 1.0)
+            updates = 20
+            tick = 0.5
+            for _ in range(updates):
+                heading_filter._update(measurements, tick)
             self.assertAlmostEqual(
                 heading_filter.estimated_heading(),
-                initial_heading + heading_d_s * seconds,
+                initial_heading + heading_d_s * updates * tick,
                 3
             )
 
@@ -208,12 +209,15 @@ class TestHeadingFilter(unittest.TestCase):
             measurements = [[0.0,], [d_per_s,],]  # z
             heading_filter._observer_matrix = [[0, 0], [0, 1]]
 
-            seconds = 20
-            for _ in range(seconds):
-                heading_filter._update(measurements, 1.0)
+            updates = 21  # Avoid 20 so we don't deal with 0-360 boundary
+            tick = 0.5
+            for _ in range(updates):
+                heading_filter._update(measurements, tick)
             self.assertAlmostEqual(
                 heading_filter.estimated_heading(),
-                Telemetry.wrap_degrees(initial_heading + d_per_s * seconds),
+                Telemetry.wrap_degrees(
+                    initial_heading + d_per_s * updates * tick
+                ),
                 3
             )
 
