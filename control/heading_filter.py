@@ -1,6 +1,6 @@
 """Kalman filter for the heading of the vehicle."""
 
-import sys
+import copy
 import time
 
 
@@ -215,10 +215,6 @@ class HeadingFilter(object):
         if dim[0] != dim[1] or dim[1] != 2:
             raise ValueError('Only 2x2 matrices supported')
 
-        if sys.version_info.major == 3:
-            new_matrix = matrix.copy()
-        else:
-            import copy
-            new_matrix = copy.deepcopy(matrix)
+        new_matrix = copy.deepcopy(matrix)
         new_matrix[0][1], new_matrix[1][0] = new_matrix[1][0], new_matrix[0][1]
         return new_matrix

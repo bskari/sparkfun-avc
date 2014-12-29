@@ -165,11 +165,14 @@ class TestLocationFilter(unittest.TestCase):
         # I'm not sure how to independently validate these tests for accuracy.
         # The best I can think of is to do some sanity tests.
         start_coordinates = (100, 100)
-        location_filter = LocationFilter(coordinates[0], coordinates[1])
+        location_filter = LocationFilter(
+            start_coordinates[0],
+            start_coordinates[1]
+        )
 
         self.assertEqual(
             location_filter.estimated_location(),
-            coordinates
+            start_coordinates
         )
 
         new_location = (150, 300)
