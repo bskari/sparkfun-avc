@@ -10,8 +10,6 @@ latitude, longitude, heading, bearing, accelerometer, gyro, speed, time, etc.
 import threading
 import time
 
-# pylint: disable=broad-except
-
 
 class DummyTelemetryData(threading.Thread):
     """Dummy class that implements the TelemetryData interface."""
@@ -36,7 +34,7 @@ class DummyTelemetryData(threading.Thread):
         while self._run:
             try:
                 time.sleep(0.1)
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 pass
 
             self._telemetry.handle_message({

@@ -1,21 +1,20 @@
 """Class to control the RC car."""
 
+import gc
 import threading
 import time
 import random
 
 from telemetry import Telemetry
 
-# pylint: disable=broad-except
 
-
-class Command(threading.Thread):
+class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     """Processes telemetry data and controls the RC car."""
     VALID_COMMANDS = {'start', 'stop'}
     STRAIGHT_TIME_S = 1.0
     MIN_RUN_TIME_S = 3.0
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         telemetry,
         driver,
@@ -38,6 +37,8 @@ class Command(threading.Thread):
         self._waypoint_generator = waypoint_generator
 
         self._last_command = None
+        self._sleep_time = None
+        self._wake_time = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -62,7 +63,14 @@ class Command(threading.Thread):
         """We just define this function separately so that it's easy to patch
         when testing.
         """
-        time.sleep(self._sleep_time_seconds)
+        gc.collect()  # Let's try to preemptvely avoid GC interruptions
+        self._sleep_time = time.time()
+        if self._wake_time is not None:
+            time_awake = self._wake_time - self._sleep_time
+        else:
+            time_awake = 0.0
+        time.sleep(self._sleep_time_seconds - time_awake)
+        self._wake_time = time.time()
 
     def run(self):
         """Run in a thread, controls the RC car."""
@@ -88,7 +96,7 @@ class Command(threading.Thread):
                 self._logger.info('Stopping course')
                 self._driver.drive(0.0, 0.0)
 
-            except Exception as exception:
+            except Exception as exception:  # pylint: disable=broad-except
                 self._logger.warning(
                     'Command thread had exception, ignoring: ' \
                         + str(type(exception)) + ':' + str(exception)
