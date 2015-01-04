@@ -9,16 +9,13 @@ This implements the "rabbit chase" algorithm.
 
 import math
 
-from kml_waypoint_generator import KmlWaypointGenerator
 from telemetry import Telemetry
 
 
 class ChaseWaypointGenerator(object):
-    """Loads waypoints from a KML file and returns waypoints using the 'rabbit
-    chase' algorithm.
-    """
+    """Generates waypoints using the 'rabbit chase' algorithm."""
 
-    def __init__(self, logger, kml_file_name, distance_m=None):
+    def __init__(self, logger, waypoints, distance_m=None):
         self._logger = logger
 
         if distance_m is None:
@@ -26,8 +23,7 @@ class ChaseWaypointGenerator(object):
         else:
             self._distance_m = distance_m
 
-        kml_waypoint_generator = KmlWaypointGenerator(kml_file_name)
-        self._waypoints = list(kml_waypoint_generator._waypoints)  # pylint: disable=protected-access
+        self._waypoints = waypoints
         self._current_waypoint = 0
 
         self._last_latitude = None
@@ -91,7 +87,7 @@ class ChaseWaypointGenerator(object):
 
             waypoint = min(
                 intersections,
-                lambda point: Telemetry.distance_m(
+                key=lambda point: Telemetry.distance_m(
                     current[0],
                     current[1],
                     point[0],

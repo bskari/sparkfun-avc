@@ -3,6 +3,7 @@ import math
 import unittest
 
 from chase_waypoint_generator import ChaseWaypointGenerator
+from test.dummy_logger import DummyLogger
 
 #pylint: disable=invalid-name
 #pylint: disable=protected-access
@@ -139,3 +140,24 @@ class TestChaseWaypointGenerator(unittest.TestCase):
                     self._add(line_point_1, offset)
                 )
                 self.assertAlmostEqual(distance_m, expected)
+
+    def test_get_current_waypoint(self):
+        """Tests the chase waypoint generation."""
+        logger = DummyLogger()
+
+        points = ((20, 20),)
+        generator = ChaseWaypointGenerator(logger, points)
+        self.assertEqual(points[0], generator.get_current_waypoint(19, 19))
+
+        points = ((20, 20), (21, 21))
+        generator = ChaseWaypointGenerator(logger, points)
+        self.assertEqual(points[0], generator.get_current_waypoint(19, 19))
+
+        points = ((0, 0), (0, 1), (0, 2), (0, 3))
+        generator = ChaseWaypointGenerator(logger, points)
+        generator._current_waypoint = len(points) // 2
+        waypoint = generator.get_current_waypoint(-1, 0.5)
+        self.assertEqual(waypoint[0], 0)
+        waypoint = generator.get_current_waypoint(0.00000001, 0.5)
+        self.assertAlmostEqual(waypoint[0], 0)
+        self.assertGreater(waypoint[1], 0.5)

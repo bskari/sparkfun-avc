@@ -9,9 +9,9 @@ import sys
 
 from command import Command
 from kml_waypoint_generator import KmlWaypointGenerator
-from simulator.dummy_driver import DummyDriver
-from simulator.dummy_telemetry_data import DummyTelemetryData
 from telemetry import Telemetry
+from test.dummy_driver import DummyDriver
+from test.dummy_telemetry_data import DummyTelemetryData
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
