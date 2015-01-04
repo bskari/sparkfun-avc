@@ -1,78 +1,70 @@
 """Kalman filter for the location of the vehicle."""
 
-import itertools
 import math
 import numpy
-import sys
 import time
+
+# pylint: disable=no-member
 
 
 class LocationFilter(object):
     """Kalman filter for the location of the vehicle."""
-    GPS_OBSERVER_MATRIX = numpy.matrix([  # H
-        [1, 0, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0, 0],
-        [0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 1, 0],
-        [0, 0, 0, 0, 0, 0]
-    ])
-    COMPASS_OBSERVER_MATRIX = numpy.matrix([  # H
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0]
-    ])
-
-    GPS_MEASUREMENT_NOISE = numpy.matrix([  # R
-        [0, 0, 0, 0, 0, 0],  # x_m will be filled in by the GPS accuracy
-        [0, 0, 0, 0, 0, 0],  # y_m will be filled in by the GPS accuracy
-        [0, 0, 5, 0, 0, 0],
-        [0, 0, 0, 10, 0, 0],
-        [0, 0, 0, 0, 0.1, 0],
-        [0, 0, 0, 0, 0, 0.1]
-    ])
-    COMPASS_MEASUREMENT_NOISE = numpy.matrix([  # R
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0],
-        [0, 0, 45, 0, 0, 0],
-        [0, 0, 0, 5, 0, 0],
-        [0, 0, 0, 0, 1, 0],
-        [0, 0, 0, 0, 0, 0.5]
-    ])
-
     MAX_SPEED_M_S = 11.0 * 5280 / 60 / 60 / 3.2808399  # 11 MPH
     # Assume constant acceleration until we hit the target speed
     ACCELERATION_M_S_S = 1.0  # TODO: Take measurements of this
 
+    GPS_OBSERVER_MATRIX = numpy.matrix([  # H
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    ])
+    COMPASS_OBSERVER_MATRIX = numpy.matrix([  # H
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 0]
+    ])
+
+    GPS_MEASUREMENT_NOISE = numpy.matrix([  # R
+        [0, 0, 0, 0],  # x_m will be filled in by the GPS accuracy
+        [0, 0, 0, 0],  # y_m will be filled in by the GPS accuracy
+        [0, 0, 5, 0],  # This degrees value is a guess
+        [0, 0, 0, MAX_SPEED_M_S * 0.1]  # This speed value is a guess
+    ])
+    COMPASS_MEASUREMENT_NOISE = numpy.matrix([  # R
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        # This degrees value is a guess. It's kept artificially high because
+        # I've observed a lot of local interference as I drove around before.
+        [0, 0, 45, 0],
+        [0, 0, 0, 0]
+    ])
+
     # http://robotsforroboticists.com/kalman-filtering/ is a great reference
-    def __init__(self, x_m, y_m):
+    def __init__(self, x_m, y_m, heading_d=None):
+        if heading_d is None:
+            heading_d = 0.0
         self._estimates = numpy.matrix(
-            # x m, y m, heading d, heading delta d/s, speed m/s, acceleration m/s^2
-            [x_m, y_m, 0.0, 0.0, 0.0, 0.0]
+            # x m, y m, heading d, speed m/s
+            [x_m, y_m, heading_d, 0.0]
         ).transpose()  # x
 
         # This will be populated as the filter runs
         # TODO: Ideally, this should be initialized to those values, for right
-        # now, identity matrix is fine.
+        # now, identity matrix is fine
         self._covariance_matrix = numpy.matrix([  # P
-            [1, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 1]
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
         ])
         # TODO: Tune this parameter for maximum performance
         self._process_noise = numpy.matrix([  # Q
-            [1, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 1]
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
         ])
         self._accelerating = False
         self._acceleration = 0.0
@@ -80,15 +72,23 @@ class LocationFilter(object):
 
         self._last_observation_s = time.time()
 
-    def update_gps(self, x_m, y_m, x_accuracy_m, y_accuracy_m, heading_d, speed_m_s):
+    def update_gps(
+        self,
+        x_m,
+        y_m,
+        x_accuracy_m,
+        y_accuracy_m,
+        heading_d,
+        speed_m_s
+    ):
         """Update the state estimation using the provided GPS measurement."""
         measurements = numpy.matrix(
-            [x_m, y_m, heading_d, 0.0, speed_m_s, 0.0]
+            [x_m, y_m, heading_d, speed_m_s]
         ).transpose()  # z
 
-        # GPS updates don't rely on time, so ignore time_diff_s
         self.GPS_MEASUREMENT_NOISE[0].itemset(0, x_accuracy_m)
         self.GPS_MEASUREMENT_NOISE[1].itemset(1, y_accuracy_m)
+        # GPS updates don't rely on time, so ignore time_diff_s
         self._update(
             measurements,
             self.GPS_OBSERVER_MATRIX,
@@ -113,7 +113,7 @@ class LocationFilter(object):
         turn_d_s = 0.0
 
         measurements = numpy.matrix(
-            [0.0, 0.0, compass_d, turn_d_s, 0.0, self._acceleration]
+            [0.0, 0.0, compass_d, 0.0]
         ).transpose()  # z
 
         now = time.time()
@@ -135,20 +135,20 @@ class LocationFilter(object):
         time_diff_s
     ):
         """Runs the Kalman update using the provided measurements."""
+        if measurements.size != 1:
+            measurements = measurements.transpose()
         # Prediction step
         # x = A * x
-        speed = self._estimates[5].item(0)
-        heading_r = math.radians(self._estimates[2].item(0))
-        x_delta = math.sin(heading_r)
-        y_delta = math.cos(heading_r)
+        heading_r = math.radians(self.estimated_heading())
+        x_delta = math.sin(heading_r) * time_diff_s
+        y_delta = math.cos(heading_r) * time_diff_s
         transition = numpy.matrix([  # A
-            [1.0, 0.0, 0.0, 0.0, x_delta, 0.0],
-            [0.0, 1.0, 0.0, 0.0, y_delta, 0.0],
-            [0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0, x_delta],
+            [0.0, 1.0, 0.0, y_delta],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
         ])
+        # TODO: Add acceleration and turn values
         self._estimates = transition * self._estimates
         #print('1. A=\n{}'.format(transition))
         #print('   P=\n{}'.format(self._covariance_matrix))
@@ -188,12 +188,12 @@ class LocationFilter(object):
         # Determine innovation or residual and update our estimate
         # x = x + K * (z - H * x)
         zhx = measurements - observer_matrix * self._estimates
-        heading = zhx[2].item(0)
-        while heading > 180.0:
-            heading -= 360.0
-        while heading <= -180.0:
-            heading += 360.0
-        zhx[2].itemset(0, heading)
+        heading_d = zhx[2].item(0)
+        while heading_d > 180.0:
+            heading_d -= 360.0
+        while heading_d <= -180.0:
+            heading_d += 360.0
+        zhx[2].itemset(0, heading_d)
 
         self._estimates = self._estimates + kalman_gain * zhx
 
@@ -202,7 +202,7 @@ class LocationFilter(object):
         # Update the covariance
         # P = (I - K * H) * P
         self._covariance_matrix = (
-                numpy.identity(6) - kalman_gain * observer_matrix
+            numpy.identity(len(kalman_gain)) - kalman_gain * observer_matrix
         ) * self._covariance_matrix
         #print('7. P=\n{}'.format(self._covariance_matrix))
 
@@ -212,4 +212,4 @@ class LocationFilter(object):
 
     def estimated_heading(self):
         """Returns the estimated true heading."""
-        return self._estimates[2][0]
+        return self._estimates[2].item(0)
