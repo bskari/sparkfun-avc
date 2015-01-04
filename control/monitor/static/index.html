@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sparkfun AVC monitor</title>
+    <link href="static/theme.css" rel="stylesheet">
+    <!-- Bootstrap core CSS -->
+    <link href="static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap theme -->
+    <link href="static/bootstrap/css/bootstrap-theme.min.css" rel="stylesheet">
+</head>
+
+<body role="document">
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">Sparkfun AVC monitor</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container theme-showcase" role="main">
+
+        <p>
+            <button id="run-button" type="button" class="btn btn-lg btn-success">Run</button>
+            <button id="calibrate-compass-button" type="button" class="btn btn-lg btn-default">Calibrate compass</button>
+            <button id="line-up-button" type="button" class="btn btn-lg btn-default">Line up</button>
+            <button id="count-down-button" type="button" class="btn btn-lg btn-default">Countdown</button>
+            <button id="stop-button" type="button" class="btn btn-lg btn-danger">Stop</button>
+        </p>
+
+        <!-- This seemed like a cool idea, but it takes up a lot of space :( -->
+        <!--
+        Throttle
+        <div class="progress">
+            <div class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="0" aria-valuemin="-100" aria-valuemax="100" style="width: 25%;"><span class="sr-only">0 throttle</span></div>
+        </div>
+        Steering
+        <div class="progress">
+            <div class="progress-bar progress-bar-warning" role="progressbar" aria-valuenow="0" aria-valuemin="-100" aria-valuemax="100" style="width: 50%"><span class="sr-only">0 turn</span></div>
+        </div>
+        -->
+
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table">
+                    <tr>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Speed m/s</th>
+                        <th>Heading°</th>
+                        <th>Throttle</th>
+                        <th>Steering</th>
+                    </tr>
+                    <tr>
+                        <td id="latitude">42.0</td>
+                        <td id="longitude">42.0</td>
+                        <td id="speed">2.8</td>
+                        <td id="heading">2.0</td>
+                        <td id="throttle">1.0</td>
+                        <td id="steering">0.0</td>
+                    </tr>
+                </table>
+                <table class="table">
+                    <tr>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Distance m</th>
+                        <th>Heading°</th>
+                    </tr>
+                    <tr>
+                        <td id="waypoint-latitude">42.3</td>
+                        <td id="waypoint-longitude">42.3</td>
+                        <td id="waypoint-distance">280</td>
+                        <td id="waypoint-heading">15.0</td>
+                    </tr>
+                </table>
+                <table class="table">
+                    <tr>
+                        <th>Satellites</th>
+                        <th>Accuracy m</th>
+                        <th>Compass°</th>
+                        <th>GPS°</th>
+                        <th>Accelerometer</th>
+                    </tr>
+                    <tr>
+                        <td id="satellites">8</td>
+                        <td id="accuracy">1.5</td>
+                        <td id="compass">35.4</td>
+                        <td id="gps-heading">31.0</td>
+                        <td id="accelerometer">9.8, 0.0, 0.0</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <textarea id="logs" disabled="disabled" style="width: 90%; height: 100px;">
+2015-01-04 07:58:28,862:INFO Setting waypoints to Solid State Depot for testing
+2015-01-04 07:58:28,871:INFO Loaded 12 waypoints
+2015-01-04 07:58:28,862:INFO Lorem ipsum
+2015-01-04 07:58:28,871:INFO Lorem ipsum
+                </textarea>
+            </div>
+        </div>
+
+    </div> <!-- /container -->
+
+    <script src="/static/jquery-2.1.3.min.js"></script>
+    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+    <script src="/static/status.js"></script>
+    <script type="text/javascript">
+$(document).ready(function () {
+    var buttons = {
+        start: $('#run-button'),
+        calibrateCompass: $('#calibrate-compass-button'),
+        lineUp: $('#line-up-button'),
+        countDown: $('#count-down-button'),
+        stop: $('#stop-button')
+    };
+    var carFields = {
+        latitude: $('#latitude'),
+        longitude: $('#longitude'),
+        speed: $('#speed'),
+        heading: $('#heading'),
+        throttle: $('#throttle'),
+        steering: $('#steering')
+    };
+    var telemetryFields = {
+        waypointLatitude: $('#waypoint-latitude'),
+        waypointLongitude: $('#waypoint-longitude'),
+        waypointDistance: $('#waypoint-distance'),
+        waypointHeading: $('#waypoint-heading'),
+        satellites: $('#satellites'),
+        accuracy: $('#accuracy'),
+        compass: $('#compass'),
+        gps: $('#gps'),
+        accelerometer: $('#accelerometer')
+    };
+    sparkfun.status.init(buttons, carFields, telemetryFields);
+});
+    </script>
+</body>
+
+</html>

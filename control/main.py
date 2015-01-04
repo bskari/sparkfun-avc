@@ -1,6 +1,5 @@
 """Main command module that starts the different threads."""
 import argparse
-import collections
 import datetime
 import logging
 import signal
@@ -9,6 +8,7 @@ import sys
 
 from command import Command
 from kml_waypoint_generator import KmlWaypointGenerator
+from monitor.http_server import HttpServer
 from telemetry import Telemetry
 from test.dummy_driver import DummyDriver
 from test.dummy_telemetry_data import DummyTelemetryData
@@ -49,31 +49,25 @@ def start_threads(
     telemetry = Telemetry(logger)
     driver = DummyDriver(telemetry, logger)
 
-    command = Command(
-        telemetry,
-        driver,
-        waypoint_generator,
-        logger
-    )
-
-    telemetry_data = DummyTelemetryData(
-        telemetry,
-        logger
-    )
+    command = Command(telemetry, driver, waypoint_generator, logger)
+    telemetry_data = DummyTelemetryData(telemetry, logger)
+    http_server = HttpServer(command, telemetry, logger)
 
     global THREADS
-    THREADS = [command, telemetry_data]
+    THREADS = [command, telemetry_data, http_server]
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
 
     # Use a fake timeout so that the main thread can still receive signals
     telemetry_data.join(100000000000)
-    # Once we get here, telemtry_data has died and there's no point in
+    # Once we get here, telemetry_data has died and there's no point in
     # continuing because we're not receiving telemetry messages any more, so
     # stop the command module
     command.stop()
     command.join(100000000000)
+    http_server.kill()
+    http_server.join(100000000000)
 
 
 def make_parser():
