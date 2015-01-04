@@ -2,6 +2,7 @@
 
 import gc
 import random
+import sys
 import threading
 import time
 import traceback
@@ -98,7 +99,20 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 self._driver.drive(0.0, 0.0)
 
             except Exception as exception:  # pylint: disable=broad-except
-                trace = traceback.format_exc()
+                trace_back = sys.exc_info()[2]
+                traces = traceback.extract_tb(trace_back)
+
+                # Find the last local file
+                for index in range(len(traces) - 1, -1, -1):
+                    file_name, line_number, function_name, _ = traces[index]
+                    if file_name.endswith('.py'):
+                        break
+
+                trace = '{file_}:{line} {function}'.format(
+                    file_=file_name,
+                    line=line_number,
+                    function=function_name
+                )
                 self._logger.warning(
                     'Command thread had exception from {trace}, ignoring:'
                     ' {type_}:{message}'.format(
