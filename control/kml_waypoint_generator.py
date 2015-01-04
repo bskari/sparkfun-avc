@@ -1,6 +1,6 @@
 """Implements the WaypointGenerator interface. Returns waypoints from a KML
 file. All WaypointGenerator implementations should have two methods:
-    get_current_waypoint(self) -> (float, float)
+    get_current_waypoint(self, latitude, longitude) -> (float, float)
     reached(self, latitude, longitude) -> bool
     next(self)
     done(self) -> bool
@@ -29,7 +29,7 @@ class KmlWaypointGenerator(object):
                 )
             )
 
-    def get_current_waypoint(self):
+    def get_current_waypoint(self, latitude, longitude):  # pylint: disable=unused-argument
         """Returns the current waypoint."""
         if len(self._waypoints) > 0:
             return self._waypoints[0]

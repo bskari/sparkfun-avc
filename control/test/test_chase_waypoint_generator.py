@@ -11,6 +11,17 @@ from chase_waypoint_generator import ChaseWaypointGenerator
 
 class TestChaseWaypointGenerator(unittest.TestCase):
     """Tests the ChaseWaypointGenerator class."""
+    OFFSETS = (
+        (0, 0),
+        (5, 0),
+        (-6, 0),
+        (0, 7),
+        (0, -8),
+        (1, 1),
+        (1, -1),
+        (-1, 1),
+        (-1, -1),
+    )
 
     def test_circle_intersection_none(self):
         """Tests circle line intersection none case."""
@@ -51,17 +62,7 @@ class TestChaseWaypointGenerator(unittest.TestCase):
             # Horizontal
             ((-3, 0), (300, 0), (0, 0), 2, ((2, 0), (-2, 0))),
         ):
-            for offset in (
-                (0, 0),
-                (5, 0),
-                (-6, 0),
-                (0, 7),
-                (0, -8),
-                (1, 1),
-                (1, -1),
-                (-1, 1),
-                (-1, -1),
-            ):
+            for offset in self.OFFSETS:
                 intersections = ChaseWaypointGenerator._circle_intersection(
                     self._add(p_1, offset),
                     self._add(p_2, offset),
@@ -114,3 +115,27 @@ class TestChaseWaypointGenerator(unittest.TestCase):
     def _add(point_1, point_2):
         """Adds two points."""
         return (point_1[0] + point_2[0], point_1[1] + point_2[1])
+
+    def test_tangent_distance_m(self):
+        """Tests the tangent distance calculation."""
+        for point, line_point_1, line_point_2, expected in (
+            ((0, 0), (0, 1), (1, 0), math.sqrt(2) * 0.5),
+            ((0, 0), (0, 2), (2, 0), math.sqrt(8) * 0.5),
+            ((0, 0), (-2, 0), (0, 2), math.sqrt(8) * 0.5),
+            ((0, 0), (-2, 0), (-1, 1), math.sqrt(8) * 0.5),
+            ((0, 0), (-2, 0), (0, 1), 0.8944271909),
+        ):
+            for offset in self.OFFSETS:
+                distance_m = ChaseWaypointGenerator._tangent_distance_m(
+                    self._add(point, offset),
+                    self._add(line_point_1, offset),
+                    self._add(line_point_2, offset)
+                )
+                self.assertAlmostEqual(distance_m, expected)
+
+                distance_m = ChaseWaypointGenerator._tangent_distance_m(
+                    self._add(point, offset),
+                    self._add(line_point_2, offset),
+                    self._add(line_point_1, offset)
+                )
+                self.assertAlmostEqual(distance_m, expected)
