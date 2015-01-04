@@ -2,12 +2,11 @@
 
 import time
 
-from .dummy_driver import DummyDriver
-from .dummy_logger import DummyLogger
-from .dummy_telemetry import DummyTelemetry
-from .dummy_telemetry_data import DummyTelemetryData
 from command import Command
 from kml_waypoint_generator import KmlWaypointGenerator
+from test.dummy_driver import DummyDriver
+from test.dummy_logger import DummyLogger
+from test.dummy_telemetry import DummyTelemetry
 
 # pylint: disable=missing-docstring
 # pylint: disable=no-self-use
@@ -29,7 +28,10 @@ def main():
 
     telemetry = DummyTelemetry(
         logger,
-        waypoint_generator.get_current_waypoint()
+        waypoint_generator.get_current_waypoint(
+            waypoint_generator._waypoints[0][0],
+            waypoint_generator._waypoints[0][1]
+        )
     )
     driver = DummyDriver(telemetry, logger)
 

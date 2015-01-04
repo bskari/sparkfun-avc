@@ -161,8 +161,11 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     def _run_course_iterator(self):
         """Runs a single iteration of the course navigation loop."""
         while not self._waypoint_generator.done():
-            current_waypoint = self._waypoint_generator.get_current_waypoint()
             telemetry = self._telemetry.get_data()
+            current_waypoint = self._waypoint_generator.get_current_waypoint(
+                telemetry['latitude'],
+                telemetry['longitude']
+            )
 
             distance_m = Telemetry.distance_m(
                 telemetry['latitude'],
