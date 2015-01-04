@@ -1,9 +1,10 @@
 """Class to control the RC car."""
 
 import gc
+import random
 import threading
 import time
-import random
+import traceback
 
 from telemetry import Telemetry
 
@@ -97,9 +98,14 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 self._driver.drive(0.0, 0.0)
 
             except Exception as exception:  # pylint: disable=broad-except
+                trace = traceback.format_exc()
                 self._logger.warning(
-                    'Command thread had exception, ignoring: ' \
-                        + str(type(exception)) + ':' + str(exception)
+                    'Command thread had exception from {trace}, ignoring:'
+                    ' {type_}:{message}'.format(
+                        trace=trace,
+                        type_=str(type(exception)),
+                        message=str(exception),
+                    )
                 )
                 error_count += 1
                 if error_count > 10:
