@@ -1,7 +1,7 @@
 """Status page for the vehicle."""
 
 import cherrypy
-import socket
+import netifaces
 import subprocess
 
 from monitor.web_socket_handler import WebSocketHandler
@@ -14,6 +14,44 @@ class StatusApp(object):
         self._command = command
         self._telemetry = telemetry
         self._logger = logger
+
+        def get_ip(interface):
+            try:
+                addresses = netifaces.ifaddresses(interface)
+                if len(addresses) == 0:
+                    return None
+                if netifaces.AF_INET not in addresses:
+                    return None
+                return addresses[netifaces.AF_INET][0]['addr']
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.warn(
+                    'Exception trying to get interface address: {exc}'.format(
+                        exc=str(exc)
+                    )
+                )
+                return None
+
+        self._host_ip = None
+        interfaces = sorted(
+            [
+                iface for iface in netifaces.interfaces()
+                if iface.startswith('wlan')
+                or iface.startswith('eth')
+            ],
+            reverse=True
+        )
+        for iface in interfaces:
+            self._host_ip = get_ip(iface)
+            if self._host_ip is not None:
+                logger.info(
+                    'Web server listening on {iface}'.format(
+                        iface=iface
+                    )
+                )
+                break
+        if self._host_ip is None:
+            logger.error('No valid host found, listening on lo')
+            self._host_ip = get_ip('lo')
 
     @staticmethod
     def get_config(monitor_root_dir):
@@ -38,12 +76,11 @@ class StatusApp(object):
         """Index page."""
         # This is the worst templating ever, but I don't feel like it's worth
         # installing a full engine just for this one substitution
-        with open('monitor/static/index.html') as file_:
+        with open('monitor/static/index.html', encoding='utf-8') as file_:
             index_page = file_.read()
-        host_ip = socket.gethostbyname(socket.gethostname())
         return index_page.replace(
             '${webSocketAddress}',
-            'ws://{host_ip}:8080/ws'.format(host_ip=host_ip)
+            'ws://{host_ip}:8080/ws'.format(host_ip=self._host_ip)
         )
 
     @cherrypy.expose
