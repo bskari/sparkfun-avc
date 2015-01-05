@@ -33,14 +33,20 @@ class StatusApp(object):
                 return None
 
         self._host_ip = None
-        interfaces = sorted(
-            [
-                iface for iface in netifaces.interfaces()
-                if iface.startswith('wlan')
-                or iface.startswith('eth')
-            ],
-            reverse=True
-        )
+
+        def interface_preference(interface):
+            """Ordering function that orders wireless adapters first, then
+            physical, then loopback.
+            """
+            if interface.startswith('wlan') or interface == 'en1':
+                return 0
+            if interface.startswith('eth') or interface == 'en0':
+                return 1
+            if interface.startswith('lo'):
+                return 2
+            return 3
+
+        interfaces = sorted(netifaces.interfaces(), key=interface_preference)
         for iface in interfaces:
             self._host_ip = get_ip(iface)
             if self._host_ip is not None:
@@ -51,7 +57,7 @@ class StatusApp(object):
                 )
                 break
         if self._host_ip is None:
-            logger.error('No valid host found, listening on lo')
+            logger.error('No valid host found, listening on loopback')
             self._host_ip = get_ip('lo')
 
     @staticmethod
