@@ -11,12 +11,14 @@ from monitor.web_socket_handler import WebSocketHandler
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, command, telemetry, logger):
+    def __init__(self, command, telemetry, logger, port):
         self._command = command
         self._telemetry = telemetry
         self._logger = logger
+        self._port = port
 
         def get_ip(interface):
+            """Returns the IPv4 address of a given interface."""
             try:
                 addresses = netifaces.ifaddresses(interface)
                 if len(addresses) == 0:
@@ -92,7 +94,10 @@ class StatusApp(object):
                 index_page = file_.read()
         return index_page.replace(
             '${webSocketAddress}',
-            'ws://{host_ip}:8080/ws'.format(host_ip=self._host_ip)
+            'ws://{host_ip}:{port}/ws'.format(
+                host_ip=self._host_ip,
+                port=self._port
+            )
         )
 
     @cherrypy.expose

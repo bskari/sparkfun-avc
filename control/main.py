@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import logging
+import os
 import signal
 import subprocess
 import sys
@@ -43,6 +44,13 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     sys.exit(0)
 
 
+def get_configuration(value, default):
+    """Returns a system configuration value."""
+    if value in os.environ:
+        return os.environ[value]
+    return default
+
+
 def start_threads(
         waypoint_generator,
         logger,
@@ -54,7 +62,15 @@ def start_threads(
 
     command = Command(telemetry, driver, waypoint_generator, logger)
     telemetry_data = DummyTelemetryData(telemetry, logger)
-    http_server = HttpServer(command, telemetry, logger)
+    monitor_port = int(get_configuration('MONITOR_PORT', 8080))
+    monitor_address = get_configuration('MONITOR_ADDRESS', '0.0.0.0')
+    http_server = HttpServer(
+        command,
+        telemetry,
+        logger,
+        port=monitor_port,
+        address=monitor_address
+    )
     telemetry_dumper = TelemetryDumper(telemetry, web_socket_handler)
 
     global THREADS

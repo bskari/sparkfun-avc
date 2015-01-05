@@ -12,20 +12,24 @@ from monitor.status_app import StatusApp
 
 class HttpServer(threading.Thread):
     """Runs CherryPy in a thread."""
-    def __init__(self, command, telemetry, logger):
+    def __init__(self, command, telemetry, logger, address=None, port=None):
         super(HttpServer, self).__init__()
+        if address is None:
+            address = '0.0.0.0'
+        if port is None:
+            port = 8080
 
         config = StatusApp.get_config(os.path.abspath(os.getcwd()))
 
         application = cherrypy.tree.mount(
-            StatusApp(command, telemetry, logger),
+            StatusApp(command, telemetry, logger, port),
             '/',
             config
         )
 
         cherrypy.config.update({
-            'server.socket_host': '0.0.0.0',
-            'server.socket_port': 8080,
+            'server.socket_host': address,
+            'server.socket_port': port
         })
 
         WebSocketPlugin(cherrypy.engine).subscribe()
