@@ -18,3 +18,14 @@ class WebSocketLoggingHandler(logging.Handler):
             'websocket-broadcast',
             json.dumps({'type': 'log', 'message': message})
         )
+
+    @staticmethod
+    def broadcast_telemetry(telemetry_data):
+        """Broadcasts telemetry data to all connected clients."""
+        cherrypy.engine.publish(
+            'websocket-broadcast',
+            json.dumps({
+                'type': 'telemetry',
+                'message': json.dumps(telemetry_data)
+            })
+        )

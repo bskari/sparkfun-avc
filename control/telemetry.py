@@ -27,6 +27,8 @@ class Telemetry(object):
         self._speed_history = collections.deque()
 
         self._heading_filter = None
+        self._throttle = None
+        self._steering = None
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
@@ -34,9 +36,10 @@ class Telemetry(object):
 
     def get_data(self):
         """Returns the approximated telemetry data."""
-        values = {
-            'accelerometer': self._data['accelerometer'],
-        }
+        values = {}
+        for key in ('accelerometer', 'speed'):
+            if key in self._data:
+                values[key] = self._data[key]
 
         if self._heading_filter is not None:
             values['heading'] = self._heading_filter.estimated_heading()
@@ -52,21 +55,24 @@ class Telemetry(object):
 
         return values
 
-    def process_drive_command(self, throttle, turn):
+    def process_drive_command(self, throttle, steering):
         """Process a drive command. When the command module tells the car to do
         something (e.g. drive forward and left), that data should be integrated
         into the telemetry immediately, because GPS sensors and what not
         normally have a slight delay.
         """
         assert -1.0 <= throttle <= 1.0, 'Bad throttle in telemetry'
-        assert -1.0 <= turn <= 1.0, 'Bad turn in telemetry'
+        assert -1.0 <= steering <= 1.0, 'Bad steering in telemetry'
+        self._throttle = throttle
+        self._steering = steering
+
         if self._heading_filter is None:
             return
         d_per_s = 0.0
         # TODO: What about coasting?
-        if throttle != 0.0 and turn != 0.0:
+        if throttle != 0.0 and steering != 0.0:
             throttle_greater_than_zero = throttle > 0.0
-            turn_greater_than_zero = turn > 0.0
+            turn_greater_than_zero = steering > 0.0
             # TODO: Get better estimations here
             d_per_s = 90.0
             left = throttle_greater_than_zero != turn_greater_than_zero

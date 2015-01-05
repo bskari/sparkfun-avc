@@ -45,6 +45,7 @@ class DummyTelemetryData(threading.Thread):
                 'speed': 0.0,
                 'heading': 0.0,
                 'bearing': 0.0,
+                'accelerometer': (0.0, 0.0, 9.8),
             })
 
     def kill(self):

@@ -1,4 +1,4 @@
-// TODO: Use goog.provide
+// TODO(2015-02-04): Use goog.provide
 var sparkfun = sparkfun || {};
 sparkfun.status = sparkfun.status || {};
 
@@ -37,8 +37,16 @@ sparkfun.status = sparkfun.status || {};
  *  gps: Object,
  *  accelerometer: Object,
  * } telemetryFields
+ * @param {Object} logs
+ * @param {string} webSocketAddress
  */
-sparkfun.status.init = function(buttons, carFields, telemetryFields, webSocketAddress) {
+sparkfun.status.init = function(
+        buttons,
+        carFields,
+        telemetryFields,
+        logs,
+        webSocketAddress
+) {
     'use strict';
     buttons.run.click(sparkfun.status.run);
     buttons.stop.click(sparkfun.status.stop);
@@ -63,6 +71,8 @@ sparkfun.status.init = function(buttons, carFields, telemetryFields, webSocketAd
     sparkfun.status.gps = telemetryFields.gps;
     sparkfun.status.accelerometer = telemetryFields.accelerometer;
 
+    sparkfun.status.logs = logs;
+
     var webSocket = null;
     if (window.WebSocket) {
         webSocket = new WebSocket(webSocketAddress);
@@ -70,7 +80,7 @@ sparkfun.status.init = function(buttons, carFields, telemetryFields, webSocketAd
         webSocket = new MozWebSocket(webSocketAddress);
     }
     if (webSocket === null) {
-        alert('Your browser does not support websockets, monitoring disabled');
+        sparkfun.status.addAlert('Your browser does not support websockets, monitoring disabled');
         return;
     }
 
@@ -85,21 +95,44 @@ sparkfun.status.init = function(buttons, carFields, telemetryFields, webSocketAd
 
     webSocket.onmessage = function (evt) {
         var data = JSON.parse(evt.data);
-        // TODO: Parse the message and do stuff with it
         if (data.type === 'log') {
-            alert('Log: ' + data.message);
+            sparkfun.status.logs.text(
+                data.message + '\n' + sparkfun.status.logs.text()
+            );
+        } else if (data.type === 'telemetry') {
+            console.log(data.message);
+            var telemetry = JSON.parse(data.message);
+            var typeToField = {
+                'latitude': sparkfun.status.carLatitude,
+                'longitude': sparkfun.status.carLongitude,
+                'speed': sparkfun.status.carSpeed,
+                'heading': sparkfun.status.carHeading,
+                'throttle': sparkfun.status.carThrottle,
+                'steering': sparkfun.status.carSteering,
+                'waypoint-latitude': sparkfun.status.waypointLatitude,
+                'waypoint-longitude': sparkfun.status.waypointLongitude,
+                'waypoint-distance': sparkfun.status.waypointDistance,
+                'waypoint-heading': sparkfun.status.waypointHeading,
+                'satellites': sparkfun.status.satellites,
+                'accuracy': sparkfun.status.accuracy,
+                'compass': sparkfun.status.compass,
+                'gps': sparkfun.status.gps,
+                'accelerometer': sparkfun.status.accelerometer
+            };
+            for (var key in telemetry) {
+                if (telemetry.hasOwnProperty(key)) {
+                    if (typeToField[key] !== undefined) {
+                        typeToField[key].text(telemetry[key]);
+                    }
+                }
+            }
         } else {
-            alert('Type: ' + data.type);
+            sparkfun.status.addAlert('Unknown message type: ' + data.type);
         }
     };
 
-    webSocket.onopen = function (evt) {
-        alert("Look at me! I'm using websockets!");
-        webSocket.send('Test');
-    };
-
     webSocket.onclose = function (evt) {
-        alert('Connection closed by server');
+        sparkfun.status.addAlert('Connection closed by server');
     };
 };
 
@@ -142,12 +175,23 @@ sparkfun.status._poke= function(url) {
     $.post(url, '', function (data, textStatus, jqXHR) {
         if (data.success !== true) {
             if (data.message) {
-                alert('Failed: ' + data.message);
+                sparkfun.status.addAlert('Failed: ' + data.message);
             } else {
-                alert('Failed due to unknown server-side reason');
+                sparkfun.status.addAlert('Failed due to unknown server-side reason');
             }
         }
     }).fail(function () {
-        alert('Failed to contact server');
+        sparkfun.status.addAlert('Failed to contact server');
     });
 };
+
+
+/**
+ * @param {string} message
+ */
+sparkfun.status.addAlert = function (message) {
+    $('#alerts').append(
+        '<div class="alert alert-danger">' +
+            '<button type="button" class="close" data-dismiss="alert">' +
+            '&times;</button>' + message + '</div>');
+}

@@ -11,6 +11,7 @@ from kml_waypoint_generator import KmlWaypointGenerator
 from monitor.http_server import HttpServer
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 from telemetry import Telemetry
+from telemetry_dumper import TelemetryDumper
 from test.dummy_driver import DummyDriver
 from test.dummy_telemetry_data import DummyTelemetryData
 
@@ -44,7 +45,8 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
 
 def start_threads(
         waypoint_generator,
-        logger
+        logger,
+        web_socket_handler
 ):
     """Runs everything."""
     telemetry = Telemetry(logger)
@@ -53,9 +55,10 @@ def start_threads(
     command = Command(telemetry, driver, waypoint_generator, logger)
     telemetry_data = DummyTelemetryData(telemetry, logger)
     http_server = HttpServer(command, telemetry, logger)
+    telemetry_dumper = TelemetryDumper(telemetry, web_socket_handler)
 
     global THREADS
-    THREADS = [command, telemetry_data, http_server]
+    THREADS = [command, telemetry_data, http_server, telemetry_dumper]
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
@@ -152,10 +155,10 @@ def main():
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
 
-    websocket_handler = WebSocketLoggingHandler()
-    websocket_handler.setLevel(logging.INFO)
-    websocket_handler.setFormatter(formatter)
-    logger.addHandler(websocket_handler)
+    web_socket_handler = WebSocketLoggingHandler()
+    web_socket_handler.setLevel(logging.INFO)
+    web_socket_handler.setFormatter(formatter)
+    logger.addHandler(web_socket_handler)
 
     waypoint_generator = None
     if args.kml_file is not None:
@@ -171,7 +174,8 @@ def main():
 
     start_threads(
         waypoint_generator,
-        logger
+        logger,
+        web_socket_handler
     )
 
 

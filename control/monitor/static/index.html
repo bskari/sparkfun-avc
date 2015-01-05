@@ -25,6 +25,8 @@
     </nav>
 
     <div class="container theme-showcase" role="main">
+        <div id="alerts">
+        </div>
 
         <p>
             <button id="run-button" type="button" class="btn btn-lg btn-success">Run</button>
@@ -58,12 +60,12 @@
                         <th>Steering</th>
                     </tr>
                     <tr>
-                        <td id="latitude">42.0</td>
-                        <td id="longitude">42.0</td>
-                        <td id="speed">2.8</td>
-                        <td id="heading">2.0</td>
-                        <td id="throttle">1.0</td>
-                        <td id="steering">0.0</td>
+                        <td id="latitude"></td>
+                        <td id="longitude"></td>
+                        <td id="speed"></td>
+                        <td id="heading"></td>
+                        <td id="throttle"></td>
+                        <td id="steering"></td>
                     </tr>
                 </table>
                 <table class="table">
@@ -74,10 +76,10 @@
                         <th>Heading°</th>
                     </tr>
                     <tr>
-                        <td id="waypoint-latitude">42.3</td>
-                        <td id="waypoint-longitude">42.3</td>
-                        <td id="waypoint-distance">280</td>
-                        <td id="waypoint-heading">15.0</td>
+                        <td id="waypoint-latitude"></td>
+                        <td id="waypoint-longitude"></td>
+                        <td id="waypoint-distance"></td>
+                        <td id="waypoint-heading"></td>
                     </tr>
                 </table>
                 <table class="table">
@@ -89,11 +91,11 @@
                         <th>Accelerometer</th>
                     </tr>
                     <tr>
-                        <td id="satellites">8</td>
-                        <td id="accuracy">1.5</td>
-                        <td id="compass">35.4</td>
-                        <td id="gps-heading">31.0</td>
-                        <td id="accelerometer">9.8, 0.0, 0.0</td>
+                        <td id="satellites"></td>
+                        <td id="accuracy"></td>
+                        <td id="compass"></td>
+                        <td id="gps-heading"></td>
+                        <td id="accelerometer"></td>
                     </tr>
                 </table>
             </div>
@@ -102,10 +104,6 @@
         <div class="row">
             <div class="col-md-12">
                 <textarea id="logs" disabled="disabled" style="width: 90%; height: 100px;">
-2015-01-04 07:58:28,862:INFO Setting waypoints to Solid State Depot for testing
-2015-01-04 07:58:28,871:INFO Loaded 12 waypoints
-2015-01-04 07:58:28,862:INFO Lorem ipsum
-2015-01-04 07:58:28,871:INFO Lorem ipsum
                 </textarea>
             </div>
         </div>
@@ -144,7 +142,14 @@ $(document).ready(function () {
         gps: $('#gps'),
         accelerometer: $('#accelerometer')
     };
-    sparkfun.status.init(buttons, carFields, telemetryFields, '${webSocketAddress}');
+    var logs = $('#logs');
+    sparkfun.status.init(
+        buttons,
+        carFields,
+        telemetryFields,
+        logs,
+        '${webSocketAddress}'
+    );
 });
     </script>
 </body>

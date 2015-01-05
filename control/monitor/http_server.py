@@ -37,10 +37,11 @@ class HttpServer(threading.Thread):
         cherrypy.log.access_log.setLevel(logging.ERROR)
         cherrypy.log.error_log.setLevel(logging.ERROR)
 
+    def run(self):
+        """Runs the thread and server in a thread."""
         cherrypy.engine.start()
-        cherrypy.engine.block()
 
     @staticmethod
     def kill():
         """Stops the thread and server."""
-        cherrypy.engine.stop()
+        cherrypy.engine.exit()
