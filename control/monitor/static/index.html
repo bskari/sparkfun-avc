@@ -117,8 +117,9 @@
     <script src="/static/status.js"></script>
     <script type="text/javascript">
 $(document).ready(function () {
+    'use strict';
     var buttons = {
-        start: $('#run-button'),
+        run: $('#run-button'),
         calibrateCompass: $('#calibrate-compass-button'),
         lineUp: $('#line-up-button'),
         countDown: $('#count-down-button'),
@@ -143,7 +144,7 @@ $(document).ready(function () {
         gps: $('#gps'),
         accelerometer: $('#accelerometer')
     };
-    sparkfun.status.init(buttons, carFields, telemetryFields);
+    sparkfun.status.init(buttons, carFields, telemetryFields, '${webSocketAddress}');
 });
     </script>
 </body>

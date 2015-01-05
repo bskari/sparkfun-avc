@@ -1,2 +1,3 @@
 RPIO >= 0.10
 cherrypy >= 3.3.0
+ws4py >= 0.3.4

@@ -9,6 +9,7 @@ import sys
 from command import Command
 from kml_waypoint_generator import KmlWaypointGenerator
 from monitor.http_server import HttpServer
+from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 from telemetry import Telemetry
 from test.dummy_driver import DummyDriver
 from test.dummy_telemetry_data import DummyTelemetryData
@@ -150,6 +151,11 @@ def main():
         stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
     logger.addHandler(stdout_handler)
+
+    websocket_handler = WebSocketLoggingHandler()
+    websocket_handler.setLevel(logging.INFO)
+    websocket_handler.setFormatter(formatter)
+    logger.addHandler(websocket_handler)
 
     waypoint_generator = None
     if args.kml_file is not None:

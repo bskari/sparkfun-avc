@@ -1,7 +1,10 @@
 """Status page for the vehicle."""
 
 import cherrypy
+import socket
 import subprocess
+
+from monitor.web_socket_handler import WebSocketHandler
 
 
 class StatusApp(object):
@@ -24,12 +27,24 @@ class StatusApp(object):
                 'tools.staticdir.on': True,
                 'tools.staticdir.dir': './static',
             },
+            '/ws': {
+                'tools.websocket.on': True,
+                'tools.websocket.handler_cls': WebSocketHandler
+            },
         }
 
     @cherrypy.expose
     def index(self):  # pylint: disable=no-self-use
         """Index page."""
-        return open('monitor/static/index.html')
+        # This is the worst templating ever, but I don't feel like it's worth
+        # installing a full engine just for this one substitution
+        with open('monitor/static/index.html') as file_:
+            index_page = file_.read()
+        host_ip = socket.gethostbyname(socket.gethostname())
+        return index_page.replace(
+            '${webSocketAddress}',
+            'ws://{host_ip}:8080/ws'.format(host_ip=host_ip)
+        )
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
@@ -84,6 +99,11 @@ class StatusApp(object):
             stdout=open('/dev/null', 'w')
         )
         return {'success': True}
+
+    @cherrypy.expose
+    def ws(self):  # pylint: disable=invalid-name
+        """Dummy method to tell CherryPy to expose the web socket end point."""
+        pass
 
     @staticmethod
     def _check_post():
