@@ -3,6 +3,7 @@
 import cherrypy
 import netifaces
 import subprocess
+import sys
 
 from monitor.web_socket_handler import WebSocketHandler
 
@@ -76,8 +77,13 @@ class StatusApp(object):
         """Index page."""
         # This is the worst templating ever, but I don't feel like it's worth
         # installing a full engine just for this one substitution
-        with open('monitor/static/index.html', encoding='utf-8') as file_:
-            index_page = file_.read()
+        index_page = None
+        if sys.version_info.major == 2:
+            with open('monitor/static/index.html') as file_:
+                index_page = file_.read().decode('utf-8')
+        else:
+            with open('monitor/static/index.html', encoding='utf-8') as file_:
+                index_page = file_.read()
         return index_page.replace(
             '${webSocketAddress}',
             'ws://{host_ip}:8080/ws'.format(host_ip=self._host_ip)

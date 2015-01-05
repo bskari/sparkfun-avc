@@ -160,6 +160,11 @@ def main():
     web_socket_handler.setFormatter(formatter)
     logger.addHandler(web_socket_handler)
 
+    if sys.version_info.major < 3:
+        logger.warn(
+            'Python 2 is not officially supported, use at your own risk'
+        )
+
     waypoint_generator = None
     if args.kml_file is not None:
         waypoint_generator = KmlWaypointGenerator(logger, args.kml_file)
