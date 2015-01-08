@@ -26,7 +26,8 @@ echo 'Want to update the firmware? (y/n) '
 read firmware
 if [ "${firmware}" == 'y' ];
 then
-    wget -O /usr/bin/rpi-update https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update
+    apt-get install curl  # Curl is needed for the rpi-update script
+    curl https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update > /usr/bin/rpi-update
     chmod +x /usr/bin/rpi-update
     rpi-update
     reboot
@@ -35,7 +36,7 @@ fi
 
 apt-get update
 apt-get install -y libparted0debian1 parted lua5.1 triggerhappy
-if [ ! -f raspi-config_20140902-1_all.deb ];
+if [ ! -f 'raspi-config_20140902-1_all.deb' ];
 then
     wget http://archive.raspberrypi.org/debian/pool/main/r/raspi-config/raspi-config_20140902-1_all.deb
     dpkg -i raspi-config_20140902-1_all.deb
@@ -49,17 +50,20 @@ echo 'pi:sparkfun' | chpasswd
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
 # TODO: What about gstreamer?
-apt-get install --force-confnew \
+apt-get install -y \
+    ack-grep \
     dnsmasq \
     gcc \
     hostapd \
-    iw
+    iw \
+    libraspberrypi-bin \
+    openssh-server \
     python-virtualenv \
     python3 \
+    python3-dev \
     python3-pip \
     tmux \
     vim \
-    ''
 
 # Hell with bash, let's do the rest of this in Python
 python3 setup.py

@@ -1,13 +1,13 @@
 """Does the rest of the setup."""
 
 import os
-import sys
 import subprocess
+import sys
 
 
 def newer(file_name_1, file_name_2):
     """Returns true if file_1 is newer than file_2."""
-    return os.stat(file_name_1).st_atime > os.stat(file_name_2).st_atime
+    return os.stat(file_name_1).st_atime > os.stat(file_name_2).st_mtime
 
 
 def exists(file_name):
@@ -21,22 +21,25 @@ def main():
     section_test_command_tuples = (
         (
             'SSH',
-            exists('~/.ssh/sshd_config'),
+            newer('sshd_config', '/etc/ssh/sshd_config'),
             (
-                'sed -i "s/Port 22/Port 23/" ~/.ssh/sshd_config',
-            ),
+                'cp sshd_config /etc/ssh/sshd_config',
+                'service ssh restart',
+            )
         ),
         (
             'dotfiles',
-            not exists('~/.dotfiles'),
+            not exists('/home/pi/.dotfiles'),
             (
-                'cd ~pi',
-                'git clone https://github.com/bskari/dotfiles .dotfiles',
-                'pushd .dotfiles',
-                'bash setup.sh',
-                'popd',
-            ),
+                'bash setup-dotfiles.sh',
+            )
         ),
+        (
+            'bash_profile',
+            not exists('/home/pi/.bash_profile') or newer('bash_profile', '/home/pi/.bash_profile'),
+            (
+                'cp .bash_profile /home/pi/.bash_profile',
+            )
         (
             'network',
             newer('interfaces', '/etc/network/interfaces'),
@@ -50,11 +53,11 @@ def main():
             'hostapd',
             not subprocess.check_output(
                 ('md5sum', '/usr/sbin/hostapd')
-            ).startswith('1c188ad3'),
+            ).decode('utf-8').startswith('d41d8cd98'),
             (
                 'cp hostapd /etc/default/hostapd',
                 'cp hostapd.conf /etc/hostapd/hostapd.conf',
-                'wget http://dl.dropbox.com/u/1663660/hostapd/hostapd -O - > /usr/sbin/hostapd',
+                'wget http://dl.dropboxusercontent.com/u/1663660/hostapd/hostapd -O /usr/sbin/hostapd',
                 'chown root:root /usr/sbin/hostapd',
                 'chmod 755 /usr/sbin/hostapd',
                 'service hostapd restart',
@@ -86,26 +89,17 @@ def main():
         ),
         (
             'Sparkfun AVC control',
-            not exists('~/.virtualenvs/sparkfun'),
+            not exists('/home/pi/.virtualenvs/sparkfun'),
             (
-                'pushd ~/sparkfun-avc/control',
-                'su -c "mkvirtualenv sparkfun -p /usr/bin/python3" pi',
-                'su -c "pip install -r requirements.txt" pi',
-                'su -c "deactivate" pi',
-                'popd',
-                'pushd ~/sparkfun-avc/setup',
-                'make rooter',
-                'chown root:root rooter',
-                'chmod +s rooter',
-                'popd',
-            ),
+                'bash setup-virtualenv.sh',
+            )
         ),
         (
-            'Start up',
-            not exists('/etc/init.d/sparkfun-rc'),
+            'start up',
+            not exists('/etc/init.d/sparkfun-rc') or newer('sparkfun-rc', '/etc/init.d/sparkfun-rc'),
             (
                 'cp sparkfun-rc /etc/init.d/',
-                'update-rc.d sparkdun-rc defaults',
+                'update-rc.d sparkfun-rc defaults',
             )
         ),
     )
