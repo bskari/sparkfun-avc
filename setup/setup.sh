@@ -57,6 +57,7 @@ apt-get install -y \
     hostapd \
     iw \
     libraspberrypi-bin \
+    mpg123 \
     openssh-server \
     python-virtualenv \
     python3 \
