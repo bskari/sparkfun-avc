@@ -1,9 +1,15 @@
 #!/bin/bash
-# Prepares a fresh installation of an SD card for the Sparkfun AVC.
+# Prepares a fresh installation of an SD card for the Sparkfun AVC. This should
+# be safe to run multiple times.
 
-# First, download pi-whatever and burn it to an SD card:
-#   dd if=raspberry-pi.img of=/dev/sdb bs=1M
+# First, download Raspbian net install and burn it to an SD card:
+#   wget https://dl.dropbox.com/u/45842273/2012-07-15-wheezy-raspian-minimal.img.7z
+#   7x z 2012-07-15-wheezy-raspian-minimal.img.7z
+#   dd if=2012-07-15-wheezy-raspian-minimal.img of=/dev/sdb bs=1M
 # Install git and clone the repo:
+#   (root password is raspberry)
+#   apt-get update
+#   apt-get install git
 #   git clone git@www.skari.org:sparkfun-avc
 # Run this file!
 
@@ -16,65 +22,44 @@ then
     exit 1
 fi
 
-adduser bs
-echo 'bs:sparkfun' | chpasswd
+echo 'Want to update the firmware? (y/n) '
+read firmware
+if [ "${firmware}" == 'y' ];
+then
+    wget -O /usr/bin/rpi-update https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update
+    chmod +x /usr/bin/rpi-update
+    rpi-update
+    reboot
+    exit 0
+fi
 
 apt-get update
+apt-get install -y libparted0debian1 parted lua5.1 triggerhappy
+if [ ! -f raspi-config_20140902-1_all.deb ];
+then
+    wget http://archive.raspberrypi.org/debian/pool/main/r/raspi-config/raspi-config_20140902-1_all.deb
+    dpkg -i raspi-config_20140902-1_all.deb
+fi
+echo 'Get ready to expand the root FS and enable the camera (press enter)'
+read
+raspi-config  # Expand the root FS, enable the camera
+
+echo 'pi:sparkfun' | chpasswd
+
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
 # TODO: What about gstreamer?
-apt-get install \
+apt-get install --force-confnew \
     dnsmasq \
-    python-virtualenv \
-    python3-pip \
+    gcc \
     hostapd \
-    tmux \
     iw
+    python-virtualenv \
+    python3 \
+    python3-pip \
+    tmux \
+    vim \
+    ''
 
-for command_ in \
-    'echo +++ network +++' \
-        'cp interfaces /etc/network/interfaces' \
-        'ifdown wlan0' \
-        'ifup wlan0' \
-    'echo +++ hostapd +++' \
-        'cp hostapd /etc/default/hostapd' \
-        'cp hostapd.conf /etc/hostapd/hostapd.conf' \
-        'curl http://dl.dropbox.com/u/1663660/hostapd/hostapd > /usr/sbin/hostapd' \
-        'chown root:root /usr/sbin/hostapd' \
-        'chmod 755 /usr/sbin/hostapd' \
-        'service hostapd restart' \
-    'echo +++ dnsmasq +++' \
-        'cp dnsmasq.conf /etc/dnsmasq.conf' \
-        'service dnsmasq restart' \
-    'echo +++ Sparkfun AVC control +++' \
-        'pushd ~/sparkfun-avc/control' \
-        'su -c "mkvirtualenv sparkfun -p /usr/bin/python3" bs' \
-        'su -c "pip install -r requirements.txt" bs' \
-        'su -c "deactivate" bs' \
-        'popd' \
-        'pushd ~/sparkfun-avc/setup' \
-        'make rooter' \
-        'chown root:root rooter' \
-        'chmod +s rooter' \
-        'popd' \
-        'cp sparkfun-rc /etc/init.d/' \
-        'update-rc.d sparkdun-rc defaults' \
-    'echo +++ camera +++' \
-        'curl https://raw.githubusercontent.com/asb/raspi-config/master/raspi-config > /usr/local/sbin/raspi-config' \
-        'chown root:root /usr/local/sbin/raspi-config' \
-        'chmod 755 /usr/local/sbin/raspi-config' \
-        'cp config.txt /boot/config.txt' \
-        'echo TODO: download raspistill and raspivid' \
-    'echo +++ reboot +++' \
-        'shutdown -r -t 30'
-do
-    set +e
-    echo "${command_}" | grep '^echo'
-    set -e
-    if [ "$?" -ne 0 ];
-    then
-        echo "${command_}"
-    fi
-
-    "${command_}"
-done
+# Hell with bash, let's do the rest of this in Python
+python3 setup.py
