@@ -7,5 +7,5 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     argv[0] = "python";
-    return execv("/home/bs/.virtualenvs/sparkfun/bin/python", argv);
+    return execv("/home/pi/.virtualenvs/sparkfun/bin/python", argv);
 }

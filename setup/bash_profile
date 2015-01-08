@@ -1,1 +1,2 @@
 export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
+source ~/.bashrc
