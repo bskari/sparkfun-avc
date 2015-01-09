@@ -3,4 +3,5 @@ proc            /proc       proc    defaults            0 0
 /dev/mmcblk0p2  /           ext4    defaults,noatime,ro 0 0
 tmpfs           /tmp        tmpfs   rw                  0 0
 tmpfs           /var/log    tmpfs   rw                  0 0
+tmpfs           /run        tmpfs   rw                  0 0
 # a swapfile is not a swap partition, so no using swapon|off from here on, use  dphys-swapfile swap[on|off]  for that
