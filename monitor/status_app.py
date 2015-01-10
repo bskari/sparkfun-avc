@@ -155,6 +155,14 @@ class StatusApp(object):
         return {'success': True}
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def follow(self):  # pylint: disable=invalid-name
+        """Tells the car to start following the phone."""
+        self._check_post()
+        self._logger.info('Received follow command from web')
+        return {'success': False, 'message': 'Not implemented'}
+
+    @cherrypy.expose
     def ws(self):  # pylint: disable=invalid-name
         """Dummy method to tell CherryPy to expose the web socket end point."""
         pass

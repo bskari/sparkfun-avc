@@ -6,6 +6,7 @@ sparkfun.status = sparkfun.status || {};
  * @param {
  *  run: Object,
  *  stop: Object,
+ *  follow: Object,
  *  calibrateCompass: Object,
  *  line: Object,
  *  count: Object
@@ -50,6 +51,7 @@ sparkfun.status.init = function(
     'use strict';
     buttons.run.click(sparkfun.status.run);
     buttons.stop.click(sparkfun.status.stop);
+    buttons.follow.click(sparkfun.status.follow);
     buttons.calibrateCompass.click(sparkfun.status.calibrateCompass);
     buttons.lineUp.click(sparkfun.status.lineUp);
     buttons.countDown.click(sparkfun.status.countDown);
@@ -73,19 +75,28 @@ sparkfun.status.init = function(
 
     sparkfun.status.logs = logs;
 
-    var webSocket = null;
+    sparkfun.status.latitude = null;
+    sparkfun.status.longitude = null;
+    sparkfun.status.heading = null;
+    // Safari only?
+    window.addEventListener('deviceorientation', function(e) {
+        sparkfun.status.heading = e.webkitCompassHeading;
+    }, false);
+    sparkfun.status.followInterval = null;
+
+    sparkfun.status.webSocket = null;
     if (window.WebSocket) {
-        webSocket = new WebSocket(webSocketAddress);
+        sparkfun.status.webSocket = new WebSocket(webSocketAddress);
     } else if (window.MozWebSocket) {
-        webSocket = new MozWebSocket(webSocketAddress);
+        sparkfun.status.webSocket = new MozWebSocket(webSocketAddress);
     }
-    if (webSocket === null) {
+    if (sparkfun.status.webSocket === null) {
         sparkfun.status.addAlert('Your browser does not support websockets, monitoring disabled');
         return;
     }
 
     window.onbeforeunload = function(e) {
-         webSocket.close(1000);
+         sparkfun.status.webSocket.close(1000);
          if (!e) {
              e = window.event;
          }
@@ -93,7 +104,7 @@ sparkfun.status.init = function(
          e.preventDefault();
     };
 
-    webSocket.onmessage = function (evt) {
+    sparkfun.status.webSocket.onmessage = function (evt) {
         var data = JSON.parse(evt.data);
         if (data.type === 'log') {
             sparkfun.status.logs.text(
@@ -131,7 +142,7 @@ sparkfun.status.init = function(
         }
     };
 
-    webSocket.onclose = function (evt) {
+    sparkfun.status.webSocket.onclose = function (evt) {
         sparkfun.status.addAlert('Connection closed by server');
     };
 };
@@ -145,7 +156,21 @@ sparkfun.status.run = function () {
 
 sparkfun.status.stop = function () {
     'use strict';
+    if (sparkfun.status.followInterval !== null) {
+        clearInterval(sparkfun.status.followInterval);
+    }
     sparkfun.status._poke('/stop');
+};
+
+
+sparkfun.status.follow = function () {
+    'use strict';
+    // Do this once to set up the geo permissions
+    navigator.geolocation.getCurrentPosition(
+        function () {
+            sparkfun.status.followInterval = window.setInterval(sparkfun.status.sendPosition, 1000);
+        });
+    sparkfun.status._poke('/follow');
 };
 
 
@@ -170,7 +195,28 @@ sparkfun.status.countDown = function () {
 /**
  * @param {string} url
  */
-sparkfun.status._poke= function(url) {
+sparkfun.status.sendPosition = function() {
+    'use strict';
+    navigator.geolocation.getCurrentPosition(
+        function (position) {
+            sparkfun.status.webSocket.send(
+                JSON.stringify({
+                    "latitude": position.coords.latitude,
+                    "longitude": position.coords.longitude,
+                    "speed": position.coords.speed,
+                    "heading": sparkfun.status.heading}));
+        },
+        function (error) {
+            alert(JSON.stringify(error));
+        }
+    );
+};
+
+
+/**
+ * @param {string} url
+ */
+sparkfun.status._poke = function(url) {
     'use strict';
     $.post(url, '', function (data, textStatus, jqXHR) {
         if (data.success !== true) {
