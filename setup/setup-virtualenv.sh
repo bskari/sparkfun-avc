@@ -2,7 +2,7 @@ set -u
 set -e
 export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
 pip-3.2 install virtualenvwrapper
-pushd ~pi/sparkfun-avc/control
+pushd ~pi/sparkfun-avc
 su -c "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3;
 	source /usr/local/bin/virtualenvwrapper.sh;
 	mkvirtualenv sparkfun -p /usr/bin/python3;

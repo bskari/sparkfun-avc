@@ -7,6 +7,7 @@ import signal
 import subprocess
 import sys
 
+from control.button import Button
 from control.command import Command
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.telemetry import Telemetry
@@ -71,10 +72,11 @@ def start_threads(
         port=monitor_port,
         address=monitor_address
     )
+    button = Button(command, logger)
     telemetry_dumper = TelemetryDumper(telemetry, web_socket_handler)
 
     global THREADS
-    THREADS = [command, telemetry_data, http_server, telemetry_dumper]
+    THREADS = [command, telemetry_data, http_server, button, telemetry_dumper]
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
@@ -88,6 +90,8 @@ def start_threads(
     command.join(100000000000)
     http_server.kill()
     http_server.join(100000000000)
+    button.kill()
+    button.join(100000000000)
 
 
 def make_parser():
