@@ -7,14 +7,14 @@ import signal
 import subprocess
 import sys
 
-from command import Command
-from kml_waypoint_generator import KmlWaypointGenerator
+from control.command import Command
+from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.telemetry import Telemetry
+from control.telemetry_dumper import TelemetryDumper
+from control.test.dummy_driver import DummyDriver
+from control.test.dummy_telemetry_data import DummyTelemetryData
 from monitor.http_server import HttpServer
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
-from telemetry import Telemetry
-from telemetry_dumper import TelemetryDumper
-from test.dummy_driver import DummyDriver
-from test.dummy_telemetry_data import DummyTelemetryData
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
@@ -188,7 +188,7 @@ def main():
         logger.info('Setting waypoints to Solid State Depot for testing')
         waypoint_generator = KmlWaypointGenerator(
             logger,
-            'paths/solid-state-depot.kmz'
+            'control/paths/solid-state-depot.kmz'
         )
 
     logger.debug('Calling start_threads')

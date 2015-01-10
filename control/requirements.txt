@@ -1,4 +1,5 @@
 RPIO >= 0.10
 cherrypy >= 3.3.0
 netifaces >= 0.10.4
+numpy >= 1.9.1
 ws4py >= 0.3.4

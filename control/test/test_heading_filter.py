@@ -1,9 +1,9 @@
 """Tests the heading Kalman Filter."""
 
-from telemetry import Telemetry
+from control.telemetry import Telemetry
 import unittest
 
-from heading_filter import HeadingFilter
+from control.heading_filter import HeadingFilter
 
 #pylint: disable=protected-access
 #pylint: disable=too-many-public-methods

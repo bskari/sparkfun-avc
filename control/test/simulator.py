@@ -2,11 +2,11 @@
 
 import time
 
-from command import Command
-from kml_waypoint_generator import KmlWaypointGenerator
-from test.dummy_driver import DummyDriver
-from test.dummy_logger import DummyLogger
-from test.dummy_telemetry import DummyTelemetry
+from control.command import Command
+from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.test.dummy_driver import DummyDriver
+from control.test.dummy_logger import DummyLogger
+from control.test.dummy_telemetry import DummyTelemetry
 
 # pylint: disable=missing-docstring
 # pylint: disable=no-self-use
@@ -20,7 +20,7 @@ def main():
     box = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
     waypoint_generator = KmlWaypointGenerator(
         logger,
-        'paths/solid-state-depot.kmz'
+        'control/paths/solid-state-depot.kmz'
     )
     waypoint_generator._waypoints.clear()
     for x, y in ((x_ * .005 + 10, y_ * .005 + 10) for x_, y_ in box):

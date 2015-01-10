@@ -5,7 +5,7 @@ import json
 import math
 import collections
 
-from heading_filter import HeadingFilter
+from control.heading_filter import HeadingFilter
 
 #pylint: disable=invalid-name
 

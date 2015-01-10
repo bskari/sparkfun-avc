@@ -10,7 +10,7 @@ methods:
 import math
 import time
 
-from telemetry import Telemetry
+from control.telemetry import Telemetry
 
 # pylint: disable=too-many-instance-attributes
 

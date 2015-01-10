@@ -5,8 +5,8 @@ import numpy
 import random
 import unittest
 
-from location_filter import LocationFilter
-from telemetry import Telemetry
+from control.location_filter import LocationFilter
+from control.telemetry import Telemetry
 
 # pylint: disable=no-member
 # pylint: disable=protected-access

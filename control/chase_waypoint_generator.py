@@ -9,7 +9,7 @@ This implements the "rabbit chase" algorithm.
 
 import math
 
-from telemetry import Telemetry
+from control.telemetry import Telemetry
 
 
 class ChaseWaypointGenerator(object):

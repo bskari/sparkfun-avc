@@ -7,7 +7,7 @@ import threading
 import time
 import traceback
 
-from telemetry import Telemetry
+from control.telemetry import Telemetry
 
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes

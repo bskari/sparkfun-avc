@@ -2,8 +2,8 @@
 import math
 import unittest
 
-from chase_waypoint_generator import ChaseWaypointGenerator
-from test.dummy_logger import DummyLogger
+from control.chase_waypoint_generator import ChaseWaypointGenerator
+from control.test.dummy_logger import DummyLogger
 
 #pylint: disable=invalid-name
 #pylint: disable=protected-access

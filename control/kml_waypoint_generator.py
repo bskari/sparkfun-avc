@@ -13,7 +13,7 @@ from xml.etree import ElementTree
 import collections
 import zipfile
 
-from telemetry import Telemetry
+from control.telemetry import Telemetry
 
 
 class KmlWaypointGenerator(object):

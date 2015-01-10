@@ -3,7 +3,7 @@ import math
 import mock
 import unittest
 
-from telemetry import Telemetry
+from control.telemetry import Telemetry
 
 #pylint: disable=invalid-name
 #pylint: disable=too-many-public-methods
