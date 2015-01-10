@@ -40,6 +40,7 @@ def main():
             (
                 'cp .bash_profile /home/pi/.bash_profile',
             )
+        ),
         (
             'network',
             newer('interfaces', '/etc/network/interfaces'),
@@ -53,7 +54,7 @@ def main():
             'hostapd',
             not subprocess.check_output(
                 ('md5sum', '/usr/sbin/hostapd')
-            ).decode('utf-8').startswith('d41d8cd98'),
+            ).decode('utf-8').startswith('a18c754b6edbbcb65cbcd48692704c0b'),
             (
                 'cp hostapd /etc/default/hostapd',
                 'cp hostapd.conf /etc/hostapd/hostapd.conf',
