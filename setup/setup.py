@@ -43,9 +43,10 @@ def main():
         ),
         (
             'network',
-            newer('interfaces', '/etc/network/interfaces'),
+            newer('interfaces', '/etc/network/interfaces') or newer('resolv.conf', '/etc/resolv.conf'),
             (
                 'cp interfaces /etc/network/interfaces',
+                'cp resolv.conf /etc/resolv.conf',
                 'ifdown wlan0',
                 'ifup wlan0',
             )
