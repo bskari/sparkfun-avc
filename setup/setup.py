@@ -52,16 +52,24 @@ def main():
             )
         ),
         (
-            'hostapd',
+            'hostapd binary',
             not subprocess.check_output(
                 ('md5sum', '/usr/sbin/hostapd')
             ).decode('utf-8').startswith('a18c754b6edbbcb65cbcd48692704c0b'),
             (
-                'cp hostapd /etc/default/hostapd',
-                'cp hostapd.conf /etc/hostapd/hostapd.conf',
                 'wget http://dl.dropboxusercontent.com/u/1663660/hostapd/hostapd -O /usr/sbin/hostapd',
                 'chown root:root /usr/sbin/hostapd',
                 'chmod 755 /usr/sbin/hostapd',
+                'service hostapd restart',
+            )
+        ),
+        (
+            'hostapd.conf',
+            newer('hostapd.conf', '/etc/hostapd/hostapd.conf') or newer('hostapd', '/etc/default/hostapd'),
+            (
+                'cp hostapd /etc/default/hostapd',
+                'cp hostapd.conf /etc/hostapd/hostapd.conf',
+                'bash setup-hostapd.sh',
                 'service hostapd restart',
             )
         ),

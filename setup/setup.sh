@@ -45,7 +45,9 @@ echo 'Get ready to expand the root FS and enable the camera (press enter)'
 read
 raspi-config  # Expand the root FS, enable the camera
 
-echo 'pi:sparkfun' | chpasswd
+echo -n 'Password for user pi? '
+read password
+echo "pi:${password}" | chpasswd
 
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
