@@ -1,0 +1,5 @@
+[package]
+
+name = "control-rust"
+version = "0.0.1"
+authors = ["Brandon Skari <brandon@skari.org>"]
