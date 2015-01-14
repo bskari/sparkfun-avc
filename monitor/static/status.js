@@ -168,7 +168,7 @@ sparkfun.status.follow = function () {
     // Do this once to set up the geo permissions
     navigator.geolocation.getCurrentPosition(
         function () {
-            sparkfun.status.followInterval = window.setInterval(sparkfun.status.sendPosition, 1000);
+            sparkfun.status.followInterval = window.setInterval(sparkfun.status.sendPosition, 250);
         });
     sparkfun.status._poke('/follow');
 };
