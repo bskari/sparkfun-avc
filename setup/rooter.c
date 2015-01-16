@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
     for (i = 1; i < COUNT_OF(args) && argv[i] != NULL; ++i) {
         args[i] = argv[i];
     }
+    args[i] = NULL;
     if (i == COUNT_OF(args)) {
         fprintf(stderr, "Too many args\n");
         exit(EXIT_FAILURE);
