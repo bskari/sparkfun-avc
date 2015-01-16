@@ -21,8 +21,6 @@ class Driver(object):
     def __init__(self, telemetry, logger):
         self._telemetry = telemetry
         self._logger = logger
-        self._throttle = 0.0
-        self._turn = 0.0
         self._servo = PWM.Servo(subcycle_time_us=(1000000 // 50))
         self._throttle = 0.0
         self._steering = 0.0
@@ -77,7 +75,7 @@ class Driver(object):
 
     def get_turn(self):
         """Returns the current turn."""
-        return self._turn
+        return self._steering
 
     @staticmethod
     def _get_throttle(percentage):
