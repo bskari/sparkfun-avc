@@ -1,7 +1,7 @@
 """Implements the WaypointGenerator interface. Returns waypoints from a KML
 file. All WaypointGenerator implementations should have two methods:
-    get_current_waypoint(self, latitude, longitude) -> (float, float)
-    reached(self, latitude, longitude) -> bool
+    get_current_waypoint(self, x_m, y_m) -> (float, float)
+    reached(self, x_m, y_m) -> bool
     next(self)
     done(self) -> bool
 This implements the "rabbit chase" algorithm.
@@ -26,10 +26,10 @@ class ChaseWaypointGenerator(object):
         self._waypoints = waypoints
         self._current_waypoint = 0
 
-        self._last_latitude = None
-        self._last_longitude = None
+        self._last_x_m = None
+        self._last_y_m = None
 
-    def get_current_waypoint(self, latitude, longitude):
+    def get_current_waypoint(self, x_m, y_m):
         """Returns the current waypoint."""
         if self._current_waypoint == 0:
             return self._waypoints[self._current_waypoint]
@@ -38,11 +38,9 @@ class ChaseWaypointGenerator(object):
         else:
             current = self._waypoints[self._current_waypoint]
             previous = self._waypoints[self._current_waypoint - 1]
-            distance_m = Telemetry.distance_m(
-                current[0],
-                current[1],
-                latitude,
-                longitude
+            distance_m = math.sqrt(
+                (current[0] - x_m) ** 2
+                + (current[1] - y_m) ** 2
             )
             if distance_m < self._distance_m:
                 return self._waypoints[self._current_waypoint]
@@ -53,7 +51,7 @@ class ChaseWaypointGenerator(object):
             intersections = self._circle_intersection(
                 previous,
                 current,
-                (latitude, longitude),
+                (x_m, y_m),
                 self._distance_m
             )
             if len(intersections) == 0:
@@ -68,7 +66,7 @@ class ChaseWaypointGenerator(object):
                 )
 
                 tangent_distance_m = self._tangent_distance_m(
-                    (latitude, longitude),
+                    (x_m, y_m),
                     previous,
                     current
                 )
@@ -81,7 +79,7 @@ class ChaseWaypointGenerator(object):
                 intersections = self._circle_intersection(
                     previous,
                     current,
-                    (latitude, longitude),
+                    (x_m, y_m),
                     tangent_distance_m + 0.1  # Avoid floating point issues
                 )
 
@@ -133,15 +131,13 @@ class ChaseWaypointGenerator(object):
             (x_2 + circle_center[0], y_2 + circle_center[1])
         )
 
-    def reached(self, latitude, longitude):
+    def reached(self, x_m, y_m):
         """Returns True if the current waypoint has been reached."""
-        self._last_latitude = latitude
-        self._last_longitude = longitude
-        return Telemetry.distance_m(
-            latitude,
-            longitude,
-            self._waypoints[0][0],
-            self._waypoints[0][1]
+        self._last_x_m = x_m
+        self._last_y_m = y_m
+        return math.sqrt(
+            (x_m - self._waypoints[0][0]) ** 2 +
+            (y_m - self._waypoints[0][1]) ** 2
         ) < 1.5
 
     def next(self):

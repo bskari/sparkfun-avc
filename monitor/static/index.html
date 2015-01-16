@@ -53,16 +53,16 @@
             <div class="col-md-6">
                 <table class="table">
                     <tr>
-                        <th>Latitude</th>
-                        <th>Longitude</th>
+                        <th>X m</th>
+                        <th>Y m</th>
                         <th>Speed m/s</th>
                         <th>Heading°</th>
                         <th>Throttle</th>
                         <th>Steering</th>
                     </tr>
                     <tr>
-                        <td id="latitude"></td>
-                        <td id="longitude"></td>
+                        <td id="x-m"></td>
+                        <td id="y-m"></td>
                         <td id="speed"></td>
                         <td id="heading"></td>
                         <td id="throttle"></td>
@@ -71,14 +71,14 @@
                 </table>
                 <table class="table">
                     <tr>
-                        <th>Latitude</th>
-                        <th>Longitude</th>
+                        <th>X m</th>
+                        <th>Y m</th>
                         <th>Distance m</th>
                         <th>Heading°</th>
                     </tr>
                     <tr>
-                        <td id="waypoint-latitude"></td>
-                        <td id="waypoint-longitude"></td>
+                        <td id="waypoint-x-m"></td>
+                        <td id="waypoint-y-m"></td>
                         <td id="waypoint-distance"></td>
                         <td id="waypoint-heading"></td>
                     </tr>
@@ -126,16 +126,16 @@ $(document).ready(function () {
         follow: $('#follow-button')
     };
     var carFields = {
-        latitude: $('#latitude'),
-        longitude: $('#longitude'),
+        x_m: $('#x-m'),
+        y_m: $('#y-m'),
         speed: $('#speed'),
         heading: $('#heading'),
         throttle: $('#throttle'),
         steering: $('#steering')
     };
     var telemetryFields = {
-        waypointLatitude: $('#waypoint-latitude'),
-        waypointLongitude: $('#waypoint-longitude'),
+        waypointX_m: $('#waypoint-x-m'),
+        waypointY_m: $('#waypoint-y-m'),
         waypointDistance: $('#waypoint-distance'),
         waypointHeading: $('#waypoint-heading'),
         satellites: $('#satellites'),

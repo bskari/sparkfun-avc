@@ -20,9 +20,9 @@ class DummyTelemetry(object):
     MAX_SPEED_M_S = 4.7  # From observation
 
     def __init__(self, logger, first_way_point):
-        self._latitude, self._longitude = first_way_point
+        self._x_m, self._y_m = first_way_point
         self._logger = logger
-        self._latitude -= 0.001
+        self._x_m -= 1000
         self._heading = 0.0
         self._last_command_time = time.time()
         self._throttle = 0.0
@@ -38,11 +38,11 @@ class DummyTelemetry(object):
         """Returns the estimated telemetry data."""
         self._update_position()
         values = {
-            'heading': self._heading,
-            'latitude': self._latitude,
-            'longitude': self._longitude,
-            'accelerometer': [],
-            'speed': self._throttle * self.MAX_SPEED_M_S,
+            'heading_d': self._heading,
+            'x_m': self._x_m,
+            'y_m': self._y_m,
+            'accelerometer_m_s_s': [],
+            'speed_m_s': self._throttle * self.MAX_SPEED_M_S,
         }
         return values
 
@@ -62,11 +62,11 @@ class DummyTelemetry(object):
             self._heading = Telemetry.wrap_degrees(self._heading)
 
             step_m = diff_time_s * self._throttle * self.MAX_SPEED_M_S
-            point = (0, step_m / Telemetry.m_per_d_latitude())
+            point = (0, step_m)
             radians = math.radians(self._heading)
             point = Telemetry.rotate_radians_clockwise(point, radians)
-            self._latitude += point[1]
-            self._longitude += point[0]
+            self._x_m += point[0]
+            self._y_m += point[1]
 
     def is_stopped(self):  # pylint: disable=no-self-use
         """Returns True if the car is stopped."""

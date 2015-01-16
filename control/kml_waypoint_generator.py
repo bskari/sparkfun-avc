@@ -1,7 +1,7 @@
 """Implements the WaypointGenerator interface. Returns waypoints from a KML
 file. All WaypointGenerator implementations should have two methods:
-    get_current_waypoint(self, latitude, longitude) -> (float, float)
-    reached(self, latitude, longitude) -> bool
+    get_current_waypoint(self, x_m, y_m) -> (float, float)
+    reached(self, x_m y_m) -> bool
     next(self)
     done(self) -> bool
 Note that implementers don't necessarily need to return the same current
@@ -11,6 +11,7 @@ such as the "rabbit chase" method.
 
 from xml.etree import ElementTree
 import collections
+import math
 import zipfile
 
 from control.telemetry import Telemetry
@@ -29,19 +30,17 @@ class KmlWaypointGenerator(object):
                 )
             )
 
-    def get_current_waypoint(self, latitude, longitude):  # pylint: disable=unused-argument
+    def get_current_waypoint(self, x_m, y_m):  # pylint: disable=unused-argument
         """Returns the current waypoint."""
         if len(self._waypoints) > 0:
             return self._waypoints[0]
         raise ValueError('No waypoints left')
 
-    def reached(self, latitude, longitude):
+    def reached(self, x_m, y_m):
         """Returns True if the current waypoint has been reached."""
-        return Telemetry.distance_m(
-            latitude,
-            longitude,
-            self._waypoints[0][0],
-            self._waypoints[0][1]
+        return math.sqrt(
+            (x_m - self._waypoints[0][0]) ** 2
+            + (y_m - self._waypoints[0][1]) ** 2
         ) < 1.5
 
     def next(self):
@@ -84,5 +83,8 @@ class KmlWaypointGenerator(object):
                 altitude  # pylint: disable=unused-variable
             ) = csv.split(',')
 
-            waypoints.append((float(latitude), float(longitude)))
+            waypoints.append((
+                Telemetry.longitude_to_m_offset(float(longitude)),
+                Telemetry.latitude_to_m_offset(float(latitude))
+            ))
         return waypoints

@@ -40,12 +40,14 @@ class DummyTelemetryData(threading.Thread):
                 pass
 
             self._telemetry.handle_message({
-                'latitude': 0.0,
-                'longitude': 0.0,
-                'speed': 0.0,
-                'heading': 0.0,
-                'bearing': 0.0,
-                'accelerometer': (0.0, 0.0, 9.8),
+                'x_m': 0.0,
+                'y_m': 0.0,
+                'x_accuracy_m': 2.0,
+                'y_accuracy_m': 2.0,
+                'speed_m_s': 0.0,
+                'heading_d': 0.0,
+                'bearing_d': 0.0,
+                'accelerometer_m_s_s': (0.0, 0.0, 9.8),
             })
 
     def kill(self):

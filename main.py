@@ -58,7 +58,8 @@ def start_threads(
         web_socket_handler
 ):
     """Runs everything."""
-    telemetry = Telemetry(logger)
+    # TODO: Get latitude longitude central coordinate from the GPS
+    telemetry = Telemetry(logger)  # Sparkfun HQ
     driver = DummyDriver(telemetry, logger)
 
     command = Command(telemetry, driver, waypoint_generator, logger)

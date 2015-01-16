@@ -5,9 +5,13 @@ import json
 import math
 import collections
 
-from control.heading_filter import HeadingFilter
+from control.location_filter import LocationFilter
 
 #pylint: disable=invalid-name
+
+# Sparkfun HQ
+CENTRAL_LATITUDE = 40.091244
+CENTRAL_LONGITUDE = -105.185276
 
 
 class Telemetry(object):
@@ -22,11 +26,11 @@ class Telemetry(object):
     def __init__(self, logger):
         self._data = {}
         self._logger = logger
-        self._latitude_offset = None
-        self._longitude_offset = None
         self._speed_history = collections.deque()
 
-        self._heading_filter = None
+        # TODO: For the competition, just hard code the compass. For now, the
+        # Kalman filter should start reading in values and correct quickly.
+        self._location_filter = LocationFilter(0.0, 0.0, 0.0)
         self._throttle = None
         self._steering = None
 
@@ -37,22 +41,14 @@ class Telemetry(object):
     def get_data(self):
         """Returns the approximated telemetry data."""
         values = {}
-        for key in ('accelerometer', 'speed'):
+        for key in ('accelerometer_m_s_s',):  # Left as a loop if we want more later
             if key in self._data:
                 values[key] = self._data[key]
 
-        if self._heading_filter is not None:
-            values['heading'] = self._heading_filter.estimated_heading()
-        elif 'heading' in self._data:
-            values['heading'] = self._data['heading']
-
-        if 'latitude' in self._data:
-            values['latitude'] = self._data['latitude']
-            values['longitude'] = self._data['longitude']
-            if self._latitude_offset is not None:
-                values['latitude'] += self._latitude_offset
-                values['longitude'] += self._longitude_offset
-
+        values['speed_m_s'] = self._location_filter.estimated_speed()
+        values['heading_d'] = self._location_filter.estimated_heading()
+        x_m, y_m = self._location_filter.estimated_location()
+        values['x_m'], values['y_m'] = x_m, y_m
         return values
 
     def process_drive_command(self, throttle, steering):
@@ -66,20 +62,7 @@ class Telemetry(object):
         self._throttle = throttle
         self._steering = steering
 
-        if self._heading_filter is None:
-            return
-        d_per_s = 0.0
-        # TODO: What about coasting?
-        if throttle != 0.0 and steering != 0.0:
-            throttle_greater_than_zero = throttle > 0.0
-            turn_greater_than_zero = steering > 0.0
-            # TODO: Get better estimations here
-            d_per_s = 90.0
-            left = throttle_greater_than_zero != turn_greater_than_zero
-            if left:
-                d_per_s *= -1
-
-        self._heading_filter.update_heading_delta(d_per_s)
+        # TODO: Update speed and turn rate estimatiosn
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
@@ -92,66 +75,23 @@ class Telemetry(object):
             while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
                 self._speed_history.popleft()
 
-        if self._heading_filter is None:
-            if 'bearing' in message:
-                # TODO: For the competition, just hard code this
-                self._heading_filter = HeadingFilter(message['bearing'])
-            elif 'heading' in message:
-                # TODO: For the competition, just hard code this
-                self._heading_filter = HeadingFilter(message['heading'])
+        if 'bearing' in message:
+            self._location_filter.update_dead_reckoning(message['bearing'])
+        elif 'heading' in message:
+            self._location_filter.update_dead_reckoning(message['heading'])
+
+        if 'x_m' in message:
+            self._location_filter.update_gps(
+                message['x_m'],
+                message['y_m'],
+                message['x_accuracy_m'],
+                message['y_accuracy_m'],
+                message['heading_d'],
+                message['speed_m_s']
+            )
 
         self._data = message
         self._logger.debug(json.dumps(message))
-
-    def _calibrate(self):
-        """Calibrates the GPS to a nearby known waypoint."""
-        known_waypoints = (
-            ('Rally parking lot, northern-most edge of western island', 40.021172, -105.248476),
-            ('Solid State Depot, northern-most edge of curb on west side of 33rd between SSD and Boulder Engineering Studio rear parking lot', 40.021367, -105.249689),
-            ('Sparkfun AVC, eastern-most edge of starting island', 40.071324, -105.229466),
-        )
-        best = known_waypoints[0]
-        shortest_distance = 10000000000
-        for waypoint in known_waypoints:
-            description, latitude, longitude = waypoint
-            distance = self.distance_m(
-                self._data['latitude'],
-                self._data['longitude'],
-                latitude,
-                longitude
-            )
-            if distance < shortest_distance:
-                best = waypoint
-                shortest_distance = distance
-
-        description, latitude, longitude = best
-        distance = self.distance_m(
-            self._data['latitude'],
-            self._data['longitude'],
-            latitude,
-            longitude
-        )
-        self._logger.info(
-            'Calibrated to waypoint {latitude} {longitude}'.format(
-                latitude=latitude,
-                longitude=longitude
-            )
-        )
-        self._logger.info(description)
-        heading = self.relative_degrees(
-            latitude,
-            longitude,
-            self._data['latitude'],
-            self._data['longitude']
-        )
-        self._logger.info(
-            'GPS is {distance} meters @ {heading} degres off'.format(
-                distance=distance,
-                heading=heading
-            )
-        )
-        self._latitude_offset = latitude - self._data['latitude']
-        self._longitude_offset = longitude - self._data['longitude']
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):
@@ -241,17 +181,12 @@ class Telemetry(object):
         return False
 
     @staticmethod
-    def relative_degrees(
-        latitude_d_1,
-        longitude_d_1,
-        latitude_d_2,
-        longitude_d_2
-    ):
+    def relative_degrees(x_m_1, y_m_1, x_m_2, y_m_2):
         """Computes the relative degrees from the first waypoint to the second,
         where north is 0.
         """
-        relative_y_m = float(latitude_d_2) - latitude_d_1
-        relative_x_m = float(longitude_d_2) - longitude_d_1
+        relative_y_m = float(y_m_1) - y_m_2
+        relative_x_m = float(x_m_1) - x_m_2
         if relative_x_m == 0.0:
             if relative_y_m > 0.0:
                 return 0.0
@@ -307,6 +242,18 @@ class Telemetry(object):
         if diff_d > 180.0:
             diff_d = 360.0 - diff_d
         return diff_d
+
+    @staticmethod
+    def latitude_to_m_offset(latitude_d):
+        """Returns the offset in meters for a given coordinate."""
+        y_m = Telemetry.distance_m(latitude_d, 0.0, CENTRAL_LATITUDE, 0.0)
+        return y_m
+
+    @staticmethod
+    def longitude_to_m_offset(longitude_d):
+        """Returns the offset in meters for a given coordinate."""
+        x_m = Telemetry.distance_m(0.0, longitude_d, 0.0, CENTRAL_LONGITUDE)
+        return x_m
 
     def is_stopped(self):
         """Determines if the RC car is moving."""

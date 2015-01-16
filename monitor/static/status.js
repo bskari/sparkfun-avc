@@ -12,24 +12,16 @@ sparkfun.status = sparkfun.status || {};
  *  count: Object
  * } buttons
  * @param {
- *  latitude: Object,
- *  longitude: Object,
+ *  x_m: Object,
+ *  y_m: Object,
  *  speed: Object,
  *  heading: Object,
  *  throttle: Object,
  *  steering: Object
  * } carFields
  * @param {
- *  latitude: Object,
- *  longitude: Object,
- *  speed: Object,
- *  heading: Object,
- *  throttle: Object,
- *  steering: Object
- * }
- * @param {
- *  waypointLatitude: Object,
- *  waypointLongitude: Object,
+ *  waypointX_m: Object,
+ *  waypointY_m: Object,
  *  waypointDistance: Object,
  *  waypointHeading: Object,
  *  satellites: Object,
@@ -56,15 +48,15 @@ sparkfun.status.init = function(
     buttons.lineUp.click(sparkfun.status.lineUp);
     buttons.countDown.click(sparkfun.status.countDown);
 
-    sparkfun.status.carLatitude = carFields.latitude;
-    sparkfun.status.carLongitude = carFields.longitude;
+    sparkfun.status.carX_m = carFields.x_m;
+    sparkfun.status.carY_m = carFields.y_m;
     sparkfun.status.carSpeed = carFields.speed;
     sparkfun.status.carHeading = carFields.heading;
     sparkfun.status.carThrottle = carFields.throttle;
     sparkfun.status.carSteering = carFields.steering;
 
-    sparkfun.status.waypointLatitude = telemetryFields.waypointLatitude;
-    sparkfun.status.waypointLongitude = telemetryFields.waypointLongitude;
+    sparkfun.status.waypointX_m = telemetryFields.waypointX_m;
+    sparkfun.status.waypointY_m = telemetryFields.waypointY_m;
     sparkfun.status.waypointDistance = telemetryFields.waypointDistance;
     sparkfun.status.waypointHeading = telemetryFields.waypointHeading;
     sparkfun.status.satellites = telemetryFields.satellites;
@@ -75,8 +67,6 @@ sparkfun.status.init = function(
 
     sparkfun.status.logs = logs;
 
-    sparkfun.status.latitude = null;
-    sparkfun.status.longitude = null;
     sparkfun.status.heading = null;
     // Safari only?
     window.addEventListener('deviceorientation', function(e) {
@@ -114,14 +104,14 @@ sparkfun.status.init = function(
             console.log(data.message);
             var telemetry = JSON.parse(data.message);
             var typeToField = {
-                'latitude': sparkfun.status.carLatitude,
-                'longitude': sparkfun.status.carLongitude,
+                'x_m': sparkfun.status.carX_m,
+                'y_m': sparkfun.status.carY_m,
                 'speed': sparkfun.status.carSpeed,
                 'heading': sparkfun.status.carHeading,
                 'throttle': sparkfun.status.carThrottle,
                 'steering': sparkfun.status.carSteering,
-                'waypoint-latitude': sparkfun.status.waypointLatitude,
-                'waypoint-longitude': sparkfun.status.waypointLongitude,
+                'waypoint-x-m': sparkfun.status.waypointX_m,
+                'waypoint-y-m': sparkfun.status.waypointY_m,
                 'waypoint-distance': sparkfun.status.waypointDistance,
                 'waypoint-heading': sparkfun.status.waypointHeading,
                 'satellites': sparkfun.status.satellites,
@@ -201,10 +191,10 @@ sparkfun.status.sendPosition = function() {
         function (position) {
             sparkfun.status.webSocket.send(
                 JSON.stringify({
-                    "latitude": position.coords.latitude,
-                    "longitude": position.coords.longitude,
-                    "speed": position.coords.speed,
-                    "heading": sparkfun.status.heading}));
+                    "latitude_d": position.coords.latitude,
+                    "longitude_d": position.coords.longitude,
+                    "speed_m_s": position.coords.speed,
+                    "heading_d": sparkfun.status.heading}));
         },
         function (error) {
             alert(JSON.stringify(error));

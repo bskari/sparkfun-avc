@@ -1,6 +1,7 @@
 """Class to control the RC car."""
 
 import gc
+import math
 import random
 import sys
 import threading
@@ -163,15 +164,13 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         while not self._waypoint_generator.done():
             telemetry = self._telemetry.get_data()
             current_waypoint = self._waypoint_generator.get_current_waypoint(
-                telemetry['latitude'],
-                telemetry['longitude']
+                telemetry['x_m'],
+                telemetry['y_m']
             )
 
-            distance_m = Telemetry.distance_m(
-                telemetry['latitude'],
-                telemetry['longitude'],
-                current_waypoint[0],
-                current_waypoint[1]
+            distance_m = math.sqrt(
+                (telemetry['x_m'] - current_waypoint[0]) ** 2
+                + (telemetry['y_m'] - current_waypoint[1]) ** 2
             )
 
             self._logger.debug(
@@ -182,8 +181,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             # We let the waypoint generator tell us if a waypoint has been
             # reached so that it can do fancy algorithms, like "rabbit chase"
             if self._waypoint_generator.reached(
-                telemetry['latitude'],
-                telemetry['longitude']
+                telemetry['x_m'],
+                telemetry['y_m']
             ):
                 self._logger.info('Reached ' + str(current_waypoint))
                 self._waypoint_generator.next()
@@ -195,13 +194,13 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 speed = 0.5
 
             degrees = Telemetry.relative_degrees(
-                telemetry['latitude'],
-                telemetry['longitude'],
+                telemetry['x_m'],
+                telemetry['y_m'],
                 current_waypoint[0],
                 current_waypoint[1]
             )
 
-            heading_d = telemetry['heading']
+            heading_d = telemetry['heading_d']
 
             self._logger.debug(
                 'My heading: {my_heading}, goal heading: {goal_heading}'.format(

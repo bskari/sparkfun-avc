@@ -207,9 +207,13 @@ class LocationFilter(object):
         #print('7. P=\n{}'.format(self._covariance_matrix))
 
     def estimated_location(self):
-        """Returns the estimated true location."""
+        """Returns the estimated true location in x and y meters."""
         return (self._estimates[0].item(0), self._estimates[1].item(0))
 
     def estimated_heading(self):
-        """Returns the estimated true heading."""
+        """Returns the estimated true heading in degrees."""
         return self._estimates[2].item(0)
+
+    def estimated_speed(self):
+        """Returns the estimated speed in meters per second."""
+        return self._estimates[3].item(0)
