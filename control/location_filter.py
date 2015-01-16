@@ -10,15 +10,8 @@ import time
 class LocationFilter(object):
     """Kalman filter for the location of the vehicle."""
     MAX_SPEED_M_S = 11.0 * 5280 / 60 / 60 / 3.2808399  # 11 MPH
-    # Assume constant acceleration until we hit the target speed
-    ACCELERATION_M_S_S = 1.0  # TODO: Take measurements of this
 
-    GPS_OBSERVER_MATRIX = numpy.matrix([  # H
-        [1, 0, 0, 0],
-        [0, 1, 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    ])
+    GPS_OBSERVER_MATRIX = numpy.eye(4)  # H
     COMPASS_OBSERVER_MATRIX = numpy.matrix([  # H
         [0, 0, 0, 0],
         [0, 0, 0, 0],
@@ -40,6 +33,10 @@ class LocationFilter(object):
         [0, 0, 45, 0],
         [0, 0, 0, 0]
     ])
+
+    UPDATE_MEASUREMENTS = numpy.matrix([0.0, 0.0, 0.0, 0.0]).transpose()
+    UPDATE_OBSERVER_MATRIX = numpy.zeros((4, 4))
+    UPDATE_MEASUREMENT_NOISE = numpy.zeros((4, 4))
 
     # http://robotsforroboticists.com/kalman-filtering/ is a great reference
     def __init__(self, x_m, y_m, heading_d=None):
@@ -66,8 +63,6 @@ class LocationFilter(object):
             [0, 0, 1, 0],
             [0, 0, 0, 1],
         ])
-        self._accelerating = False
-        self._acceleration = 0.0
         self._throttle = 0.0
 
         self._last_observation_s = time.time()
@@ -88,30 +83,20 @@ class LocationFilter(object):
 
         self.GPS_MEASUREMENT_NOISE[0].itemset(0, x_accuracy_m)
         self.GPS_MEASUREMENT_NOISE[1].itemset(1, y_accuracy_m)
-        # GPS updates don't rely on time, so ignore time_diff_s
+
+        now = time.time()
+        time_diff_s = now - self._last_observation_s
+        self._last_observation_s = now
+
         self._update(
             measurements,
             self.GPS_OBSERVER_MATRIX,
             self.GPS_MEASUREMENT_NOISE,
-            0.0
+            time_diff_s
         )
 
-    def update_dead_reckoning(self, compass_d):
+    def update_compass(self, compass_d):
         """Update the heading estimation."""
-        if self._accelerating:
-            # If we've already hit the target speed, then acceleration = 0
-            speed = self._estimates[4].item(0)
-            target_speed = self._throttle * self.MAX_SPEED_M_S
-            if (
-                (self._acceleration > 0 and speed >= target_speed)
-                or (self._acceleration < 0 and speed <= target_speed)
-            ):
-                self._accelerating = False
-                self._acceleration = 0.0
-
-        # TODO: This should be set according to the turn rate and the speed
-        turn_d_s = 0.0
-
         measurements = numpy.matrix(
             [0.0, 0.0, compass_d, 0.0]
         ).transpose()  # z
@@ -127,6 +112,14 @@ class LocationFilter(object):
             time_diff_s
         )
 
+    def update_dead_reckoning(self):
+        """Update the dead reckoning position estimate."""
+        now = time.time()
+        time_diff_s = now - self._last_observation_s
+        self._last_observation_s = now
+
+        self._prediction_step(time_diff_s)
+
     def _update(
         self,
         measurements,
@@ -135,21 +128,8 @@ class LocationFilter(object):
         time_diff_s
     ):
         """Runs the Kalman update using the provided measurements."""
-        if measurements.size != 1:
-            measurements = measurements.transpose()
         # Prediction step
-        # x = A * x
-        heading_r = math.radians(self.estimated_heading())
-        x_delta = math.sin(heading_r) * time_diff_s
-        y_delta = math.cos(heading_r) * time_diff_s
-        transition = numpy.matrix([  # A
-            [1.0, 0.0, 0.0, x_delta],
-            [0.0, 1.0, 0.0, y_delta],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0]
-        ])
-        # TODO: Add acceleration and turn values
-        self._estimates = transition * self._estimates
+        transition = self._prediction_step(time_diff_s)
         #print('1. A=\n{}'.format(transition))
         #print('   P=\n{}'.format(self._covariance_matrix))
         #print('   x=\n{}'.format(self._estimates))
@@ -196,6 +176,9 @@ class LocationFilter(object):
         zhx[2].itemset(0, heading_d)
 
         self._estimates = self._estimates + kalman_gain * zhx
+        from control.telemetry import Telemetry
+        heading_d = Telemetry.wrap_degrees(self._estimates[2].item(0))
+        self._estimates[2].itemset(0, heading_d)
 
         #print('6. x=\n{}'.format(self._estimates))
 
@@ -205,6 +188,34 @@ class LocationFilter(object):
             numpy.identity(len(kalman_gain)) - kalman_gain * observer_matrix
         ) * self._covariance_matrix
         #print('7. P=\n{}'.format(self._covariance_matrix))
+
+        assert len(self._estimates) == 4 and len(self._estimates[0]) == 1, \
+            'Estimates should be size 4x1 but is {}x{} after update'.format(
+                len(self._estimates),
+                len(self._estimates[0])
+            )
+
+    def _prediction_step(self, time_diff_s):
+        """Runs the prediction step and returns the transition matrix."""
+        # x = A * x + B
+        heading_r = math.radians(self.estimated_heading())
+        from control.telemetry import Telemetry
+        x_delta, y_delta = Telemetry.rotate_radians_clockwise(
+            (time_diff_s, 0.0),
+            heading_r
+        )
+        x_delta = math.sin(heading_r) * time_diff_s
+        y_delta = math.cos(heading_r) * time_diff_s
+        speed_m_s = self.estimated_speed()
+        transition = numpy.matrix([  # A
+            [1.0, 0.0, 0.0, x_delta],
+            [0.0, 1.0, 0.0, y_delta],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ])
+        # TODO: Add acceleration and turn values
+        self._estimates = transition * self._estimates
+        return transition
 
     def estimated_location(self):
         """Returns the estimated true location in x and y meters."""

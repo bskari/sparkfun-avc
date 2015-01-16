@@ -20,6 +20,13 @@ class DummyDriver(object):
         """
         assert -1.0 <= throttle_percentage <= 1.0
         assert -1.0 <= steering_percentage <= 1.0
+
+        if (
+            self._throttle == throttle_percentage
+            and self._steering == steering_percentage
+        ):
+            return
+
         self._telemetry.process_drive_command(
             throttle_percentage,
             steering_percentage

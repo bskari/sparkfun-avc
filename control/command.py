@@ -69,10 +69,10 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         gc.collect()  # Let's try to preemptvely avoid GC interruptions
         self._sleep_time = time.time()
         if self._wake_time is not None:
-            time_awake = self._wake_time - self._sleep_time
+            time_awake = self._sleep_time - self._wake_time
         else:
             time_awake = 0.0
-        time.sleep(self._sleep_time_seconds - time_awake)
+        time.sleep(max(self._sleep_time_seconds - time_awake, 0.0))
         self._wake_time = time.time()
 
     def run(self):
@@ -174,8 +174,9 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             )
 
             self._logger.debug(
-                'Distance to goal: {distance}'.format(
-                    distance=distance_m
+                'Distance to goal {waypoint}: {distance}'.format(
+                    waypoint=current_waypoint,
+                    distance=distance_m,
                 )
             )
             # We let the waypoint generator tell us if a waypoint has been
@@ -211,6 +212,30 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
             diff_d = Telemetry.difference_d(degrees, heading_d)
             if diff_d < 10.0:
+                # We want to keep turning until we pass the point
+                is_left = Telemetry.is_turn_left(heading_d, degrees)
+                while diff_d < 10.0:
+                    yield True
+                    telemetry = self._telemetry.get_data()
+                    degrees = Telemetry.relative_degrees(
+                        telemetry['x_m'],
+                        telemetry['y_m'],
+                        current_waypoint[0],
+                        current_waypoint[1]
+                    )
+                    heading_d = telemetry['heading_d']
+                    diff_d = Telemetry.difference_d(degrees, heading_d)
+
+                    if self._waypoint_generator.reached(
+                        telemetry['x_m'],
+                        telemetry['y_m']
+                    ):
+                        self._logger.info('Reached ' + str(current_waypoint))
+                        self._waypoint_generator.next()
+                        break
+                    if Telemetry.is_turn_left(heading_d, degrees) != is_left:
+                        break
+
                 self._driver.drive(speed, 0.0)
                 yield True
                 continue

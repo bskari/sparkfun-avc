@@ -4,25 +4,31 @@ telemetry object.  A TelemetryData should have two methods:
     kill(self)
 The TelemetryData should call telemetry.handle_message(message) with a
 dictionary containing the most recent readings with entries for at least
-latitude, longitude, heading, bearing, accelerometer, gyro, speed, time, etc.
+x_m, y_m, x_accuracy_m, y_accuracy_m, gps_d, speed_m_s for GPS readings, and
+compass_d for compass readings. Optional parameters are time_s,
+accelerometer_m_s_s, and magnetometer.
 """
 
 import math
+import random
 import threading
 import time
 
 
-MAX_SPEED_M_S = 11.0
-TURN_D_S = 90.0
-SLEEP_TIME_S = 0.5
-
-
 class DummyTelemetryData(threading.Thread):
     """Dummy class that implements the TelemetryData interface."""
+    MAX_SPEED_M_S = 11.0
+    TURN_D_S = 90.0
+    SIGMA_M = 2.0
+    SIGMA_COMPASS_D = 10.0
+    SIGMA_GPS_D = 2.0
+    SIGMA_M_S = 0.5
+
     def __init__(
         self,
         telemetry,
-        logger
+        logger,
+        sleep_time_milliseconds=None
     ):
         """Create the TelemetryData thread."""
         super(DummyTelemetryData, self).__init__()
@@ -30,6 +36,12 @@ class DummyTelemetryData(threading.Thread):
         self._telemetry = telemetry
         self._logger = logger
         self._run = True
+        self._iterations = 0
+
+        if sleep_time_milliseconds is None:
+            self._sleep_time_s = 0.2
+        else:
+            self._sleep_time_s = sleep_time_milliseconds / 1000.0
 
         # We initialize these so that simulations and the like can set it
         # later, to provide simulated telemetry data
@@ -47,14 +59,14 @@ class DummyTelemetryData(threading.Thread):
         # or that blocks until readings are received
         while self._run:
             try:
-                time.sleep(SLEEP_TIME_S)
+                time.sleep(self._sleep_time_s)
             except Exception:  # pylint: disable=broad-except
                 pass
 
             speed_m_s = 0.0
             if self._driver is not None:
-                speed_m_s = self._driver.get_throttle() * MAX_SPEED_M_S
-                point_m = (0.0, speed_m_s * SLEEP_TIME_S)
+                speed_m_s = self._driver.get_throttle() * self.MAX_SPEED_M_S
+                point_m = (0.0, speed_m_s * self.SLEEP_TIME_S)
                 offset_m = Telemetry.rotate_radians_clockwise(
                     point_m,
                     math.radians(self._heading_d)
@@ -62,19 +74,35 @@ class DummyTelemetryData(threading.Thread):
                 self._x_m += offset_m[0]
                 self._y_m += offset_m[1]
 
-                self._heading_d += self._driver.get_turn() * TURN_D_S * SLEEP_TIME_S
+                self._heading_d += \
+                    self._driver.get_turn() * self.TURN_D_S * self.SLEEP_TIME_S
                 self._heading_d = Telemetry.wrap_degrees(self._heading_d)
 
-            self._telemetry.handle_message({
-                'x_m': self._x_m,
-                'y_m': self._y_m,
-                'x_accuracy_m': 2.0,
-                'y_accuracy_m': 2.0,
-                'speed_m_s': speed_m_s,
-                'heading_d': self._heading_d,
-                'bearing_d': self._heading_d,
-                'accelerometer_m_s_s': (0.0, 0.0, 9.8),
-            })
+            self._iterations += 1
+            if self._iterations % 5 == 0:
+                gps_d = Telemetry.wrap_degrees(
+                    random.normalvariate(self._heading_d, self.SIGMA_GPS_D)
+                )
+                self._telemetry.handle_message({
+                    'x_m': random.normalvariate(self._x_m, self.SIGMA_M),
+                    'y_m': random.normalvariate(self._y_m, self.SIGMA_M),
+                    'x_accuracy_m': self.SIGMA_M,
+                    'y_accuracy_m': self.SIGMA_M,
+                    'speed_m_s': random.normalvariate(speed_m_s, self.SIGMA_M_S),
+                    'gps_d': gps_d,
+                    'accelerometer_m_s_s': (0.0, 0.0, 9.8),
+                })
+            else:
+                compass_d = Telemetry.wrap_degrees(
+                    random.normalvariate(
+                        self._heading_d,
+                        self.SIGMA_COMPASS_D
+                    )
+                )
+                self._telemetry.handle_message({
+                    'compass_d': compass_d,
+                    'accelerometer_m_s_s': (0.0, 0.0, 9.8),
+                })
 
     def kill(self):
         """Stops any data collection."""

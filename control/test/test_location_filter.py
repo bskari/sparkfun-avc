@@ -81,7 +81,7 @@ class TestLocationFilter(unittest.TestCase):
 
         measurements = numpy.matrix(  # pylint: disable=no-member
             [0.0, 0.0, heading_d, 0.0]
-        )  # z
+        ).transpose()  # z
 
         seconds = 5
         for _ in range(seconds):
@@ -148,7 +148,7 @@ class TestLocationFilter(unittest.TestCase):
             actual_y_m += step_y_m
 
             # First update by compass
-            measurements = numpy.matrix([0.0, 0.0, heading_d, 0.0])
+            measurements = numpy.matrix([0.0, 0.0, heading_d, 0.0]).transpose()
             location_filter._update(
                 measurements,
                 location_filter.COMPASS_OBSERVER_MATRIX,
@@ -165,7 +165,7 @@ class TestLocationFilter(unittest.TestCase):
                 random.normalvariate(actual_y_m, 0.01),
                 random.normalvariate(heading_d, 0.5),
                 random.normalvariate(speed_m_s, speed_m_s * 0.1)
-            ])
+            ]).transpose()
             location_filter._update(
                 measurements,
                 location_filter.GPS_OBSERVER_MATRIX,

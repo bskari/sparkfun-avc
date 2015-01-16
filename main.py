@@ -65,6 +65,9 @@ def start_threads(
     command = Command(telemetry, driver, waypoint_generator, logger)
     telemetry_data = DummyTelemetryData(telemetry, logger)
     telemetry_data.set_driver(driver)
+    first_waypoint = waypoint_generator.get_current_waypoint(0.0, 0.0)
+    telemetry_data._x_m = first_waypoint[0] - 100.0
+    telemetry_data._y_m = first_waypoint[1] - 100.0
     monitor_port = int(get_configuration('MONITOR_PORT', 8080))
     monitor_address = get_configuration('MONITOR_ADDRESS', '0.0.0.0')
     http_server = HttpServer(

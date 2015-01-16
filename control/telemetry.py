@@ -1,9 +1,10 @@
 """Telemetry class that takes raw sensor data and filters it to remove noise
 and provide more accurate telemetry data.
 """
+import collections
 import json
 import math
-import collections
+import threading
 
 from control.location_filter import LocationFilter
 
@@ -27,6 +28,7 @@ class Telemetry(object):
         self._data = {}
         self._logger = logger
         self._speed_history = collections.deque()
+        self._lock = threading.Lock()
 
         # TODO: For the competition, just hard code the compass. For now, the
         # Kalman filter should start reading in values and correct quickly.
@@ -36,20 +38,32 @@ class Telemetry(object):
 
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
-        return self._data
+        with self._lock:
+            return self._data
 
     def get_data(self):
         """Returns the approximated telemetry data."""
-        values = {}
-        for key in ('accelerometer_m_s_s',):  # Left as a loop if we want more later
-            if key in self._data:
-                values[key] = self._data[key]
+        with self._lock:
+            self._location_filter.update_dead_reckoning()
+            values = {}
+            for key in ('accelerometer_m_s_s',):  # Left as a loop if we want more later
+                if key in self._data:
+                    values[key] = self._data[key]
 
-        values['speed_m_s'] = self._location_filter.estimated_speed()
-        values['heading_d'] = self._location_filter.estimated_heading()
-        x_m, y_m = self._location_filter.estimated_location()
-        values['x_m'], values['y_m'] = x_m, y_m
-        return values
+            values['speed_m_s'] = self._location_filter.estimated_speed()
+            values['heading_d'] = self._location_filter.estimated_heading()
+            x_m, y_m = self._location_filter.estimated_location()
+            values['x_m'], values['y_m'] = x_m, y_m
+            self._logger.debug(
+                'Estimates: x m {x}, y m {y}, heading d {heading},'
+                ' speed m/s^2 {speed}'.format(
+                    x=values['x_m'],
+                    y=values['y_m'],
+                    heading=values['heading_d'],
+                    speed=values['speed_m_s'],
+                )
+            )
+            return values
 
     def process_drive_command(self, throttle, steering):
         """Process a drive command. When the command module tells the car to do
@@ -66,32 +80,31 @@ class Telemetry(object):
 
     def handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
-        if 'calibrate' in message:
-            self._calibrate()
-            return
+        with self._lock:
+            if 'calibrate' in message:
+                self._calibrate()
+                return
 
-        if 'speed' in self._data:
-            self._speed_history.append(self._data['speed'])
-            while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
-                self._speed_history.popleft()
+            if 'speed_m_s' in self._data:
+                self._speed_history.append(self._data['speed_m_s'])
+                while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
+                    self._speed_history.popleft()
 
-        if 'bearing' in message:
-            self._location_filter.update_dead_reckoning(message['bearing'])
-        elif 'heading' in message:
-            self._location_filter.update_dead_reckoning(message['heading'])
+            if 'compass_d' in message:
+                self._location_filter.update_compass(message['compass_d'])
 
-        if 'x_m' in message:
-            self._location_filter.update_gps(
-                message['x_m'],
-                message['y_m'],
-                message['x_accuracy_m'],
-                message['y_accuracy_m'],
-                message['heading_d'],
-                message['speed_m_s']
-            )
+            if 'x_m' in message:
+                self._location_filter.update_gps(
+                    message['x_m'],
+                    message['y_m'],
+                    message['x_accuracy_m'],
+                    message['y_accuracy_m'],
+                    message['gps_d'],
+                    message['speed_m_s']
+                )
 
-        self._data = message
-        self._logger.debug(json.dumps(message))
+            self._data = message
+            self._logger.debug(json.dumps(message))
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):
@@ -185,8 +198,8 @@ class Telemetry(object):
         """Computes the relative degrees from the first waypoint to the second,
         where north is 0.
         """
-        relative_y_m = float(y_m_1) - y_m_2
-        relative_x_m = float(x_m_1) - x_m_2
+        relative_y_m = float(y_m_2) - y_m_1
+        relative_x_m = float(x_m_2) - x_m_1
         if relative_x_m == 0.0:
             if relative_y_m > 0.0:
                 return 0.0
