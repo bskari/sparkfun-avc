@@ -113,14 +113,39 @@ fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
 }
 
 
+/**
+ * Wraps degrees to be in [0..360).
+ */
+fn wrap_degrees(degrees: f32) -> f32 {
+    let dividend = (degrees / 360.0).floor();
+    (degrees - dividend * 360.0) % 360.0
+}
+
+
+/**
+ * Calculates the absolute difference in degrees between two headings.
+ */
+fn difference_d(heading_1_d: f32, heading_2_d: f32) -> f32 {
+    let wrap_1_d = wrap_degrees(heading_1_d);
+    let wrap_2_d = wrap_degrees(heading_2_d);
+    let mut diff_d = (wrap_1_d - wrap_2_d).abs();
+    if diff_d > 180.0 {
+        diff_d = 360.0 - diff_d;
+    }
+    diff_d
+}
+
+
 #[cfg(test)]
 mod tests {
     use std::f32;
+    use super::difference_d;
     use super::equatorial_radius_m;
     use super::is_turn_left;
     use super::latitude_d_to_m_per_longitude_d;
     use super::relative_degrees;
     use super::rotate_degrees_clockwise;
+    use super::wrap_degrees;
 
 
     fn assert_approx_eq(value_1:f32, value_2:f32) -> () {
@@ -128,7 +153,7 @@ mod tests {
         // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
 
         // This is the best we can do with f32
-        let tolerance: f32 = 0.000001;
+        let tolerance: f32 = 0.00001;
         let diff = (value_1 - value_2).abs();
         assert!(diff < tolerance, "{} < {} failed", diff, tolerance);
     }
@@ -253,5 +278,33 @@ mod tests {
         assert_approx_eq(relative_degrees(1.0, 0.0, 0.0, 0.0), 270.0);
         assert_approx_eq(relative_degrees(0.0, 0.0, 2.0, 0.0), 90.0);
         assert_approx_eq(relative_degrees(2.0, 0.0, 0.0, 0.0), 270.0);
+    }
+
+
+    #[test]
+    fn test_wrap_degrees() {
+        for d in range(0i32, 360) {
+            assert_approx_eq(d as f32, wrap_degrees(d as f32));
+        }
+
+        assert_approx_eq(0.0, wrap_degrees(0.0));
+        assert_approx_eq(0.0, wrap_degrees(360.0));
+        assert_approx_eq(359.0, wrap_degrees(-1.0));
+        assert_approx_eq(359.0, wrap_degrees(-361.0));
+        assert_approx_eq(1.0, wrap_degrees(361.0));
+        assert_approx_eq(1.0, wrap_degrees(721.0));
+        assert_approx_eq(0.1, wrap_degrees(360.1));
+        assert_approx_eq(0.1, wrap_degrees(0.1));
+        assert_approx_eq(359.9, wrap_degrees(-0.1));
+    }
+
+
+    #[test]
+    fn test_difference_d() {
+        assert_approx_eq(difference_d(359.0, 0.0), 1.0);
+        assert_approx_eq(difference_d(0.0, 1.0), 1.0);
+        assert_approx_eq(difference_d(359.0, 1.0), 2.0);
+        assert_approx_eq(difference_d(360.0, 365.0), 5.0);
+        assert_approx_eq(difference_d(-355.0, 365.0), 0.0);
     }
 }
