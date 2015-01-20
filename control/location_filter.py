@@ -34,10 +34,6 @@ class LocationFilter(object):
         [0, 0, 0, 0]
     ])
 
-    UPDATE_MEASUREMENTS = numpy.matrix([0.0, 0.0, 0.0, 0.0]).transpose()
-    UPDATE_OBSERVER_MATRIX = numpy.zeros((4, 4))
-    UPDATE_MEASUREMENT_NOISE = numpy.zeros((4, 4))
-
     # http://robotsforroboticists.com/kalman-filtering/ is a great reference
     def __init__(self, x_m, y_m, heading_d=None):
         if heading_d is None:
@@ -63,7 +59,6 @@ class LocationFilter(object):
             [0, 0, 1, 0],
             [0, 0, 0, 1],
         ])
-        self._throttle = 0.0
 
         self._last_observation_s = time.time()
 
@@ -201,11 +196,9 @@ class LocationFilter(object):
         heading_r = math.radians(self.estimated_heading())
         from control.telemetry import Telemetry
         x_delta, y_delta = Telemetry.rotate_radians_clockwise(
-            (time_diff_s, 0.0),
+            (0.0, time_diff_s),
             heading_r
         )
-        x_delta = math.sin(heading_r) * time_diff_s
-        y_delta = math.cos(heading_r) * time_diff_s
         speed_m_s = self.estimated_speed()
         transition = numpy.matrix([  # A
             [1.0, 0.0, 0.0, x_delta],
