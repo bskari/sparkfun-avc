@@ -127,12 +127,12 @@ impl LocationFilter {
         // TODO: Add acceleration and turn values
         multiply44x41(&transition, &self.estimates, &mut self.out41);
         self.estimates = self.out41;
-        print44("1. A=", &transition);
-        print44("   P=", &self.covariance);
-        print41("   x=", &self.estimates);
-        print44("2. H=", observer_matrix);
-        print41("   z=", &measurements);
-        print41("3. x=", &self.estimates);
+        //print44("1. A=", &transition);
+        //print44("   P=", &self.covariance);
+        //print41("   x=", &self.estimates);
+        //print44("2. H=", observer_matrix);
+        //print41("   z=", &measurements);
+        //print41("3. x=", &self.estimates);
 
         // Update uncertainty
         // P = A * P * A' + Q
@@ -141,7 +141,7 @@ impl LocationFilter {
         multiply44x44(&self.out, &self.out2, &mut self.out3);
         add(&self.out3, &self.process_noise, &mut self.out);
         self.covariance = self.out;
-        print44("4. P=", &self.covariance);
+        //print44("4. P=", &self.covariance);
 
         // Compute the Kalman gain
         // K = P * H' * inv(H * P * H' + R)
@@ -149,11 +149,11 @@ impl LocationFilter {
         transpose(observer_matrix, &mut self.out2);  // out2 = H'
         multiply44x44(&self.out, &self.out2, &mut self.out3);
         add(&self.out3, measurement_noise, &mut self.out);
-        print44("  H * P * H' + R =", &self.out);
+        //print44("  H * P * H' + R =", &self.out);
         invert(&self.out, &mut self.out3);  // out3 = inv(H * P * H' + R)
         multiply44x44(&self.covariance, &self.out2, &mut self.out);  // out = P * H'
         multiply44x44(&self.out, &self.out3, &mut self.kalman_gain);
-        print44("5. K=", &self.kalman_gain);
+        //print44("5. K=", &self.kalman_gain);
 
         // Determine innovation or residual and update our estimate
         // x = x + K * (z - H * x)
@@ -173,7 +173,7 @@ impl LocationFilter {
         self.estimates = self.out41_2;
         self.estimates[2][0] = wrap_degrees(self.estimates[2][0]);
 
-        print41("6. x=", &self.estimates);
+        //print41("6. x=", &self.estimates);
 
         // Update the covariance
         // P = (I - K * H) * P
@@ -182,7 +182,7 @@ impl LocationFilter {
         subtract44(&id, &self.out, &mut self.out2);
         multiply44x44(&self.out2, &self.covariance, &mut self.out);
         self.covariance = self.out;
-        print44("7. P=", &self.covariance);
+        //print44("7. P=", &self.covariance);
     }
 
 
