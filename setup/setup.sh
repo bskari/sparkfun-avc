@@ -53,7 +53,7 @@ echo "pi:${password}" | chpasswd
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
 # TODO: What about gstreamer?
-apt-get DEBIAN_FRONTEND=noninteractive install -y \
+apt-get install -y \
     ack-grep \
     dnsmasq \
     gcc \
