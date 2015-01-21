@@ -15,10 +15,10 @@ def main():
         '2200 mAh USB battery': 16.99,
         'Raspberry Pi camera': 29.95,
         'Rosewill WiFi adapter': 5.99,
-        'USB drive': 4.87,
-        '2 GiB microSDHC': 3.92,
+        '8 GiB microSDHC': 8.99,
         'jumper wires standard pack of 30': 4.95,
         'Velcro straps': 7.99,
+        'NavSpark SUP800F GPS Antenna Module + 7-DOF IMU': 50.00,
     }
 
     item_to_price = collections.OrderedDict(sorted(item_to_price.items()))

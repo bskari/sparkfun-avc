@@ -22,11 +22,12 @@ then
     exit 1
 fi
 
-echo 'Want to update the firmware? (y/n) '
+echo -n 'Want to update the firmware? (y/n) '
 read firmware
 if [ "${firmware}" == 'y' ];
 then
     apt-get install curl  # Curl is needed for the rpi-update script
+    apt-get install binutils # readelf is needed for the rpi-update script
     curl https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update > /usr/bin/rpi-update
     chmod +x /usr/bin/rpi-update
     rpi-update
@@ -52,7 +53,7 @@ echo "pi:${password}" | chpasswd
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
 # TODO: What about gstreamer?
-apt-get install -y \
+apt-get DEBIAN_FRONTEND=noninteractive install -y \
     ack-grep \
     dnsmasq \
     gcc \
