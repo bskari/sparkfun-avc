@@ -95,7 +95,7 @@ impl LocationFilter {
     /**
      * Runs the Kalman update using the provided measurements.
      */
-    fn update(
+    pub fn update(
         &mut self,
         measurements_: &[f32, ..4],
         observer_matrix: &[[f32, ..4], ..4],
@@ -186,17 +186,17 @@ impl LocationFilter {
     }
 
 
-    fn estimated_location_m(&self) -> (f32, f32) {
+    pub fn estimated_location_m(&self) -> (f32, f32) {
         (self.estimates[0][0], self.estimates[1][0])
     }
 
 
-    fn estimated_heading_d(&self) -> f32 {
+    pub fn estimated_heading_d(&self) -> f32 {
         self.estimates[2][0]
     }
 
 
-    fn estimated_speed_m_s(&self) -> f32 {
+    pub fn estimated_speed_m_s(&self) -> f32 {
         self.estimates[3][0]
     }
 }

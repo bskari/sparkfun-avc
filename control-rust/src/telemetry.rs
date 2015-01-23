@@ -6,10 +6,29 @@ use telemetry_message::TelemetryMessage;
  * Provides Telemetry data, possibly filtered to be more accurate.
  */
 pub trait Telemetry {
+    /**
+     * Returns the raw sensor readings.
+     */
     fn get_raw_data(&self) -> &TelemetryMessage;
+
+    /**
+     * Returns the (possibly filtered) telemetry data.
+     */
     fn get_data(&self) -> &TelemetryMessage;
+
+    /**
+     * End point for processing commands executed by the Command module.
+     */
     fn process_drive_command(&mut self, throttle:f32, steering:f32) -> ();
+
+    /**
+     * Processes a telemetry message.
+     */
     fn handle_message(&self, message:&TelemetryMessage) -> ();
+
+    /**
+     * Returns true if the car is stopped.
+     */
     fn is_stopped(&self) -> bool;
 }
 
