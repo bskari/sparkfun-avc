@@ -38,8 +38,10 @@ pub trait Telemetry {
  */
 pub fn rotate_degrees_clockwise(point:(f32, f32), degrees:f32) -> (f32, f32) {
     let (pt_x, pt_y) = point;
-    let (sine, cosine) = (-degrees).to_radians().sin_cos();
-
+    // So, sine and cosine appear to be messed up on Rust 0.13 on Raspberry Pi.
+    // sin just returns the value
+    let sine = degrees.sine_d();
+    let cosine = degrees.cosine_d();
     (pt_x * cosine - pt_y * sine, pt_x * sine + pt_y * cosine)
 }
 
@@ -57,7 +59,7 @@ fn equatorial_radius_m() -> f32 {
  * Returns the number of meters per degree of latitude. I don't know how to
  * define constants in Rust.
  */
-fn m_per_latitude_d() -> f32{
+pub fn m_per_latitude_d() -> f32{
     equatorial_radius_m() * f32::consts::PI_2 / 360.0
 }
 
@@ -65,7 +67,7 @@ fn m_per_latitude_d() -> f32{
 /**
  * Returns the number of meters per degree longitude at a given latitude.
  */
-fn latitude_d_to_m_per_longitude_d(latitude_d: f32) -> f32 {
+pub fn latitude_d_to_m_per_longitude_d(latitude_d: f32) -> f32 {
     let radius_m = latitude_d.to_radians().cos() * equatorial_radius_m();
     let circumference_m = f32::consts::PI_2 * radius_m;
     circumference_m / 360.0
@@ -76,7 +78,7 @@ fn latitude_d_to_m_per_longitude_d(latitude_d: f32) -> f32 {
  * Determines if the vehicle facing a heading in degrees needs to turn left to
  * left to reach a goal heading in degrees.
  */
-fn is_turn_left(heading_d: f32, goal_heading_d: f32) -> bool {
+pub fn is_turn_left(heading_d: f32, goal_heading_d: f32) -> bool {
     let (pt_1_0, pt_1_1) = rotate_degrees_clockwise((1.0f32, 0.0f32), heading_d);
     let (pt_2_0, pt_2_1) = rotate_degrees_clockwise((1.0f32, 0.0f32), goal_heading_d);
     let cross_product = pt_1_0 * pt_2_1 - pt_1_1 * pt_2_0;
@@ -91,7 +93,7 @@ fn is_turn_left(heading_d: f32, goal_heading_d: f32) -> bool {
  * Computes the relative degrees from the first waypoint to the second, where
  * north is 0.
  */
-fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
+pub fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
     let relative_x_m = x_2 - x_1;
     let relative_y_m = y_2 - y_1;
     if relative_x_m == 0.0 {
@@ -114,15 +116,24 @@ fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
  * Wraps degrees to be in [0..360).
  */
 pub fn wrap_degrees(degrees: f32) -> f32 {
-    let dividend = (degrees / 360.0).floor();
-    (degrees - dividend * 360.0) % 360.0
+    // TODO: floor doesn't appear to actually return the floor of a value, so
+    // uh, we need to do this weird thing instead
+    let dividend = (degrees / 360.0) as i32;
+    let mut return_value = degrees - dividend as f32 * 360.0;
+    while return_value < 0.0 {
+        return_value += 360.0;
+    }
+    while return_value >= 360.0 {
+        return_value -= 360.0;
+    }
+    return return_value;
 }
 
 
 /**
  * Calculates the absolute difference in degrees between two headings.
  */
-fn difference_d(heading_1_d: f32, heading_2_d: f32) -> f32 {
+pub fn difference_d(heading_1_d: f32, heading_2_d: f32) -> f32 {
     let wrap_1_d = wrap_degrees(heading_1_d);
     let wrap_2_d = wrap_degrees(heading_2_d);
     let mut diff_d = (wrap_1_d - wrap_2_d).abs();
@@ -130,6 +141,81 @@ fn difference_d(heading_1_d: f32, heading_2_d: f32) -> f32 {
         diff_d = 360.0 - diff_d;
     }
     diff_d
+}
+
+
+/**
+ * Sine, cosine, and powi appear to be broken for this build of Rust 0.12 on
+ * Raspberry Pi, so I wrote my own! Taylor series expansion.
+ */
+trait MyTrig {
+    fn pow_i(&self, exponent: i32) -> f32;
+    fn sine_d(&self) -> f32;
+    fn cosine_d(&self) -> f32;
+}
+impl MyTrig for f32 {
+    fn pow_i(&self, exponent: i32) -> f32 {
+        // TODO: Maybe do a divide and conquer if we use any large exponents
+        let mut value = *self;
+        for i in range(1, exponent) {
+            value *= *self;
+        }
+        return value;
+    }
+    fn sine_d(&self) -> f32 {
+        let mut degrees = wrap_degrees(*self);
+        let pi = 3.14159265358979323846264338327950288419;
+        if degrees > 270.0 {
+            degrees = 360.0 - degrees;
+        } else if degrees > 90.0 {
+            degrees = 180.0 - degrees;
+        }
+        let radians: f32 = degrees * pi / 180.0;
+        return radians
+            - radians.pow_i(3) / 6f32 // factorial(3)
+            + radians.pow_i(5) / 120f32 // factorial(5)
+            - radians.pow_i(7) / 5040f32 // factorial(7)
+            + radians.pow_i(9) / 362880f32 // factorial(9)
+        ;
+    }
+
+    fn cosine_d(&self) -> f32 {
+        (90.0 - *self).sine_d()
+    }
+}
+#[test]
+fn test_sine_d() {
+    assert!((0.0f32.sine_d() - 0.0f32).abs() < 0.0001f32);
+    assert!((1.0f32.sine_d() - 0.01745f32).abs() < 0.00001f32);
+    assert!((5.0f32.sine_d() - 0.08716f32).abs() < 0.00001f32);
+    assert!((20.0f32.sine_d() - 0.34202f32).abs() < 0.00001f32);
+    assert!((45.0f32.sine_d() - 0.70711f32).abs() < 0.00001f32);
+    assert!((60.0f32.sine_d() - 0.86603f32).abs() < 0.00001f32);
+    assert!((90.0f32.sine_d() - 1.0f32).abs() < 0.00001f32);
+    assert!((180.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((270.0f32.sine_d() - -1.0f32).abs() < 0.00001f32);
+    assert!((360.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((720.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((1080.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((-90.0f32.sine_d() - -1.0f32).abs() < 0.00001f32);
+    assert!((-180.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((-270.0f32.sine_d() - 1.0f32).abs() < 0.00001f32);
+    assert!((-360.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((-720.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((-1080.0f32.sine_d() - 0.0f32).abs() < 0.00001f32);
+}
+#[test]
+fn test_cosine_d() {
+    assert!((0.0f32.cosine_d() - 1.0f32).abs() < 0.0001f32);
+    assert!((45.0f32.cosine_d() - 0.70711f32).abs() < 0.00001f32);
+    assert!((90.0f32.cosine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((180.0f32.cosine_d() - -1.0f32).abs() < 0.00001f32);
+    assert!((270.0f32.cosine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((360.0f32.cosine_d() - 1.0f32).abs() < 0.00001f32);
+    assert!((-90.0f32.cosine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((-180.0f32.cosine_d() - -1.0f32).abs() < 0.00001f32);
+    assert!((-270.0f32.cosine_d() - 0.0f32).abs() < 0.00001f32);
+    assert!((-360.0f32.cosine_d() - 1.0f32).abs() < 0.00001f32);
 }
 
 
@@ -166,40 +252,62 @@ mod tests {
 
     #[test]
     fn test_rotate_degrees_clockwise() {
-        let base_x = 1.0f32;
-        let base_y = 0.0f32;
+        let base_x = 0.0f32;
+        let base_y = 1.0f32;
         let base = (base_x, base_y);
 
+        println!("{}", "(base, 0.0, base)");
         test_rotate(base, 0.0, base);
+        println!("{}", "(base, 90.0, (base_y, -base_x))");
         test_rotate(base, 90.0, (base_y, -base_x));
+        println!("{}", "(base, 180.0, (-base_x, base_y))");
         test_rotate(base, 180.0, (-base_x, base_y));
+        println!("{}", "(base, 270.0, (base_y, base_x))");
         test_rotate(base, 270.0, (base_y, base_x));
+        println!("{}", "(base, 360.0, base)");
         test_rotate(base, 360.0, base);
 
+        println!("{}", "(base, -90.0, (base_y, base_x))");
         test_rotate(base, -90.0, (base_y, base_x));
+        println!("{}", "(base, -180.0, (-base_x, base_y))");
         test_rotate(base, -180.0, (-base_x, base_y));
+        println!("{}", "(base, -270.0, (base_y, -base_x))");
         test_rotate(base, -270.0, (base_y, -base_x));
+        println!("{}", "(base, -360.0, base)");
         test_rotate(base, -360.0, base);
 
+        println!("{}", "(base, 720.0, base)");
         test_rotate(base, 720.0, base);
+        println!("{}", "(base, -720.0, base)");
         test_rotate(base, -720.0, base);
 
         let skewed_x = 1.0;
         let skewed_y = 2.0;
         let skewed = (skewed_x, skewed_y);
 
+        println!("{}", "(skewed, 0.0, skewed)");
         test_rotate(skewed, 0.0, skewed);
+        println!("{}", "(skewed, 90.0, (skewed_y, -skewed_x))");
         test_rotate(skewed, 90.0, (skewed_y, -skewed_x));
+        println!("{}", "(skewed, 180.0, (-skewed_x, -skewed_y))");
         test_rotate(skewed, 180.0, (-skewed_x, -skewed_y));
+        println!("{}", "(skewed, 270.0, (-skewed_y, skewed_x))");
         test_rotate(skewed, 270.0, (-skewed_y, skewed_x));
+        println!("{}", "(skewed, 360.0, skewed)");
         test_rotate(skewed, 360.0, skewed);
 
+        println!("{}", "(skewed, -90.0, (-skewed_y, skewed_x))");
         test_rotate(skewed, -90.0, (-skewed_y, skewed_x));
+        println!("{}", "(skewed, -180.0, (-skewed_x, -skewed_y))");
         test_rotate(skewed, -180.0, (-skewed_x, -skewed_y));
+        println!("{}", "(skewed, -270.0, (skewed_y, -skewed_x))");
         test_rotate(skewed, -270.0, (skewed_y, -skewed_x));
+        println!("{}", "(skewed, -360.0, skewed)");
         test_rotate(skewed, -360.0, skewed);
 
+        println!("{}", "(skewed, 720.0, skewed)");
         test_rotate(skewed, 720.0, skewed);
+        println!("{}", "(skewed, -720.0, skewed)");
         test_rotate(skewed, -720.0, skewed);
     }
 
@@ -253,7 +361,6 @@ mod tests {
         assert!(!is_turn_left(359.0, 90.0));
     }
 
-
     #[test]
     fn test_relative_degrees() {
         assert_approx_eq(relative_degrees(0.0, 0.0, 1.0, 1.0), 45.0);
@@ -277,7 +384,6 @@ mod tests {
         assert_approx_eq(relative_degrees(2.0, 0.0, 0.0, 0.0), 270.0);
     }
 
-
     #[test]
     fn test_wrap_degrees() {
         for d in range(0i32, 360) {
@@ -296,7 +402,6 @@ mod tests {
         assert_approx_eq(0.0, wrap_degrees(360.0));
     }
 
-
     #[test]
     fn test_difference_d() {
         assert_approx_eq(difference_d(359.0, 0.0), 1.0);
@@ -310,4 +415,5 @@ mod tests {
         assert_approx_eq(difference_d(1.0, 361.0), 0.0);
         assert_approx_eq(difference_d(90.0 - 360.0, 90.0 + 360.0), 0.0);
     }
+
 }
