@@ -1,0 +1,30 @@
+The Raspberry Pi A+ has 40 pins. Numbering starts opposite from the side where
+the USB port is, and starts at the inside of the board, then goes to the
+outside, then to the right.
+
+The GPS module has 8 pins. Numbering starts from the bottom of the module as
+viewed from the top with the text label right side up.
+1 - RXD, UART input, 3.3V LVTTL
+2 - TXD, UART output, 3.3V LVTTL
+3 - GND
+4 - VDD, main power 3V~3.6V
+5 - VBAT, backup supply voltage for RTC and SRAM, can be tied directly to VDD
+6 - P1PPS, 1 pulse per second time mark output
+7 - BOOT_SEL, connect to VDD for normal use, GND for loading firmware
+8 - RSTN, active low reset pin, leave unconnected
+
+Steering servo:
+Black is ground, connected to pin 6.
+Red is 5V DC power, connected to pin 2.
+White/yellow is signal, connected to GPIO 4, pin 7.
+
+Electronic speed control:
+Black is ground, connected to pin 9.
+Red is 5V DC power, connected to pin 4.
+White/yellow is signal, connected to GPIO 18, pin 12.
+
+Button:
+One wire connects to pin 1, 3V3 DC.
+One wire connects to GPIO 17, pin pin 11.
+
+GPS:
