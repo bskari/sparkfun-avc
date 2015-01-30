@@ -105,6 +105,13 @@ def main():
             )
         ),
         (
+            'Rust',
+            not exists('/home/pi/rust') or not exists('/home/pi/cargo'),
+            (
+                'bash setup-rust.sh',
+            )
+        ),
+        (
             'start up',
             not exists('/etc/init.d/sparkfun-rc') or newer('sparkfun-rc', '/etc/init.d/sparkfun-rc'),
             (
