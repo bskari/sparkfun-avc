@@ -3,6 +3,7 @@ use std::io::File;
 use std::io::fs::PathExtensions;
 use std::io::process::Command;
 
+use util::parse_float;
 use waypoint_generator::WaypointGenerator;
 
 
@@ -22,54 +23,6 @@ impl KmlWaypointGenerator {
             current_waypoint: 0
         }
     }
-
-    /**
-     * Parse a float from a string. The Pi has an older version of rustc, and
-     * the official method for parsing a float differ between that version and
-     * nightly, so we have to do ths manually.
-     */
-    fn parse_float(float_str: &str) -> Option<f32> {
-        let mut value: f32 = 0.0;
-        let mut negative = false;
-        let mut negative_allowed = true;
-        let mut decimal = false;
-        let mut decimal_value: f32 = 0.0;
-        let mut multiplier: f32 = 1.0;
-        for letter in float_str.chars() {
-            if letter == '-' {
-                if negative_allowed {
-                    negative = !negative;
-                    continue;
-                } else {
-                    return None;
-                }
-            }
-            negative_allowed = false;
-
-            if letter == '.' {
-                if decimal {
-                    return None;
-                }
-                decimal = true;
-                multiplier = 1.0;
-                continue;
-            }
-
-            let digit_value = (letter as i32 - '0' as i32);
-            if digit_value > 10 || digit_value < 0 {
-                return None;
-            }
-            if decimal {
-                decimal_value = decimal_value * 10.0 + digit_value as f32;
-                multiplier *= 0.1;
-            } else {
-                value = value * 10.0 + digit_value as f32;
-            }
-        }
-
-        Some(value + decimal_value * multiplier)
-    }
-
     fn load_waypoints(file_name: &str) -> Vec<(f32, f32)> {
         let path = Path::new(file_name);
         if !path.exists() || !path.is_file() {
@@ -110,7 +63,7 @@ impl KmlWaypointGenerator {
                             let mut success = true;
                             match iterator.next() {
                                 Some(longitude_str) => {
-                                    let parsed_longitude: Option<f32> = KmlWaypointGenerator::parse_float(longitude_str);
+                                    let parsed_longitude: Option<f32> = parse_float(longitude_str);
                                     match parsed_longitude {
                                         Some(longitude_) => longitude = longitude_,
                                         None => {
@@ -124,8 +77,7 @@ impl KmlWaypointGenerator {
 
                             match iterator.next() {
                                 Some(latitude_str) => {
-                                    // Rust 0.13 feature :(
-                                    let parsed_latitude: Option<f32> = KmlWaypointGenerator::parse_float(latitude_str);
+                                    let parsed_latitude: Option<f32> = parse_float(latitude_str);
                                     match parsed_latitude {
                                         Some(latitude_) => latitude = latitude_,
                                         None => {
