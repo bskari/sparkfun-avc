@@ -66,7 +66,7 @@ class DummyTelemetryData(threading.Thread):
             speed_m_s = 0.0
             if self._driver is not None:
                 speed_m_s = self._driver.get_throttle() * self.MAX_SPEED_M_S
-                point_m = (0.0, speed_m_s * self.SLEEP_TIME_S)
+                point_m = (0.0, speed_m_s * self._sleep_time_s)
                 offset_m = Telemetry.rotate_radians_clockwise(
                     point_m,
                     math.radians(self._heading_d)
@@ -75,7 +75,7 @@ class DummyTelemetryData(threading.Thread):
                 self._y_m += offset_m[1]
 
                 self._heading_d += \
-                    self._driver.get_turn() * self.TURN_D_S * self.SLEEP_TIME_S
+                    self._driver.get_turn() * self.TURN_D_S * self._sleep_time_s
                 self._heading_d = Telemetry.wrap_degrees(self._heading_d)
 
             self._iterations += 1
