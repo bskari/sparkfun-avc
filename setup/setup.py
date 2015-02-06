@@ -112,6 +112,13 @@ def main():
                 'update-rc.d sparkfun-rc defaults',
             )
         ),
+        (
+            'set up GPS',
+            True,
+            (
+                'bash setup-gps.sh',
+            )
+        ),
     )
 
     for section, test, commands in section_test_command_tuples:

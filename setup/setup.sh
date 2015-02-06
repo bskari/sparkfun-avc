@@ -57,6 +57,7 @@ apt-get install -y \
     ack-grep \
     dnsmasq \
     gcc \
+    gpsd \
     hostapd \
     iw \
     libraspberrypi-bin \
