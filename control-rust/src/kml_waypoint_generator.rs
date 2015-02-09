@@ -1,9 +1,8 @@
-use std::io::BufferedReader;
-use std::io::File;
-use std::io::fs::PathExtensions;
-use std::io::process::Command;
+use std::old_io::BufferedReader;
+use std::old_io::File;
+use std::old_io::fs::PathExtensions;
+use std::old_io::process::Command;
 
-use util::parse_float;
 use waypoint_generator::WaypointGenerator;
 
 
@@ -26,7 +25,7 @@ impl KmlWaypointGenerator {
     fn load_waypoints(file_name: &str) -> Vec<(f32, f32)> {
         let path = Path::new(file_name);
         if !path.exists() || !path.is_file() {
-            fail!("File does not exist: {}", file_name);
+            panic!("File does not exist: {}", file_name);
         }
 
         // A KML file is a zip archive containing a single file named "doc.kml"
@@ -38,8 +37,8 @@ impl KmlWaypointGenerator {
             .arg(temp_directory)
             .spawn();
         match zip_io_result {
-            Ok(p) => (),
-            Err(e) => fail!("Failed to unzip file: {}", e),
+            Ok(_) => (),
+            Err(e) => panic!("Failed to unzip file: {}", e),
         };
 
         let mut waypoints = Vec::<(f32, f32)>::new();
@@ -63,11 +62,11 @@ impl KmlWaypointGenerator {
                             let mut success = true;
                             match iterator.next() {
                                 Some(longitude_str) => {
-                                    let parsed_longitude: Option<f32> = parse_float(longitude_str);
+                                    let parsed_longitude = longitude_str.parse::<f32>();
                                     match parsed_longitude {
-                                        Some(longitude_) => longitude = longitude_,
-                                        None => {
-                                            println!("Unable to parse longitude: '{}'", longitude_str);
+                                        Ok(longitude_) => longitude = longitude_,
+                                        Err(e) => {
+                                            println!("Unable to parse longitude: '{}', {}", longitude_str, e);
                                             success = false;
                                         },
                                     }
@@ -77,11 +76,11 @@ impl KmlWaypointGenerator {
 
                             match iterator.next() {
                                 Some(latitude_str) => {
-                                    let parsed_latitude: Option<f32> = parse_float(latitude_str);
+                                    let parsed_latitude = latitude_str.parse::<f32>();
                                     match parsed_latitude {
-                                        Some(latitude_) => latitude = latitude_,
-                                        None => {
-                                            println!("Unable to parse latitude: '{}'", latitude_str);
+                                        Ok(latitude_) => latitude = latitude_,
+                                        Err(e) => {
+                                            println!("Unable to parse latitude: '{}', {}", latitude_str, e);
                                             success = false;
                                         },
                                     }

@@ -1,55 +1,57 @@
+use std::num::Float;
+
 use telemetry::rotate_degrees_clockwise;
 use telemetry::wrap_degrees;
 
 
 struct LocationFilter {
-    GPS_OBSERVER_MATRIX: [[f32, ..4], ..4],  // H
-    COMPASS_OBSERVER_MATRIX: [[f32, ..4], ..4],  // H
-    DEAD_RECKONING_OBSERVER_MATRIX: [[f32, ..4], ..4], // H
-    GPS_MEASUREMENT_NOISE: [[f32, ..4], ..4],  // R
-    COMPASS_MEASUREMENT_NOISE: [[f32, ..4], ..4],  // R
-    DEAD_RECKONING_MEASUREMENT_NOISE: [[f32, ..4], ..4], // R
+    gps_observer_matrix: [[f32; 4]; 4],  // H
+    compass_observer_matrix: [[f32; 4]; 4],  // H
+    dead_reckoning_observer_matrix: [[f32; 4]; 4], // H
+    gps_measurement_noise: [[f32; 4]; 4],  // R
+    compass_measurement_noise: [[f32; 4]; 4],  // R
+    dead_reckoning_measurement_noise: [[f32; 4]; 4], // R
 
     // x m, y m, heading d, speed m/s
-    estimates: [[f32, ..1], ..4],  // x
-    covariance: [[f32, ..4], ..4],  // P
-    process_noise: [[f32, ..4], ..4],  // Q
+    estimates: [[f32; 1]; 4],  // x
+    covariance: [[f32; 4]; 4],  // P
+    process_noise: [[f32; 4]; 4],  // Q
     last_observation_time_s: f32,
 
     // These paremeters are just scratch space for the
     // computations in update so that we can avoid reallocations
-    out: [[f32, ..4], ..4],
-    out2: [[f32, ..4], ..4],
-    out3: [[f32, ..4], ..4],
-    out41: [[f32, ..1], ..4],
-    out41_2: [[f32, ..1], ..4],
-    kalman_gain: [[f32, ..4], ..4],
+    out: [[f32; 4]; 4],
+    out2: [[f32; 4]; 4],
+    out3: [[f32; 4]; 4],
+    out41: [[f32; 1]; 4],
+    out41_2: [[f32; 1]; 4],
+    kalman_gain: [[f32; 4]; 4],
 }
 
 
 impl LocationFilter {
     pub fn new(x_m: f32, y_m: f32, heading_d: f32) -> LocationFilter {
         let lf = LocationFilter {
-            GPS_OBSERVER_MATRIX: identity(),
-            COMPASS_OBSERVER_MATRIX: [
+            gps_observer_matrix: identity(),
+            compass_observer_matrix: [
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 1f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32]
             ],
-            DEAD_RECKONING_OBSERVER_MATRIX: [
+            dead_reckoning_observer_matrix: [
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 1f32]
             ],
-            GPS_MEASUREMENT_NOISE: [
+            gps_measurement_noise: [
                 [0f32, 0f32, 0f32, 0f32],  // x_m will be filled in by the GPS accuracy
                 [0f32, 0f32, 0f32, 0f32],  // y_m will be filled in by the GPS accuracy
                 [0f32, 0f32, 5f32, 0f32],  // This degrees value is a guess
                 [0f32, 0f32, 0f32, 1f32]  // This speed value is a guess
             ],
-            COMPASS_MEASUREMENT_NOISE: [
+            compass_measurement_noise: [
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
                 // This degrees value is a guess. It's kept artificially high
@@ -59,7 +61,7 @@ impl LocationFilter {
                 [0f32, 0f32, 45f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32]
             ],
-            DEAD_RECKONING_MEASUREMENT_NOISE: [
+            dead_reckoning_measurement_noise: [
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
@@ -78,16 +80,16 @@ impl LocationFilter {
 
             // These paremeters are just scratch space for the
             // computations in update so that we can avoid reallocations
-            out: [[0.0f32, ..4], ..4],
-            out2: [[0.0f32, ..4], ..4],
-            out3: [[0.0f32, ..4], ..4],
-            out41: [[0.0f32, ..1], ..4],
-            out41_2: [[0.0f32, ..1], ..4],
-            kalman_gain: [[0.0f32, ..4], ..4],
+            out: [[0.0f32; 4]; 4],
+            out2: [[0.0f32; 4]; 4],
+            out3: [[0.0f32; 4]; 4],
+            out41: [[0.0f32; 1]; 4],
+            out41_2: [[0.0f32; 1]; 4],
+            kalman_gain: [[0.0f32; 4]; 4],
         };
         assert!(
-            lf.DEAD_RECKONING_MEASUREMENT_NOISE[3][3] >
-            lf.GPS_MEASUREMENT_NOISE[3][3]
+            lf.dead_reckoning_measurement_noise[3][3] >
+            lf.gps_measurement_noise[3][3]
         );
         return lf;
     }
@@ -97,12 +99,12 @@ impl LocationFilter {
      */
     pub fn update(
         &mut self,
-        measurements_: &[f32, ..4],
-        observer_matrix: &[[f32, ..4], ..4],
-        measurement_noise: &[[f32, ..4], ..4],
+        measurements_: &[f32; 4],
+        observer_matrix: &[[f32; 4]; 4],
+        measurement_noise: &[[f32; 4]; 4],
         time_diff_s: f32,
     ) {
-        // For convenience, we let users supply measurements as [f32, ..4], but
+        // For convenience, we let users supply measurements as [f32; 4], but
         // because we're doing matrix stuff, we need to convert them to 4x1
         let measurements = [
             [measurements_[0],],
@@ -117,7 +119,6 @@ impl LocationFilter {
             (0.0, time_diff_s),
             heading_d
         );
-        let speed_m_s = self.estimated_speed_m_s();
         let transition = [  // A
             [1.0f32, 0.0f32, 0.0f32, x_delta],
             [0.0f32, 1.0f32, 0.0f32, y_delta],
@@ -202,7 +203,7 @@ impl LocationFilter {
 }
 
 
-fn identity() -> [[f32, ..4], ..4] {
+fn identity() -> [[f32; 4]; 4] {
     [
         [1f32, 0f32, 0f32, 0f32],
         [0f32, 1f32, 0f32, 0f32],
@@ -213,14 +214,14 @@ fn identity() -> [[f32, ..4], ..4] {
 
 
 fn multiply44x44(
-    a: &[[f32, ..4], ..4],
-    b: &[[f32, ..4], ..4],
-    out: &mut [[f32, ..4], ..4]
+    a: &[[f32; 4]; 4],
+    b: &[[f32; 4]; 4],
+    out: &mut [[f32; 4]; 4]
 ) {
-    for row in range(0u, a.len()) {
-        for column in range(0u, a[0].len()) {
+    for row in range(0us, a.len()) {
+        for column in range(0us, a[0].len()) {
             let mut sum: f32 = 0.0;
-            for iter in range(0u, 4) {
+            for iter in range(0us, 4) {
                 sum += a[row][iter] * b[iter][column];
             }
             out[row][column] = sum;
@@ -230,14 +231,14 @@ fn multiply44x44(
 
 
 fn multiply44x41(
-    a: &[[f32, ..4], ..4],
-    b: &[[f32, ..1], ..4],
-    out: &mut [[f32, ..1], ..4]
+    a: &[[f32; 4]; 4],
+    b: &[[f32; 1]; 4],
+    out: &mut [[f32; 1]; 4]
 ) {
-    for row in range(0u, a.len()) {
-        for column in range(0u, b[0].len()) {
+    for row in range(0us, a.len()) {
+        for column in range(0us, b[0].len()) {
             let mut sum: f32 = 0.0;
-            for iter in range(0u, 4) {
+            for iter in range(0us, 4) {
                 sum += a[row][iter] * b[iter][column];
             }
             out[row][column] = sum;
@@ -247,12 +248,12 @@ fn multiply44x41(
 
 
 fn add(
-    a: &[[f32, ..4], ..4],
-    b: &[[f32, ..4], ..4],
-    out: &mut [[f32, ..4], ..4]
+    a: &[[f32; 4]; 4],
+    b: &[[f32; 4]; 4],
+    out: &mut [[f32; 4]; 4]
 ) {
-    for row in range(0u, a.len()) {
-        for column in range(0u, a[0].len()) {
+    for row in range(0us, a.len()) {
+        for column in range(0us, a[0].len()) {
             out[row][column] = a[row][column] + b[row][column];
         }
     }
@@ -260,12 +261,12 @@ fn add(
 
 
 fn subtract44(
-    a: &[[f32, ..4], ..4],
-    b: &[[f32, ..4], ..4],
-    out: &mut [[f32, ..4], ..4]
+    a: &[[f32; 4]; 4],
+    b: &[[f32; 4]; 4],
+    out: &mut [[f32; 4]; 4]
 ) {
-    for row in range(0u, a.len()) {
-        for column in range(0u, a[0].len()) {
+    for row in range(0us, a.len()) {
+        for column in range(0us, a[0].len()) {
             out[row][column] = a[row][column] - b[row][column];
         }
     }
@@ -273,12 +274,12 @@ fn subtract44(
 
 
 fn subtract41(
-    a: &[[f32, ..1], ..4],
-    b: &[[f32, ..1], ..4],
-    out: &mut [[f32, ..1], ..4]
+    a: &[[f32; 1]; 4],
+    b: &[[f32; 1]; 4],
+    out: &mut [[f32; 1]; 4]
 ) {
-    for row in range(0u, a.len()) {
-        for column in range(0u, a[0].len()) {
+    for row in range(0us, a.len()) {
+        for column in range(0us, a[0].len()) {
             out[row][column] = a[row][column] - b[row][column];
         }
     }
@@ -286,12 +287,12 @@ fn subtract41(
 
 
 fn add41(
-    a: &[[f32, ..1], ..4],
-    b: &[[f32, ..1], ..4],
-    out: &mut [[f32, ..1], ..4]
+    a: &[[f32; 1]; 4],
+    b: &[[f32; 1]; 4],
+    out: &mut [[f32; 1]; 4]
 ) {
-    for row in range(0u, a.len()) {
-        for column in range(0u, a[0].len()) {
+    for row in range(0us, a.len()) {
+        for column in range(0us, a[0].len()) {
             out[row][column] = a[row][column] + b[row][column];
         }
     }
@@ -299,14 +300,14 @@ fn add41(
 
 
 fn invert (
-    a: &[[f32, ..4], ..4],
-    out: &mut [[f32, ..4], ..4]
+    a: &[[f32; 4]; 4],
+    out: &mut [[f32; 4]; 4]
 ) {
     if _invert(a, out) == false {
         // Just fudge it
-        let mut new_a: [[f32, ..4], ..4] = [[0f32, ..4], ..4];
-        for row in range(0u, a.len()) {
-            for column in range(0u, a[0].len()) {
+        let mut new_a: [[f32; 4]; 4] = [[0f32; 4]; 4];
+        for row in range(0us, a.len()) {
+            for column in range(0us, a[0].len()) {
                 if row == column && a[row][column] == 0.0f32 {
                     new_a[row][column] = 0.000001f32;
                 } else {
@@ -321,8 +322,8 @@ fn invert (
 
 
 fn _invert (
-    a: &[[f32, ..4], ..4],
-    out: &mut [[f32, ..4], ..4]
+    a: &[[f32; 4]; 4],
+    out: &mut [[f32; 4]; 4]
 ) -> bool {
     let s0: f32 = a[0][0] * a[1][1] - a[1][0] * a[0][1];
     let s1: f32 = a[0][0] * a[1][2] - a[1][0] * a[0][2];
@@ -338,7 +339,7 @@ fn _invert (
     let c1: f32 = a[2][0] * a[3][2] - a[3][0] * a[2][2];
     let c0: f32 = a[2][0] * a[3][1] - a[3][0] * a[2][1];
 
-    let mut det = (s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0);
+    let det = s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0;
     if det == 0.0 {
         return false;
     }
@@ -369,39 +370,40 @@ fn _invert (
 
 
 fn transpose(
-    a: &[[f32, ..4], ..4],
-    out: &mut [[f32, ..4], ..4]
+    a: &[[f32; 4]; 4],
+    out: &mut [[f32; 4]; 4]
 ) {
-    for row in range(0u, a.len()) {
-        for column in range(0u, a[0].len()) {
+    for row in range(0us, a.len()) {
+        for column in range(0us, a[0].len()) {
             out[row][column] = a[column][row];
         }
     }
 }
 
 
-fn print44(message: &str, a: &[[f32, ..4], ..4]) {
-    println!("{}", message);
-    for row in range(0u, a.len()) {
-        for column in range(0u, a[0].len()) {
-            print!("{}\t", a[row][column]);
-        }
-        println!("");
-    }
-}
-
-
-fn print41(message: &str, a: &[[f32, ..1], ..4]) {
-    print!("{}", message);
-    for row in range(0u, a.len()) {
-        print!("{}\t", a[row][0]);
-    }
-    println!("");
-}
+//fn print44(message: &str, a: &[[f32; 4]; 4]) {
+//    println!("{}", message);
+//    for row in range(0us, a.len()) {
+//        for column in range(0us, a[0].len()) {
+//            print!("{}\t", a[row][column]);
+//        }
+//        println!("");
+//    }
+//}
+//
+//
+//fn print41(message: &str, a: &[[f32; 1]; 4]) {
+//    print!("{}", message);
+//    for row in range(0us, a.len()) {
+//        print!("{}\t", a[row][0]);
+//    }
+//    println!("");
+//}
 
 
 #[cfg(test)]
 mod tests {
+    use std::num::Float;
     use super::LocationFilter;
     use super::add;
     use super::identity;
@@ -409,9 +411,9 @@ mod tests {
     use super::multiply44x44;
     use telemetry::rotate_degrees_clockwise;
 
-    fn assert_equal(a: &[[f32, ..4], ..4], b: &[[f32, ..4], ..4]) {
-        for row in range(0u, a.len()) {
-            for column in range(0u, a[0].len()) {
+    fn assert_equal(a: &[[f32; 4]; 4], b: &[[f32; 4]; 4]) {
+        for row in range(0us, a.len()) {
+            for column in range(0us, a[0].len()) {
                 let diff = (a[row][column] - b[row][column]).abs();
                 assert!(diff < 0.00001f32);
             }
@@ -430,17 +432,17 @@ mod tests {
 
     #[test]
     fn test_multiply44x44() {
-        let mut out = [[0.0f32, ..4], ..4];
+        let mut out = [[0.0f32; 4]; 4];
         let identity_ = identity();
 
         multiply44x44(&identity_, &identity_, &mut out);
         assert_equal(&out, &identity_);
 
         let array = [
-            [1.0f32, ..4],
-            [2.0f32, ..4],
-            [3.0f32, ..4],
-            [4.0f32, ..4],
+            [1.0f32; 4],
+            [2.0f32; 4],
+            [3.0f32; 4],
+            [4.0f32; 4],
         ];
         multiply44x44(&identity_, &array, &mut out);
         assert_equal(&out, &array);
@@ -454,24 +456,18 @@ mod tests {
 
     #[test]
     fn test_add() {
-        let mut out = [[0.0f32, ..4], ..4];
+        let mut out = [[0.0f32; 4]; 4];
         let identity_ = identity();
 
         add(&identity_, &identity_, &mut out);
-        for row in range(0u, out.len()) {
-            for column in range(0u, out[0].len()) {
+        for row in range(0us, out.len()) {
+            for column in range(0us, out[0].len()) {
                 assert!(out[row][column] == 2.0f32 * identity_[row][column]);
             }
         }
 
-        let array = [
-            [1.0f32, ..4],
-            [2.0f32, ..4],
-            [3.0f32, ..4],
-            [4.0f32, ..4],
-        ];
-        for row in range(0u, out.len()) {
-            for column in range(0u, out[0].len()) {
+        for row in range(0us, out.len()) {
+            for column in range(0us, out[0].len()) {
                 assert!(out[row][column] == 2.0f32 * identity_[row][column]);
             }
         }
@@ -480,15 +476,15 @@ mod tests {
 
     #[test]
     fn test_invert() {
-        let mut out = [[0.0f32, ..4], ..4];
+        let mut out = [[0.0f32; 4]; 4];
         let identity_ = identity();
 
         invert(&identity_, &mut out);
         assert_equal(&out, &identity_);
 
         let mut array = identity();
-        for row in range(0u, out.len()) {
-            for column in range(0u, out[0].len()) {
+        for row in range(0us, out.len()) {
+            for column in range(0us, out[0].len()) {
                 array[row][column] += row as f32 * column as f32 + row as f32;
             }
         }
@@ -523,12 +519,12 @@ mod tests {
         // we'll just manually set it now
         location_filter.estimates[3][0] = speed_m_s;
 
-        let mut measurements: [f32, ..4] = [0.0, 0.0, heading_d, 0.0];
+        let measurements: [f32; 4] = [0.0, 0.0, heading_d, 0.0];
 
         let seconds = 5u32;
-        let compass_observer_matrix = location_filter.COMPASS_OBSERVER_MATRIX;
-        let compass_measurement_noise = location_filter.COMPASS_MEASUREMENT_NOISE;
-        for i in range(0u32, seconds) {
+        let compass_observer_matrix = location_filter.compass_observer_matrix;
+        let compass_measurement_noise = location_filter.compass_measurement_noise;
+        for _ in range(0us, seconds as usize) {
             location_filter.update(
                 &measurements,
                 &compass_observer_matrix,
