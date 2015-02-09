@@ -2,7 +2,10 @@
 
 import math
 import numpy
+import threading
 import time
+
+from control.synchronized import synchronized
 
 # pylint: disable=no-member
 
@@ -61,7 +64,9 @@ class LocationFilter(object):
         ])
 
         self._last_observation_s = time.time()
+        self._lock = threading.Lock()
 
+    @synchronized
     def update_gps(
         self,
         x_m,
@@ -90,6 +95,7 @@ class LocationFilter(object):
             time_diff_s
         )
 
+    @synchronized
     def update_compass(self, compass_d):
         """Update the heading estimation."""
         measurements = numpy.matrix(
@@ -107,6 +113,7 @@ class LocationFilter(object):
             time_diff_s
         )
 
+    @synchronized
     def update_dead_reckoning(self):
         """Update the dead reckoning position estimate."""
         now = time.time()
@@ -210,14 +217,17 @@ class LocationFilter(object):
         self._estimates = transition * self._estimates
         return transition
 
+    @synchronized
     def estimated_location(self):
         """Returns the estimated true location in x and y meters."""
         return (self._estimates[0].item(0), self._estimates[1].item(0))
 
+    @synchronized
     def estimated_heading(self):
         """Returns the estimated true heading in degrees."""
         return self._estimates[2].item(0)
 
+    @synchronized
     def estimated_speed(self):
         """Returns the estimated speed in meters per second."""
         return self._estimates[3].item(0)

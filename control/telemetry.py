@@ -7,6 +7,7 @@ import math
 import threading
 
 from control.location_filter import LocationFilter
+from control.synchronized import synchronized
 
 #pylint: disable=invalid-name
 
@@ -36,35 +37,36 @@ class Telemetry(object):
         self._throttle = None
         self._steering = None
 
+    @synchronized
     def get_raw_data(self):
         """Returns the raw most recent telemetry readings."""
-        with self._lock:
-            return self._data
+        return self._data
 
+    @synchronized
     def get_data(self):
         """Returns the approximated telemetry data."""
-        with self._lock:
-            self._location_filter.update_dead_reckoning()
-            values = {}
-            for key in ('accelerometer_m_s_s',):  # Left as a loop if we want more later
-                if key in self._data:
-                    values[key] = self._data[key]
+        self._location_filter.update_dead_reckoning()
+        values = {}
+        for key in ('accelerometer_m_s_s',):  # Left as a loop if we want more later
+            if key in self._data:
+                values[key] = self._data[key]
 
-            values['speed_m_s'] = self._location_filter.estimated_speed()
-            values['heading_d'] = self._location_filter.estimated_heading()
-            x_m, y_m = self._location_filter.estimated_location()
-            values['x_m'], values['y_m'] = x_m, y_m
-            self._logger.debug(
-                'Estimates: x m {x}, y m {y}, heading d {heading},'
-                ' speed m/s^2 {speed}'.format(
-                    x=values['x_m'],
-                    y=values['y_m'],
-                    heading=values['heading_d'],
-                    speed=values['speed_m_s'],
-                )
+        values['speed_m_s'] = self._location_filter.estimated_speed()
+        values['heading_d'] = self._location_filter.estimated_heading()
+        x_m, y_m = self._location_filter.estimated_location()
+        values['x_m'], values['y_m'] = x_m, y_m
+        self._logger.debug(
+            'Estimates: x m {x}, y m {y}, heading d {heading},'
+            ' speed m/s^2 {speed}'.format(
+                x=values['x_m'],
+                y=values['y_m'],
+                heading=values['heading_d'],
+                speed=values['speed_m_s'],
             )
-            return values
+        )
+        return values
 
+    @synchronized
     def process_drive_command(self, throttle, steering):
         """Process a drive command. When the command module tells the car to do
         something (e.g. drive forward and left), that data should be integrated
@@ -78,33 +80,43 @@ class Telemetry(object):
 
         # TODO: Update speed and turn rate estimatiosn
 
+    @synchronized
     def handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
-        with self._lock:
-            if 'calibrate' in message:
-                self._calibrate()
-                return
+        if 'speed_m_s' in self._data:
+            self._speed_history.append(self._data['speed_m_s'])
+            while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
+                self._speed_history.popleft()
 
-            if 'speed_m_s' in self._data:
-                self._speed_history.append(self._data['speed_m_s'])
-                while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
-                    self._speed_history.popleft()
+        if 'compass_d' in message:
+            self._location_filter.update_compass(message['compass_d'])
 
-            if 'compass_d' in message:
-                self._location_filter.update_compass(message['compass_d'])
+        if 'x_m' in message:
+            self._location_filter.update_gps(
+                message['x_m'],
+                message['y_m'],
+                message['x_accuracy_m'],
+                message['y_accuracy_m'],
+                message['gps_d'],
+                message['speed_m_s']
+            )
 
-            if 'x_m' in message:
-                self._location_filter.update_gps(
-                    message['x_m'],
-                    message['y_m'],
-                    message['x_accuracy_m'],
-                    message['y_accuracy_m'],
-                    message['gps_d'],
-                    message['speed_m_s']
-                )
+        self._data = message
+        self._logger.debug(json.dumps(message))
 
-            self._data = message
-            self._logger.debug(json.dumps(message))
+    @synchronized
+    def is_stopped(self):
+        """Determines if the RC car is moving."""
+        if len(self._speed_history) < self.HISTORICAL_SPEED_READINGS_COUNT:
+            return False
+
+        if all((speed == 0.0 for speed in self._speed_history)):
+            self._logger.info(
+                'RC car is not moving according to speed history'
+            )
+            self._speed_history.clear()
+            return True
+        return False
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):
@@ -267,20 +279,3 @@ class Telemetry(object):
         """Returns the offset in meters for a given coordinate."""
         x_m = Telemetry.distance_m(0.0, longitude_d, 0.0, CENTRAL_LONGITUDE)
         return x_m
-
-    def is_stopped(self):
-        """Determines if the RC car is moving."""
-        if len(self._speed_history) < self.HISTORICAL_SPEED_READINGS_COUNT:
-            return False
-
-        all_zero = True
-        for speed in self._speed_history:
-            if speed != 0:
-                all_zero = False
-                break
-
-        if all_zero:
-            self._logger.info('RC car is not moving according to speed history')
-            self._speed_history.clear()
-            return True
-        return False
