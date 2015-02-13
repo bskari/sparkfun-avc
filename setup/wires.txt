@@ -28,3 +28,11 @@ One wire connects to pin 1, 3V3 DC.
 One wire connects to GPIO 17, pin pin 11.
 
 GPS:
+1 - RXD, connect to UART TXD, GPIO 14, pin 8.
+2 - TXD, connect to UART RXD, GPIO 15, pin 10.
+3 - Ground, connect to pin 20.
+4 - 3.3V VDD, connect to pin 1.
+5 - VBAT, connect to pin 1.
+6 - P1PPS, leave unconnected.
+7 - BOOT_SEL, 3.3 VDD, connect to pin 17.
+8 - RSTN, leave unconnected.
