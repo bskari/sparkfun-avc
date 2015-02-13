@@ -1,8 +1,44 @@
 """Drive the Grasshopper using a joypad or keyboard."""
+import argparse
 import json
 import pygame
 import socket
 import time
+
+
+def make_parser():
+    """Builds and returns an argument parser."""
+    parser = argparse.ArgumentParser(
+        description='Manual control of the Tamiya Grasshopper.'
+    )
+
+    parser.add_argument(
+        '-q',
+        '--quiet',
+        dest='quiet',
+        help='Silence output.',
+        action='store_true'
+    )
+
+    parser.add_argument(
+        '-s',
+        '--server',
+        dest='server',
+        help='The IP address of the Tamiya server.',
+        default='10.1',
+        type=str,
+    )
+
+    parser.add_argument(
+        '-p',
+        '--port',
+        dest='port',
+        help='The por that the Tamiya server is listening on.',
+        default=12345,
+        type=int,
+    )
+
+    return parser
 
 
 def get_throttle_and_steering_keyboard():  # pylint: disable=invalid-name
@@ -53,6 +89,9 @@ def get_throttle_and_steering_joystick(joystick):  # pylint: disable=invalid-nam
 
 def main():
     """Send commands to the car."""
+    parser = make_parser()
+    args = parser.parse_args()
+
     pygame.init()
     _ = pygame.display.set_mode((640, 480))
     pygame.display.set_caption('Pygame Caption')
@@ -91,17 +130,19 @@ def main():
                     'throttle': throttle,
                     'steering': steering,
                 })
-                print(command)
+                if not args.quiet:
+                    print(command)
                 sock.sendto(
                     command,
-                    ('10.2', 12345)
+                    (args.server, args.port)
                 )
                 last_send_time = time.time()
 
         # Send a keep-alive request at least once per second
         if time.time() - last_send_time > 1.0:
-            print('Sending keep alive')
-            sock.sendto('{"keep_alive": true}', ('10.2', 12345))
+            if not args.quiet:
+                print('Sending keep alive')
+            sock.sendto('{"keep_alive": true}', (args.server, args.port))
             last_send_time = time.time()
 
 
