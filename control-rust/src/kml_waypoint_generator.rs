@@ -9,6 +9,7 @@ use waypoint_generator::WaypointGenerator;
 /**
  * Loads and returns waypoints from a KML file.
  */
+#[allow(dead_code)]
 struct KmlWaypointGenerator {
     waypoints: Vec<(f32, f32)>,
     current_waypoint: u32,
@@ -16,6 +17,7 @@ struct KmlWaypointGenerator {
 
 
 impl KmlWaypointGenerator {
+    #[allow(dead_code)]
     pub fn new(file_name: &str) -> KmlWaypointGenerator {
         KmlWaypointGenerator {
             waypoints: KmlWaypointGenerator::load_waypoints(file_name),
@@ -88,7 +90,7 @@ impl KmlWaypointGenerator {
                                 None => println!("No latitude"),
                             }
 
-                            if (success) {
+                            if success {
                                 waypoints.push((latitude, longitude));
                             }
                         }
@@ -104,11 +106,13 @@ impl KmlWaypointGenerator {
 
 
 impl WaypointGenerator for KmlWaypointGenerator {
+    #[allow(unused_variables)]
     fn get_current_waypoint(&self, x_m: f32, y_m: f32) -> (f32, f32) {
         // TODO
         (0.0, 0.0)
     }
 
+    #[allow(unused_variables)]
     fn get_current_raw_waypoint(&self, x_m: f32, y_m: f32) -> (f32, f32) {
         // TODO
         (0.0, 0.0)
@@ -118,6 +122,7 @@ impl WaypointGenerator for KmlWaypointGenerator {
         // TODO
     }
 
+    #[allow(unused_variables)]
     fn reached(&self, x_m: f32, y_m: f32) -> bool {
         // TODO
         return false;

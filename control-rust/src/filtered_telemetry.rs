@@ -1,10 +1,9 @@
-use std::f32;
-
 use logger::Logger;
 use telemetry::Telemetry;
 use telemetry_message::TelemetryMessage;
 
 
+#[allow(dead_code)]
 struct FilteredTelemetry<'a> {
     data: &'a mut TelemetryMessage,
     logger: Box<Logger + 'a>,
@@ -39,6 +38,7 @@ impl<'a> Telemetry for FilteredTelemetry<'a> {
         // TODO: Update the filter?
     }
 
+    #[allow(unused_variables)]
     fn handle_message(&self, message:&TelemetryMessage) -> () {
         // TODO: Save the message
     }

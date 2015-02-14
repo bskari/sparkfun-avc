@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub struct TelemetryMessage {
     latitude: Option<f32>,
     longitude: Option<f32>,

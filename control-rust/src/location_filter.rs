@@ -1,9 +1,8 @@
-use std::num::Float;
-
 use telemetry::rotate_degrees_clockwise;
 use telemetry::wrap_degrees;
 
 
+#[allow(dead_code)]
 struct LocationFilter {
     gps_observer_matrix: [[f32; 4]; 4],  // H
     compass_observer_matrix: [[f32; 4]; 4],  // H
@@ -30,6 +29,7 @@ struct LocationFilter {
 
 
 impl LocationFilter {
+    #[allow(dead_code)]
     pub fn new(x_m: f32, y_m: f32, heading_d: f32) -> LocationFilter {
         let lf = LocationFilter {
             gps_observer_matrix: identity(),
@@ -97,6 +97,7 @@ impl LocationFilter {
     /**
      * Runs the Kalman update using the provided measurements.
      */
+    #[allow(dead_code)]
     pub fn update(
         &mut self,
         measurements_: &[f32; 4],
@@ -187,6 +188,7 @@ impl LocationFilter {
     }
 
 
+    #[allow(dead_code)]
     pub fn estimated_location_m(&self) -> (f32, f32) {
         (self.estimates[0][0], self.estimates[1][0])
     }
@@ -196,7 +198,7 @@ impl LocationFilter {
         self.estimates[2][0]
     }
 
-
+    #[allow(dead_code)]
     pub fn estimated_speed_m_s(&self) -> f32 {
         self.estimates[3][0]
     }
