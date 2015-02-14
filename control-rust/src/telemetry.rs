@@ -1,7 +1,10 @@
 use std::f32;
 use std::num::Float;
 
+use telemetry_message::CompassMessage;
+use telemetry_message::GpsMessage;
 use telemetry_message::TelemetryMessage;
+
 
 /**
  * Provides Telemetry data, possibly filtered to be more accurate.
@@ -10,22 +13,27 @@ pub trait Telemetry {
     /**
      * Returns the raw sensor readings.
      */
-    fn get_raw_data(&self) -> &TelemetryMessage;
+    fn get_raw_gps(&self) -> &GpsMessage;
+
+    /**
+     * Returns the raw sensor readings.
+     */
+    fn get_raw_compass(&self) -> &CompassMessage;
 
     /**
      * Returns the (possibly filtered) telemetry data.
      */
-    fn get_data(&self) -> &TelemetryMessage;
+    fn get_data(&self) -> &GpsMessage;
 
     /**
      * End point for processing commands executed by the Command module.
      */
-    fn process_drive_command(&mut self, throttle:f32, steering:f32) -> ();
+    fn process_drive_command(&mut self, throttle:f32, steering:f32);
 
     /**
      * Processes a telemetry message.
      */
-    fn handle_message(&self, message:&TelemetryMessage) -> ();
+    fn handle_message(&mut self, message:&TelemetryMessage);
 
     /**
      * Returns true if the car is stopped.
@@ -37,6 +45,7 @@ pub trait Telemetry {
 /**
  * Rotates a point a number of degrees clockwise around the origin.
  */
+#[allow(dead_code)]
 pub fn rotate_degrees_clockwise(point:(f32, f32), degrees:f32) -> (f32, f32) {
     let (pt_x, pt_y) = point;
     // So, sine and cosine appear to be messed up on Rust 0.13 on Raspberry Pi.
@@ -68,6 +77,7 @@ pub fn m_per_latitude_d() -> f32{
 /**
  * Returns the number of meters per degree longitude at a given latitude.
  */
+#[allow(dead_code)]
 pub fn latitude_d_to_m_per_longitude_d(latitude_d: f32) -> f32 {
     let radius_m = latitude_d.to_radians().cos() * equatorial_radius_m();
     let circumference_m = f32::consts::PI_2 * radius_m;
@@ -79,6 +89,7 @@ pub fn latitude_d_to_m_per_longitude_d(latitude_d: f32) -> f32 {
  * Determines if the vehicle facing a heading in degrees needs to turn left to
  * left to reach a goal heading in degrees.
  */
+#[allow(dead_code)]
 pub fn is_turn_left(heading_d: f32, goal_heading_d: f32) -> bool {
     let (pt_1_0, pt_1_1) = rotate_degrees_clockwise((0.0f32, 1.0f32), heading_d);
     let (pt_2_0, pt_2_1) = rotate_degrees_clockwise((0.0f32, 1.0f32), goal_heading_d);
@@ -94,6 +105,7 @@ pub fn is_turn_left(heading_d: f32, goal_heading_d: f32) -> bool {
  * Computes the relative degrees from the first waypoint to the second, where
  * north is 0.
  */
+#[allow(dead_code)]
 pub fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
     let relative_x_m = x_2 - x_1;
     let relative_y_m = y_2 - y_1;
@@ -116,6 +128,7 @@ pub fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
 /**
  * Wraps degrees to be in [0..360).
  */
+#[allow(dead_code)]
 pub fn wrap_degrees(degrees: f32) -> f32 {
     // TODO: floor doesn't appear to actually return the floor of a value, so
     // uh, we need to do this weird thing instead
@@ -134,6 +147,7 @@ pub fn wrap_degrees(degrees: f32) -> f32 {
 /**
  * Calculates the absolute difference in degrees between two headings.
  */
+#[allow(dead_code)]
 pub fn difference_d(heading_1_d: f32, heading_2_d: f32) -> f32 {
     let wrap_1_d = wrap_degrees(heading_1_d);
     let wrap_2_d = wrap_degrees(heading_2_d);
@@ -212,7 +226,7 @@ mod tests {
     use super::wrap_degrees;
 
 
-    fn assert_approx_eq(value_1:f32, value_2:f32) -> () {
+    fn assert_approx_eq(value_1:f32, value_2:f32) {
         assert!(approx_eq(value_1, value_2));
     }
     fn approx_eq(value_1:f32, value_2:f32) -> bool {
@@ -226,7 +240,7 @@ mod tests {
     }
 
 
-    fn test_rotate(point:(f32, f32), degrees:f32, expected_point:(f32, f32)) -> () {
+    fn test_rotate(point:(f32, f32), degrees:f32, expected_point:(f32, f32)) {
         let new_point = rotate_degrees_clockwise(point, degrees);
         let (p_1, p_2) = new_point;
         let (ep_1, ep_2) = expected_point;
