@@ -11,6 +11,7 @@ mod filtered_telemetry;
 mod kml_waypoint_generator;
 mod location_filter;
 mod logger;
+mod nmea;
 mod stdout_logger;
 mod telemetry;
 mod telemetry_message;
