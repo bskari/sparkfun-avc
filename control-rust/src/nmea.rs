@@ -2,6 +2,8 @@
  * Reads NMEA messages from the GPS.
  */
 
+use std::error::Error;
+
 
 /**
  * GGA: Global positioning system fix data.
@@ -31,8 +33,24 @@ pub enum NmeaMessage {
 }
 
 
+macro_rules! bail_err {
+    ($option:expr) => (
+        match $option {
+            Ok(s) => s,
+            Err(e) => return Err(e.description().to_string()),
+        };
+    );
+}
+macro_rules! bail_none {
+    ($option:expr) => (
+        match $option {
+            Some(s) => s,
+            None => return Err("Message too short".to_string()),
+        };
+    );
+}
 impl NmeaMessage {
-    fn parse(message: &str) -> Option<NmeaMessage> {
+    fn parse(message: &str) -> Result<NmeaMessage, String> {
         if message.starts_with("$GPGGA") {
             // $GPGGA,hhmmss.sss,ddmm.mmmm,a,dddmm.mmmm,a,x,xx,x.x,x.x,M,,,,xxxx*hh<CR><LF>
             let mut iterator = message.split(',');
@@ -41,21 +59,23 @@ impl NmeaMessage {
             iterator.next();  // Skip the timestamp since midnight UTC
 
             let latitude_degrees = {
-                let string = iterator.next().unwrap();
-                let degrees: i32 = string[0..2].parse().unwrap();
-                let minutes: f64 = string[2..].parse().unwrap();
+                let string = bail_none!(iterator.next());
+                let degrees: i32 = bail_err!(string[0..2].parse());
+                let minutes: f64 = bail_err!(string[2..].parse());
 
-                let north = iterator.next().unwrap() == "N";
+                let north_indicator = bail_none!(iterator.next());
+                let north = north_indicator == "N";
                 let d = degrees as f64 + minutes / 60.0f64;
                 if north { d } else { -d }
             };
 
             let longitude_degrees = {
-                let string = iterator.next().unwrap();
-                let degrees: i32 = string[0..2].parse().unwrap();
-                let minutes: f64 = string[2..].parse().unwrap();
+                let string = bail_none!(iterator.next());
+                let degrees: i32 = bail_err!(string[0..2].parse());
+                let minutes: f64 = bail_err!(string[2..].parse());
 
-                let east = iterator.next().unwrap() == "E";
+                let east_indicator = bail_none!(iterator.next());
+                let east = east_indicator == "E";
                 let d = degrees as f64 + minutes / 60.0f64;
                 if east { d } else { -d }
             };
@@ -63,9 +83,10 @@ impl NmeaMessage {
             iterator.next();  // Skip the GPS quality indicator
             iterator.next();  // Skip the satellites used
 
-            let hdop: f32 = iterator.next().unwrap().parse().unwrap();
+            let hdop_str = bail_none!(iterator.next());
+            let hdop: f32 = bail_err!(hdop_str.parse());
 
-            Some(
+            Ok(
                 NmeaMessage::Gga (
                     GgaMessage {
                         latitude_degrees: latitude_degrees,
@@ -81,7 +102,8 @@ impl NmeaMessage {
 
             iterator.next();  // Skip the message type
 
-            let course_d: f32 = iterator.next().unwrap().parse().unwrap();
+            let course_d_str = bail_none!(iterator.next());
+            let course_d: f32 = bail_err!(course_d_str.parse());
             iterator.next();  // Skip the letter T indicating true course
 
             iterator.next();  // Skip the magnetic course
@@ -90,9 +112,10 @@ impl NmeaMessage {
             iterator.next();  // Skip speed in knots
             iterator.next();  // Skip the letter N indicating knots
 
-            let speed_km_h: f32 = iterator.next().unwrap().parse().unwrap();
+            let speed_km_h_str = bail_none!(iterator.next());
+            let speed_km_h: f32 = bail_err!(speed_km_h_str.parse());
 
-            Some(
+            Ok(
                 NmeaMessage::Vtg (
                     VtgMessage {
                         course_d: course_d,
@@ -101,8 +124,7 @@ impl NmeaMessage {
                 )
             )
         } else {
-            // TODO: Log a warning
-            None
+            Err("Unknown NMEA message type".to_string())
         }
     }
 }
@@ -131,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_parse_vtg() {
-        // 36 k/h = 10 m/s
+        // 36 km/h = 10 m/s
         let message = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
         let expected = VtgMessage {
             course_d: 123.4,
