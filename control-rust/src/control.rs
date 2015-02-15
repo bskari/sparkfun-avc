@@ -10,9 +10,9 @@ type MilliSeconds = u64;
 
 #[derive(PartialEq)]
 enum ControlState {
-    WAITING_FOR_START,
-    RUNNING,
-    COLLISION_RECOVERY,
+    WaitingForStart,
+    Running,
+    CollisionRecovery,
 }
 
 
@@ -28,7 +28,7 @@ pub struct Control<'a, 'b> {
 impl <'a, 'b> Control <'a, 'b> {
     pub fn new(telemetry: &'a Telemetry, driver: &'b mut Driver) -> Control <'a, 'b> {
         Control {
-            state: ControlState::WAITING_FOR_START,
+            state: ControlState::WaitingForStart,
             run: false,
             telemetry: telemetry,
             driver: driver,
@@ -42,17 +42,17 @@ impl <'a, 'b> Control <'a, 'b> {
     fn run_incremental(&mut self) {
         // Halting the car supercedes all other states
         if !self.run {
-            self.state = ControlState::WAITING_FOR_START;
+            self.state = ControlState::WaitingForStart;
         } else if (self.telemetry.is_stopped()) {
             // We want to drive for at least one second between collisions
             self.collision_time_ms = time::now().to_milliseconds();
-            self.state = ControlState::COLLISION_RECOVERY;
+            self.state = ControlState::CollisionRecovery;
         }
 
         match self.state {
-            ControlState::WAITING_FOR_START => self.waiting_for_start(),
-            ControlState::RUNNING => self.running(),
-            ControlState::COLLISION_RECOVERY => {
+            ControlState::WaitingForStart => self.waiting_for_start(),
+            ControlState::Running => self.running(),
+            ControlState::CollisionRecovery => {
                 let now_ms = time::now().to_milliseconds();
                 self.collision_recovery(now_ms);
             }
@@ -67,7 +67,7 @@ impl <'a, 'b> Control <'a, 'b> {
         if !self.run {
             return;
         }
-        self.state = ControlState::RUNNING;
+        self.state = ControlState::Running;
     }
 
     fn running(&self) {
@@ -88,7 +88,7 @@ impl <'a, 'b> Control <'a, 'b> {
         } else if now_ms < self.collision_time_ms + stop_ms + back_up_ms + pause_ms {
             self.driver.drive(0.0f32, 0.0f32);
         } else {
-            self.state = ControlState::RUNNING;
+            self.state = ControlState::Running;
         }
     }
 }
@@ -194,37 +194,37 @@ mod tests {
         assert!(false);
         /*
         control.collision_recovery(0 as MilliSeconds);
-        assert!(control.state == ControlState::COLLISION_RECOVERY);
+        assert!(control.state == ControlState::CollisionRecovery);
         assert!(driver.get_throttle() == 0.0 as Percentage);
         assert!(driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(400 as MilliSeconds);
-        assert!(control.state == ControlState::COLLISION_RECOVERY);
+        assert!(control.state == ControlState::CollisionRecovery);
         assert!(driver.get_throttle() == 0.0 as Percentage);
         assert!(driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(600 as MilliSeconds);
-        assert!(control.state == ControlState::COLLISION_RECOVERY);
+        assert!(control.state == ControlState::CollisionRecovery);
         assert!(driver.get_throttle() < 0.0 as Percentage);
         assert!(driver.get_steering() != 0.0 as Percentage);
 
         control.collision_recovery(1400 as MilliSeconds);
-        assert!(control.state == ControlState::COLLISION_RECOVERY);
+        assert!(control.state == ControlState::CollisionRecovery);
         assert!(driver.get_throttle() < 0.0 as Percentage);
         assert!(driver.get_steering() != 0.0 as Percentage);
 
         control.collision_recovery(1600 as MilliSeconds);
-        assert!(control.state == ControlState::COLLISION_RECOVERY);
+        assert!(control.state == ControlState::CollisionRecovery);
         assert!(driver.get_throttle() == 0.0 as Percentage);
         assert!(driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(1900 as MilliSeconds);
-        assert!(control.state == ControlState::COLLISION_RECOVERY);
+        assert!(control.state == ControlState::CollisionRecovery);
         assert!(driver.get_throttle() == 0.0 as Percentage);
         assert!(driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(2100 as MilliSeconds);
-        assert!(control.state != ControlState::COLLISION_RECOVERY);
+        assert!(control.state != ControlState::CollisionRecovery);
         */
     }
 }
