@@ -1,9 +1,9 @@
 // Silence warnings about use of unstable features
+#![feature(box_syntax)]
 #![feature(core)]
 #![feature(io)]
 #![feature(path)]
 #![feature(std_misc)]
-#![feature(box_syntax)]
 
 mod control;
 mod driver;

@@ -6,6 +6,15 @@ use telemetry_message::GpsMessage;
 use telemetry_message::TelemetryMessage;
 
 
+pub struct TelemetryState {
+    pub x_m: f32,
+    pub y_m: f32,
+    pub heading_d: f32,
+    pub speed_m_s: f32,
+    pub stopped: bool,
+}
+
+
 /**
  * Provides Telemetry data, possibly filtered to be more accurate.
  */

@@ -12,7 +12,7 @@ pub trait WaypointGenerator {
      * Returns the absolute position of the current waypoint.
      */
     fn get_current_raw_waypoint(&self, x_m: f32, y_m: f32) -> (f32, f32);
-    
+
     /**
      * Moves to the next waypoint.
      */
