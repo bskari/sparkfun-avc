@@ -1,5 +1,4 @@
-use telemetry::rotate_degrees_clockwise;
-use telemetry::wrap_degrees;
+use telemetry::{rotate_degrees_clockwise, wrap_degrees, Point};
 
 
 #[allow(dead_code)]
@@ -116,13 +115,13 @@ impl LocationFilter {
         // Prediction step
         // x = A * x + B
         let heading_d = self.estimated_heading_d();
-        let (x_delta, y_delta) = rotate_degrees_clockwise(
-            (0.0, time_diff_s),
+        let delta = rotate_degrees_clockwise(
+            &Point { x: 0.0, y: time_diff_s },
             heading_d
         );
         let transition = [  // A
-            [1.0f32, 0.0f32, 0.0f32, x_delta],
-            [0.0f32, 1.0f32, 0.0f32, y_delta],
+            [1.0f32, 0.0f32, 0.0f32, delta.x],
+            [0.0f32, 1.0f32, 0.0f32, delta.y],
             [0.0f32, 0.0f32, 1.0f32, 0.0f32],
             [0.0f32, 0.0f32, 0.0f32, 1.0f32]
         ];
@@ -406,12 +405,8 @@ fn transpose(
 #[cfg(test)]
 mod tests {
     use std::num::Float;
-    use super::LocationFilter;
-    use super::add;
-    use super::identity;
-    use super::invert;
-    use super::multiply44x44;
-    use telemetry::rotate_degrees_clockwise;
+    use super::{LocationFilter, add, identity, invert, multiply44x44};
+    use telemetry::{Point, rotate_degrees_clockwise};
 
     fn assert_equal(a: &[[f32; 4]; 4], b: &[[f32; 4]; 4]) {
         for row in range(0us, a.len()) {
@@ -536,11 +531,9 @@ mod tests {
         }
 
         let offset = rotate_degrees_clockwise(
-            (0.0, speed_m_s * seconds as f32),
-            heading_d
-        );
-        let (offset_x, offset_y) = offset;
-        let (new_x, new_y) = (start_x + offset_x, start_y + offset_y);
+            &Point { x: 0.0, y: speed_m_s * seconds as f32 },
+            heading_d);
+        let (new_x, new_y) = (start_x + offset.x, start_y + offset.y);
 
         let (predicted_x, predicted_y) = location_filter.estimated_location_m();
         println!("px {} nx {}, py {} ny {}", predicted_x, new_x, predicted_y, new_y);

@@ -1,4 +1,4 @@
-use std::f32;
+use std::f64;
 use std::num::Float;
 
 use telemetry_message::CompassMessage;
@@ -6,10 +6,16 @@ use telemetry_message::GpsMessage;
 use telemetry_message::TelemetryMessage;
 
 
+pub type Meter = f32;
+pub type Degrees = f32;
+pub struct Point {
+    pub x: Meter,
+    pub y: Meter,
+}
+
 pub struct TelemetryState {
-    pub x_m: f32,
-    pub y_m: f32,
-    pub heading_d: f32,
+    pub location: Point,
+    pub heading: Degrees,
     pub speed_m_s: f32,
     pub stopped: bool,
 }
@@ -32,7 +38,7 @@ pub trait Telemetry {
     /**
      * Returns the (possibly filtered) telemetry data.
      */
-    fn get_data(&self) -> &GpsMessage;
+    fn get_data(&self) -> &TelemetryState;
 
     /**
      * End point for processing commands executed by the Command module.
@@ -55,13 +61,13 @@ pub trait Telemetry {
  * Rotates a point a number of degrees clockwise around the origin.
  */
 #[allow(dead_code)]
-pub fn rotate_degrees_clockwise(point:(f32, f32), degrees:f32) -> (f32, f32) {
-    let (pt_x, pt_y) = point;
-    // So, sine and cosine appear to be messed up on Rust 0.13 on Raspberry Pi.
-    // sin just returns the value, so we have to use our own implmenetation.
+pub fn rotate_degrees_clockwise(point: &Point, degrees: Degrees) -> Point {
     let sine = degrees.sine_d();
     let cosine = degrees.cosine_d();
-    (cosine * pt_x + sine * pt_y, -sine * pt_x + cosine * pt_y)
+    Point {
+        x: cosine * point.x + sine * point.y,
+        y: -sine * point.x + cosine * point.y
+    }
 }
 
 
@@ -69,7 +75,7 @@ pub fn rotate_degrees_clockwise(point:(f32, f32), degrees:f32) -> (f32, f32) {
  * Returns the equatorial radius of the Earth in meters. I don't know how to
  * define constants in Rust.
  */
-fn equatorial_radius_m() -> f32 {
+fn equatorial_radius_m() -> f64 {
     6378.1370 * 1000.0
 }
 
@@ -78,18 +84,17 @@ fn equatorial_radius_m() -> f32 {
  * Returns the number of meters per degree of latitude. I don't know how to
  * define constants in Rust.
  */
-pub fn m_per_latitude_d() -> f32{
-    equatorial_radius_m() * f32::consts::PI_2 / 360.0
+pub fn m_per_latitude_d() -> f64 {
+    equatorial_radius_m() * f64::consts::PI_2 / 360.0
 }
 
 
 /**
  * Returns the number of meters per degree longitude at a given latitude.
  */
-#[allow(dead_code)]
-pub fn latitude_d_to_m_per_longitude_d(latitude_d: f32) -> f32 {
-    let radius_m = latitude_d.to_radians().cos() * equatorial_radius_m();
-    let circumference_m = f32::consts::PI_2 * radius_m;
+pub fn latitude_d_to_m_per_longitude_d(latitude: f64) -> f64 {
+    let radius_m: f64 = latitude.cosine_d() * equatorial_radius_m();
+    let circumference_m: f64 = f64::consts::PI_2 * radius_m;
     circumference_m / 360.0
 }
 
@@ -99,9 +104,11 @@ pub fn latitude_d_to_m_per_longitude_d(latitude_d: f32) -> f32 {
  * left to reach a goal heading in degrees.
  */
 #[allow(dead_code)]
-pub fn is_turn_left(heading_d: f32, goal_heading_d: f32) -> bool {
-    let (pt_1_0, pt_1_1) = rotate_degrees_clockwise((0.0f32, 1.0f32), heading_d);
-    let (pt_2_0, pt_2_1) = rotate_degrees_clockwise((0.0f32, 1.0f32), goal_heading_d);
+pub fn is_turn_left(heading_d: Degrees, goal_heading_d: Degrees) -> bool {
+    let point_1 = rotate_degrees_clockwise(&Point { x: 0.0, y: 1.0 }, heading_d);
+    let (pt_1_0, pt_1_1) = (point_1.x, point_1.y);
+    let point_2 = rotate_degrees_clockwise(&Point { x: 0.0, y: 1.0 }, goal_heading_d);
+    let (pt_2_0, pt_2_1) = (point_2.x, point_2.y);
     let cross_product = pt_1_0 * pt_2_1 - pt_1_1 * pt_2_0;
     if cross_product > 0.0 {
         return true;
@@ -115,9 +122,9 @@ pub fn is_turn_left(heading_d: f32, goal_heading_d: f32) -> bool {
  * north is 0.
  */
 #[allow(dead_code)]
-pub fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
-    let relative_x_m = x_2 - x_1;
-    let relative_y_m = y_2 - y_1;
+pub fn relative_degrees(point_1: &Point, point_2: &Point) -> Degrees {
+    let relative_x_m = point_2.x - point_1.x;
+    let relative_y_m = point_2.y - point_1.y;
     if relative_x_m == 0.0 {
         if relative_y_m > 0.0 {
             return 0.0;
@@ -138,7 +145,7 @@ pub fn relative_degrees(x_1: f32, y_1: f32, x_2: f32, y_2: f32) -> f32 {
  * Wraps degrees to be in [0..360).
  */
 #[allow(dead_code)]
-pub fn wrap_degrees(degrees: f32) -> f32 {
+pub fn wrap_degrees(degrees: Degrees) -> Degrees {
     // TODO: floor doesn't appear to actually return the floor of a value, so
     // uh, we need to do this weird thing instead
     let dividend = (degrees / 360.0) as i32;
@@ -157,9 +164,9 @@ pub fn wrap_degrees(degrees: f32) -> f32 {
  * Calculates the absolute difference in degrees between two headings.
  */
 #[allow(dead_code)]
-pub fn difference_d(heading_1_d: f32, heading_2_d: f32) -> f32 {
-    let wrap_1_d = wrap_degrees(heading_1_d);
-    let wrap_2_d = wrap_degrees(heading_2_d);
+pub fn difference_d(heading_1: Degrees, heading_2: Degrees) -> Degrees {
+    let wrap_1_d = wrap_degrees(heading_1);
+    let wrap_2_d = wrap_degrees(heading_2);
     let mut diff_d = (wrap_1_d - wrap_2_d).abs();
     if diff_d > 180.0 {
         diff_d = 360.0 - diff_d;
@@ -169,12 +176,42 @@ pub fn difference_d(heading_1_d: f32, heading_2_d: f32) -> f32 {
 
 
 /**
+ * Distance between 2 points.
+ */
+pub fn distance(point_1: &Point, point_2: &Point) -> Meter {
+    let diff_x = (point_1.x - point_2.x).abs();
+    let diff_y = (point_1.y - point_2.y).abs();
+    (diff_x * diff_x + diff_y * diff_y).sqrt()
+}
+
+
+/**
+ * Latitude and longitude to meters from an arbitrary central location. The Pi only single
+ * precision hardware float capability which affords 6~9 digits of precision. If we only used
+ * latitude and longitude, we would need double prevision everywhere, which would run slowly on the
+ * Pi. As long as we're within a kilometer of the central point, we should have at least centimeter
+ * precision, which should work fine.
+ */
+pub fn latitude_longitude_to_point(latitude: f64, longitude: f64) -> Point {
+    let central_latitude = 40.0941804f64;
+    let central_longitude = -105.1872092f64;
+    let latitude_diff = latitude - central_latitude;
+    let longitude_diff = longitude - central_longitude;
+    Point {
+        // Hopefully LLVM will optimize this call out
+        x: (latitude_d_to_m_per_longitude_d(central_latitude) * longitude) as f32,
+        y: (m_per_latitude_d() * latitude) as f32,
+    }
+}
+
+
+/**
  * Sine, cosine, and powi appear to be broken for this build of Rust 0.12 on
  * Raspberry Pi, so I wrote my own! Taylor series expansion.
  */
 trait MyTrig {
-    fn sine_d(&self) -> f32;
-    fn cosine_d(&self) -> f32;
+    fn sine_d(&self) -> Self;
+    fn cosine_d(&self) -> Self;
 }
 impl MyTrig for f32 {
     fn sine_d(&self) -> f32 {
@@ -182,6 +219,15 @@ impl MyTrig for f32 {
     }
 
     fn cosine_d(&self) -> f32 {
+        self.to_radians().cos()
+    }
+}
+impl MyTrig for f64 {
+    fn sine_d(&self) -> f64{
+        self.to_radians().sin()
+    }
+
+    fn cosine_d(&self) -> f64{
         self.to_radians().cos()
     }
 }
@@ -224,97 +270,97 @@ fn test_cosine_d() {
 
 #[cfg(test)]
 mod tests {
-    use std::f32;
-    use std::num::Float;
-    use super::difference_d;
-    use super::equatorial_radius_m;
-    use super::is_turn_left;
-    use super::latitude_d_to_m_per_longitude_d;
-    use super::relative_degrees;
-    use super::rotate_degrees_clockwise;
-    use super::wrap_degrees;
+    use std::f64;
+    use std::num::{Float, FromPrimitive};
+    use super::{
+        Point,
+        Degrees,
+        difference_d,
+        distance,
+        equatorial_radius_m,
+        is_turn_left,
+        latitude_d_to_m_per_longitude_d,
+        relative_degrees,
+        rotate_degrees_clockwise,
+        wrap_degrees,
+    };
 
-
-    fn assert_approx_eq(value_1:f32, value_2:f32) {
+    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) {
         assert!(approx_eq(value_1, value_2));
     }
-    fn approx_eq(value_1:f32, value_2:f32) -> bool {
+    fn approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) -> bool {
         // Yeah, I know this is bad, see
         // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
 
-        // This is the best we can do with f32
-        let tolerance: f32 = 0.00001;
         let diff = (value_1 - value_2).abs();
-        diff < tolerance
+        // This is the best we can do with f32
+        diff < FromPrimitive::from_f32(0.00001f32).unwrap()
     }
 
 
-    fn test_rotate(point:(f32, f32), degrees:f32, expected_point:(f32, f32)) {
+    fn test_rotate(point: &Point, degrees: Degrees, expected_point: &Point) {
         let new_point = rotate_degrees_clockwise(point, degrees);
-        let (p_1, p_2) = new_point;
-        let (ep_1, ep_2) = expected_point;
-        assert_approx_eq(p_1, ep_1);
-        assert_approx_eq(p_2, ep_2);
+        assert_approx_eq(new_point.x, expected_point.x);
+        assert_approx_eq(new_point.y, expected_point.y);
     }
 
     #[test]
     fn test_rotate_degrees_clockwise() {
         let base_x = 0.0f32;
         let base_y = 1.0f32;
-        let base = (base_x, base_y);
+        let base = Point { x: base_x, y: base_y };
 
-        test_rotate(base, 0.0, base);
-        test_rotate(base, 45.0, (0.707106781f32, 0.707106781f32));
-        test_rotate(base, 90.0, (base_y, -base_x));
-        test_rotate(base, 180.0, (-base_x, -base_y));
-        test_rotate(base, 270.0, (-base_y, base_x));
-        test_rotate(base, 360.0, base);
+        test_rotate(&base, 0.0, &base);
+        test_rotate(&base, 45.0, &Point { x: 0.707106781f32, y: 0.707106781f32 });
+        test_rotate(&base, 90.0, &Point { x: base_y, y: -base_x });
+        test_rotate(&base, 180.0, &Point { x: -base_x, y: -base_y });
+        test_rotate(&base, 270.0, &Point { x: -base_y, y: base_x });
+        test_rotate(&base, 360.0, &base);
 
-        let (x_359, y_359) = rotate_degrees_clockwise(base, 359.0);
+        let point_359 = rotate_degrees_clockwise(&base, 359.0);
+        let (x_359, y_359) = (point_359.x, point_359.y);
         assert!(-0.1 < x_359 && x_359 < base_x);
         assert!(0.9 < y_359 && y_359 < base_y);
 
-        test_rotate(base, -90.0, (-base_y, base_x));
-        test_rotate(base, -180.0, (base_x, -base_y));
-        test_rotate(base, -270.0, (base_y, base_x));
-        test_rotate(base, -360.0, base);
+        test_rotate(&base, -90.0, &Point { x: -base_y, y: base_x });
+        test_rotate(&base, -180.0, &Point { x: base_x, y: -base_y });
+        test_rotate(&base, -270.0, &Point { x: base_y, y: base_x });
+        test_rotate(&base, -360.0, &base);
 
-        test_rotate(base, 720.0, base);
-        test_rotate(base, -720.0, base);
+        test_rotate(&base, 720.0, &base);
+        test_rotate(&base, -720.0, &base);
 
         let skewed_x = 1.0;
         let skewed_y = 2.0;
-        let skewed = (skewed_x, skewed_y);
+        let skewed = Point { x: skewed_x, y: skewed_y };
 
-        test_rotate(skewed, 0.0, skewed);
-        test_rotate(skewed, 90.0, (skewed_y, -skewed_x));
-        test_rotate(skewed, 180.0, (-skewed_x, -skewed_y));
-        test_rotate(skewed, 270.0, (-skewed_y, skewed_x));
-        test_rotate(skewed, 360.0, skewed);
+        test_rotate(&skewed, 0.0, &skewed);
+        test_rotate(&skewed, 90.0, &Point { x: skewed_y, y: -skewed_x });
+        test_rotate(&skewed, 180.0, &Point { x: -skewed_x, y: -skewed_y });
+        test_rotate(&skewed, 270.0, &Point { x: -skewed_y, y: skewed_x });
+        test_rotate(&skewed, 360.0, &skewed);
 
-        test_rotate(skewed, -90.0, (-skewed_y, skewed_x));
-        test_rotate(skewed, -180.0, (-skewed_x, -skewed_y));
-        test_rotate(skewed, -270.0, (skewed_y, -skewed_x));
-        test_rotate(skewed, -360.0, skewed);
+        test_rotate(&skewed, -90.0, &Point { x: -skewed_y, y: skewed_x });
+        test_rotate(&skewed, -180.0, &Point { x: -skewed_x, y: -skewed_y });
+        test_rotate(&skewed, -270.0, &Point { x: skewed_y, y: -skewed_x });
+        test_rotate(&skewed, -360.0, &skewed);
 
-        test_rotate(skewed, 720.0, skewed);
-        test_rotate(skewed, -720.0, skewed);
+        test_rotate(&skewed, 720.0, &skewed);
+        test_rotate(&skewed, -720.0, &skewed);
     }
 
     #[test]
     fn test_latitude_d_to_m_per_longitude_d_spherical() {
         // Assume Earth is a sphere
         assert_approx_eq(
-            equatorial_radius_m() * f32::consts::PI_2 / 360.0,
-            latitude_d_to_m_per_longitude_d(0.0)
-        );
+            equatorial_radius_m() * f64::consts::PI_2 / 360.0,
+            latitude_d_to_m_per_longitude_d(0.0));
 
         // Should be symmetrical
         for degrees in range(0i32, 85) {
             assert_approx_eq(
-                latitude_d_to_m_per_longitude_d(degrees as f32),
-                latitude_d_to_m_per_longitude_d(-degrees as f32)
-            );
+                latitude_d_to_m_per_longitude_d(degrees as f64),
+                latitude_d_to_m_per_longitude_d(-degrees as f64));
         }
 
         // At the poles, should be 0
@@ -330,8 +376,7 @@ mod tests {
         assert_approx_eq(
             // Boulder
             latitude_d_to_m_per_longitude_d(40.08),
-            85294.08886768305,
-        );
+            85294.08886768305);
     }
 
     #[test]
@@ -353,25 +398,25 @@ mod tests {
 
     #[test]
     fn test_relative_degrees() {
-        assert_approx_eq(relative_degrees(0.0, 0.0, 1.0, 1.0), 45.0);
-        assert_approx_eq(relative_degrees(1.0, 1.0, 0.0, 0.0), 225.0);
-        assert_approx_eq(relative_degrees(0.0, 0.0, 2.0, 2.0), 45.0);
-        assert_approx_eq(relative_degrees(2.0, 2.0, 0.0, 0.0), 225.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 1.0, y: 1.0}), 45.0);
+        assert_approx_eq(relative_degrees(&Point {x: 1.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 225.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 2.0, y: 2.0}), 45.0);
+        assert_approx_eq(relative_degrees(&Point {x: 2.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 225.0);
 
-        assert_approx_eq(relative_degrees(0.0, 0.0, -1.0, 1.0), 315.0);
-        assert_approx_eq(relative_degrees(-1.0, 1.0, 0.0, 0.0), 135.0);
-        assert_approx_eq(relative_degrees(0.0, 0.0, -2.0, 2.0), 315.0);
-        assert_approx_eq(relative_degrees(-2.0, 2.0, 0.0, 0.0), 135.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: -1.0, y: 1.0}), 315.0);
+        assert_approx_eq(relative_degrees(&Point {x: -1.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 135.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: -2.0, y: 2.0}), 315.0);
+        assert_approx_eq(relative_degrees(&Point {x: -2.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 135.0);
 
-        assert_approx_eq(relative_degrees(0.0, 0.0, 0.0, 1.0), 0.0);
-        assert_approx_eq(relative_degrees(0.0, 1.0, 0.0, 0.0), 180.0);
-        assert_approx_eq(relative_degrees(0.0, 0.0, 0.0, 2.0), 0.0);
-        assert_approx_eq(relative_degrees(0.0, 2.0, 0.0, 0.0), 180.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 0.0, y: 1.0}), 0.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 180.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 0.0, y: 2.0}), 0.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 180.0);
 
-        assert_approx_eq(relative_degrees(0.0, 0.0, 1.0, 0.0), 90.0);
-        assert_approx_eq(relative_degrees(1.0, 0.0, 0.0, 0.0), 270.0);
-        assert_approx_eq(relative_degrees(0.0, 0.0, 2.0, 0.0), 90.0);
-        assert_approx_eq(relative_degrees(2.0, 0.0, 0.0, 0.0), 270.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 1.0, y: 0.0}), 90.0);
+        assert_approx_eq(relative_degrees(&Point {x: 1.0, y: 0.0}, &Point {x: 0.0, y: 0.0}), 270.0);
+        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 2.0, y: 0.0}), 90.0);
+        assert_approx_eq(relative_degrees(&Point {x: 2.0, y: 0.0}, &Point {x: 0.0, y: 0.0}), 270.0);
     }
 
     #[test]
@@ -406,4 +451,37 @@ mod tests {
         assert_approx_eq(difference_d(90.0 - 360.0, 90.0 + 360.0), 0.0);
     }
 
+    #[test]
+    fn test_distance() {
+        println!("1");
+        assert_approx_eq(
+            distance(
+                &Point { x: 0.0, y: 0.0 },
+                &Point { x: 0.0, y: 0.0 }),
+            0.0);
+        println!("2");
+        assert_approx_eq(
+            distance(
+                &Point { x: 0.0, y: 0.0 },
+                &Point { x: 3.0, y: 4.0 }),
+            5.0);
+        println!("3");
+        assert_approx_eq(
+            distance(
+                &Point { x: 0.0, y: 0.0 },
+                &Point { x: 4.0, y: 3.0 }),
+            5.0);
+        println!("4");
+        assert_approx_eq(
+            distance(
+                &Point { x: -1.0, y: -3.0 },
+                &Point { x: 2.0, y: 1.0 }),
+            5.0);
+        println!("5");
+        assert_approx_eq(
+            distance(
+                &Point { x: 2.0, y: 1.0 },
+                &Point { x: -1.0, y: -3.0 }),
+            5.0);
+    }
 }

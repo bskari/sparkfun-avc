@@ -3,6 +3,7 @@ use std::old_io::File;
 use std::old_io::fs::PathExtensions;
 use std::old_io::process::Command;
 
+use telemetry::{Meter, Point, latitude_longitude_to_point};
 use waypoint_generator::WaypointGenerator;
 
 
@@ -11,7 +12,7 @@ use waypoint_generator::WaypointGenerator;
  */
 #[allow(dead_code)]
 struct KmlWaypointGenerator {
-    waypoints: Vec<(f32, f32)>,
+    waypoints: Vec<Point>,
     current_waypoint: u32,
 }
 
@@ -24,7 +25,7 @@ impl KmlWaypointGenerator {
             current_waypoint: 0
         }
     }
-    fn load_waypoints(file_name: &str) -> Vec<(f32, f32)> {
+    fn load_waypoints(file_name: &str) -> Vec<Point> {
         let path = Path::new(file_name);
         if !path.exists() || !path.is_file() {
             panic!("File does not exist: {}", file_name);
@@ -43,7 +44,7 @@ impl KmlWaypointGenerator {
             Err(e) => panic!("Failed to unzip file: {}", e),
         };
 
-        let mut waypoints = Vec::<(f32, f32)>::new();
+        let mut waypoints = Vec::<Point>::new();
         let file_path = Path::new("/tmp/doc.kml");
         let mut xml_file = BufferedReader::new(File::open(&file_path));
         let mut coordinates_open_tag = false;
@@ -57,14 +58,14 @@ impl KmlWaypointGenerator {
                     if line.as_slice().contains("<coordinates>") {
                         coordinates_open_tag = true;
                     } else if coordinates_open_tag {
-                        let mut latitude = 0.0f32;
-                        let mut longitude = 0.0f32;
+                        let mut latitude = 0.0f64;
+                        let mut longitude = 0.0f64;
                         for long_lat_alt in line.as_slice().words() {
                             let mut iterator = long_lat_alt.split(',');
                             let mut success = true;
                             match iterator.next() {
                                 Some(longitude_str) => {
-                                    let parsed_longitude = longitude_str.parse::<f32>();
+                                    let parsed_longitude = longitude_str.parse::<f64>();
                                     match parsed_longitude {
                                         Ok(longitude_) => longitude = longitude_,
                                         Err(e) => {
@@ -78,11 +79,14 @@ impl KmlWaypointGenerator {
 
                             match iterator.next() {
                                 Some(latitude_str) => {
-                                    let parsed_latitude = latitude_str.parse::<f32>();
+                                    let parsed_latitude = latitude_str.parse::<f64>();
                                     match parsed_latitude {
                                         Ok(latitude_) => latitude = latitude_,
                                         Err(e) => {
-                                            println!("Unable to parse latitude: '{}', {}", latitude_str, e);
+                                            println!(
+                                                "Unable to parse latitude: '{}', {}",
+                                                 latitude_str,
+                                                 e);
                                             success = false;
                                         },
                                     }
@@ -91,7 +95,7 @@ impl KmlWaypointGenerator {
                             }
 
                             if success {
-                                waypoints.push((latitude, longitude));
+                                waypoints.push(latitude_longitude_to_point(latitude, longitude));
                             }
                         }
                         break;
@@ -107,15 +111,15 @@ impl KmlWaypointGenerator {
 
 impl WaypointGenerator for KmlWaypointGenerator {
     #[allow(unused_variables)]
-    fn get_current_waypoint(&self, x_m: f32, y_m: f32) -> (f32, f32) {
+    fn get_current_waypoint(&self, point: &Point) -> Point {
         // TODO
-        (0.0, 0.0)
+        Point { x: 0.0, y: 0.0 }
     }
 
     #[allow(unused_variables)]
-    fn get_current_raw_waypoint(&self, x_m: f32, y_m: f32) -> (f32, f32) {
+    fn get_current_raw_waypoint(&self, point: &Point) -> Point {
         // TODO
-        (0.0, 0.0)
+        Point { x: 0.0, y: 0.0 }
     }
 
     fn next(&self) {
@@ -123,7 +127,7 @@ impl WaypointGenerator for KmlWaypointGenerator {
     }
 
     #[allow(unused_variables)]
-    fn reached(&self, x_m: f32, y_m: f32) -> bool {
+    fn reached(&self, point: &Point) -> bool {
         // TODO
         return false;
     }
@@ -131,5 +135,10 @@ impl WaypointGenerator for KmlWaypointGenerator {
     fn done(&self) -> bool {
         // TODO
         return false;
+    }
+
+    #[allow(unused_variables)]
+    fn reach_distance(&self) -> Meter {
+        1.0
     }
 }

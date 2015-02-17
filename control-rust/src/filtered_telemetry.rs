@@ -1,11 +1,7 @@
 use logger::Logger;
-use telemetry::Telemetry;
-use telemetry_message::CompassMessage;
-use telemetry_message::GpsMessage;
-use telemetry_message::TelemetryMessage::Command;
-use telemetry_message::TelemetryMessage::Compass;
-use telemetry_message::TelemetryMessage::Gps;
-use telemetry_message::TelemetryMessage;
+use telemetry::{Telemetry, Point, TelemetryState};
+use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
+use telemetry_message::TelemetryMessage::{Command, Compass, Gps};
 
 
 #[allow(dead_code)]
@@ -15,6 +11,7 @@ struct FilteredTelemetry<'a> {
     steering: f32,
     gps_message: Box<GpsMessage>,
     compass_message: Box<CompassMessage>,
+    state: TelemetryState,
 }
 
 
@@ -35,7 +32,13 @@ impl <'a> FilteredTelemetry<'a> {
                 heading_d: 0f32,
                 magnetometer: (0f32, 0f32, 0f32),
                 ms_since_midnight: 0i32,
-            }
+            },
+            state: TelemetryState {
+                location: Point { x: 0.0, y: 0.0 },
+                heading: 0.0f32,
+                speed_m_s: 0.0f32,
+                stopped: true
+            },
         }
     }
 }
@@ -50,8 +53,9 @@ impl <'a> Telemetry for FilteredTelemetry <'a> {
         & *self.compass_message
     }
 
-    fn get_data(&self) -> &GpsMessage {
-        & *self.gps_message
+    fn get_data(&self) -> &TelemetryState {
+        // TODO
+        &self.state
     }
 
     fn process_drive_command(&mut self, throttle: f32, steering: f32) -> () {
