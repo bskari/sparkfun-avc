@@ -257,7 +257,6 @@ mod tests {
         // Fake telemetry end point returns test data
         Thread::spawn(move || {
             telemetry_rx.recv();
-            println!("Fake Telemetry received a message!");
             telemetry_2_tx.send(
                 TelemetryState {
                     location: Point { x: 0.0, y: 0.0 },

@@ -3,7 +3,7 @@
  */
 
 use std::error::Error;
-use std::mem::{size_of, transmute};
+use std::mem::transmute;
 use std::num::{Int, Float};
 
 use telemetry::Degrees;
@@ -201,10 +201,12 @@ impl NmeaMessage {
 mod tests {
     use std::fs::File;
     use std::io::{BufRead, BufReader, Read};
+    use std::mem::transmute;
     use std::num::{Int, Float};
     use std::path::Path;
     use super::{BinaryMessage, NmeaMessage, GgaMessage, VtgMessage};
     use super::NmeaMessage::{Binary, Gga, Vtg};
+    use termios::{Speed, Termio};
 
     #[test]
     fn test_parse_gga() {
@@ -241,9 +243,8 @@ mod tests {
     #[test]
     fn test_tty() {
         // This will fail on everything but the Pi, so let's just ignore it if we're not running on
-        // the Pi. This isn't a perfect check, but all of my laptops are little endian and the Pi
-        // is big, so it should cut down some of the false positives at least.
-        if cfg!(target_endian = "little") {
+        // the Pi.
+        if !cfg!(target_arch = "arm") {
             return;
         }
         let mut tty = match File::open(Path::new("/dev/ttyAMA0")) {
