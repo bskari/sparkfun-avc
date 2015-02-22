@@ -8,6 +8,7 @@ use telemetry_message::TelemetryMessage;
 
 pub type Meter = f32;
 pub type Degrees = f32;
+pub type MetersPerSecond = f32;
 pub struct Point {
     pub x: Meter,
     pub y: Meter,
@@ -16,7 +17,7 @@ pub struct Point {
 pub struct TelemetryState {
     pub location: Point,
     pub heading: Degrees,
-    pub speed_m_s: f32,
+    pub speed_m_s: MetersPerSecond,
     pub stopped: bool,
 }
 
