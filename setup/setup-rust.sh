@@ -4,11 +4,20 @@ set -e
 
 pushd /home/pi
 
-rust_file="$(
+rust_files="$(
     curl -s https://www.dropbox.com/sh/qfbt03ys2qkhsxs/AACxFoD1OrxDXURzj5wX0IYUa | \
-    grep -P -o '([A-Za-z0-9_]+/){2}rust-201\d-\d\d-\d\d-[a-f0-9]+-arm-unknown-linux-gnueabihf-[a-f0-9]+.tar.gz' | \
-    sort -n | \
-    tail -n 1
+    grep -P -o '([A-Za-z0-9_]+/){2}rust-201\d-\d\d-\d\d-[a-f0-9]+-arm-unknown-linux-gnueabihf-[a-f0-9]+.tar.gz'
+)"
+most_recent_date="$(
+    echo ${rust_files} | \
+    grep -P -o '201\d-\d\d-\d\d' | \
+    sort -n -r | \
+    head -n 1
+)"
+rust_file="$(
+    echo ${rust_files} | \
+    grep -P -o "([A-Za-z0-9_]+/){2}rust-${most_recent_date}-[a-f0-9]+-arm-unknown-linux-gnueabihf-[a-f0-9]+.tar.gz" | \
+    head -n 1
 )"
 url="https://www.dropbox.com/sh/${rust_file}?dl=1"
 echo "Downloading $url"
