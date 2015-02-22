@@ -15,6 +15,7 @@ mod nmea;
 mod stdout_logger;
 mod telemetry;
 mod telemetry_message;
+mod termios;
 mod waypoint_generator;
 
 fn main() {

@@ -134,6 +134,11 @@ impl NmeaMessage {
 mod tests {
     use super::{NmeaMessage, GgaMessage, VtgMessage};
     use super::NmeaMessage::{Gga, Vtg};
+    use std::fs::File;
+    use std::io::{BufRead, BufReader, Read};
+    use std::path::Path;
+
+    use termios::{Termio, Speed};
 
     #[test]
     fn test_parse_gga() {
@@ -164,6 +169,29 @@ mod tests {
                 assert!(expected == vtg);
             },
             _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn test_tty() {
+        // This will fail on everything but the Pi, so let's just ignore it if we're not running on
+        // the Pi. This isn't a perfect check, but all of my laptops are little endian and the Pi
+        // is big, so it should cut down some of the false positives at least.
+        if cfg!(target_endian = "little") {
+            return;
+        }
+        let mut tty = match File::open(Path::new("/dev/ttyAMA0")) {
+            Ok(f) => f,
+            Err(m) => panic!("Unable to open /dev/ttyAMA0."),
+        };
+        tty.set_speed(Speed::B1152000);
+        tty.drop_input_output();
+        let mut reader = BufReader::new(tty);
+        let mut message = String::new();
+        reader.read_line(&mut message);
+        match NmeaMessage::parse(&message) {
+            Ok(m) => (),
+            Err(e) => panic!("Unable to parse NmeaMessage"),
         }
     }
 }
