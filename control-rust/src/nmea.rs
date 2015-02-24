@@ -40,13 +40,36 @@ pub struct VtgMessage {
  * RMC: Recommended minimum specific GNSS data.
  */
 #[derive(PartialEq)]
-#[derive(Debug)]
 pub struct RmcMessage {
     pub latitude_degrees: f64,
     pub longitude_degrees: f64,
     pub speed_m_s: MetersPerSecond,
     pub course_d: Degrees,
     pub magnetic_variation: Degrees,
+}
+
+/**
+ * GSA: GNSS DOP and active satellites.
+ */
+#[derive(PartialEq)]
+pub enum FixMode {
+    Manual,
+    Automatic
+}
+#[derive(PartialEq)]
+pub enum FixType {
+    NotAvailable,
+    TwoD,
+    ThreeD,
+}
+#[derive(PartialEq)]
+pub struct GsaMessage {
+    mode: FixMode,
+    fix_type: FixType,
+    satellites_used: i32,
+    position_dilution_of_precision: f32,
+    horizontal_dilution_of_precision: f32,
+    vertical_dilution_of_precision: f32,
 }
 
 #[derive(PartialEq)]
@@ -66,6 +89,7 @@ pub struct BinaryMessage {
 pub enum NmeaMessage {
     Binary(BinaryMessage),
     Gga(GgaMessage),
+    Gsa(GsaMessage),
     Vtg(VtgMessage),
     Rmc(RmcMessage),
 }
@@ -120,6 +144,11 @@ impl NmeaMessage {
                 Ok(rmc) => Ok(NmeaMessage::Rmc(rmc)),
                 Err(e) => Err(e)
             }
+        } else if message.starts_with("$GPGSA") {
+            match NmeaMessage::parse_gsa(message) {
+                Ok(gsa) => Ok(NmeaMessage::Gsa(gsa)),
+                Err(e) => Err(e)
+            }
         } else {
             Err("Unknown NMEA message type".to_string())
         }
@@ -141,7 +170,7 @@ impl NmeaMessage {
 
             let north_indicator = bail_none!(iterator.next());
             let north = north_indicator == "N";
-            if north { d } else { -d }
+            if north { d } else { assert!(north_indicator == "S"); -d }
         };
 
         let longitude_degrees = {
@@ -150,7 +179,7 @@ impl NmeaMessage {
 
             let east_indicator = bail_none!(iterator.next());
             let east = east_indicator == "E";
-            if east { d } else { -d }
+            if east { d } else { assert!(east_indicator == "W"); -d }
         };
 
         let gps_quality_indicator = bail_none!(iterator.next());
@@ -229,7 +258,7 @@ impl NmeaMessage {
 
             let north_indicator = bail_none!(iterator.next());
             let north = north_indicator == "N";
-            if north { d } else { -d }
+            if north { d } else { assert!(north_indicator == "S"); -d }
         };
 
         let longitude_degrees = {
@@ -238,7 +267,7 @@ impl NmeaMessage {
 
             let east_indicator = bail_none!(iterator.next());
             let east = east_indicator == "E";
-            if east { d } else { -d }
+            if east { d } else { assert!(east_indicator == "W"); -d }
         };
 
         let speed_knots_str = bail_none!(iterator.next());
@@ -254,7 +283,7 @@ impl NmeaMessage {
             let magnetic_d_str = bail_none!(iterator.next());
             let magnetic: Degrees = bail_err!(magnetic_d_str.parse());
             let east_west = bail_none!(iterator.next());
-            if east_west == "E" { -magnetic } else { magnetic }
+            if east_west == "E" { -magnetic } else { assert!(east_west == "W"); magnetic }
         };
 
         let mode_and_checksum = bail_none!(iterator.next());
@@ -269,6 +298,68 @@ impl NmeaMessage {
                 speed_m_s: speed_m_s,
                 course_d: course,
                 magnetic_variation: magnetic_variation,
+            }
+        )
+    }
+
+    /**
+     * GSA: GPS receiver operating mode, satellites used in the navigation solution reported by the
+     * GGA or GNS sentence and DOP values.
+     */
+    fn parse_gsa(message: &str) -> Result<GsaMessage, String> {
+        // $GPGSA,A,x,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,x.x,x.x,x.x*hh<CR><LF>
+        let mut iterator = message.split(',');
+
+        iterator.next();  // Skip the message type
+
+        let fix_mode_str = bail_none!(iterator.next());
+        let fix_mode = if fix_mode_str == "A" {
+                FixMode::Automatic
+            } else {
+                assert!(fix_mode_str == "M");
+                FixMode::Manual
+            };
+
+        let fix_type_str = bail_none!(iterator.next());
+        let fix_type = if fix_type_str == "1" {
+                FixType::NotAvailable
+            } else if fix_type_str == "2" {
+                FixType::TwoD
+            } else {
+                assert!(fix_type_str == "3");
+                FixType::ThreeD
+            };
+
+        let mut satellites_used = 0;
+        loop {
+            let satellite_id = bail_none!(iterator.next());
+            if satellite_id.len() == 0 {
+                break;
+            }
+            satellites_used += 1;
+        }
+
+        let pdop_str = bail_none!(iterator.next());
+        let pdop: f32 = bail_err!(pdop_str.parse());
+
+        let hdop_str = bail_none!(iterator.next());
+        let hdop: f32 = bail_err!(hdop_str.parse());
+
+        let vdop_and_checksum_str = bail_none!(iterator.next());
+        let star_index = match vdop_and_checksum_str.chars().position(|x| x == '*') {
+            Some(index) => index,
+            None => return Err("Invalid VDOP".to_string()),
+        };
+        let vdop: f32 = bail_err!(vdop_and_checksum_str[0..star_index].parse());
+
+        Ok(
+            GsaMessage {
+                mode: fix_mode,
+                fix_type: fix_type,
+                satellites_used: satellites_used,
+                position_dilution_of_precision: pdop,
+                horizontal_dilution_of_precision: hdop,
+                vertical_dilution_of_precision: vdop,
             }
         )
     }
@@ -327,7 +418,16 @@ mod tests {
     use std::mem::transmute;
     use std::num::{Int, Float};
     use std::path::Path;
-    use super::{BinaryMessage, GgaMessage, NmeaMessage, RmcMessage, VtgMessage};
+    use super::{
+        BinaryMessage,
+        FixMode,
+        FixType,
+        GgaMessage,
+        GsaMessage,
+        NmeaMessage,
+        RmcMessage,
+        VtgMessage
+    };
     use super::NmeaMessage::{Binary, Gga, Vtg};
     use termios::{Speed, Termio};
 
@@ -370,11 +470,24 @@ mod tests {
             magnetic_variation: 3.9,
         };
         match NmeaMessage::parse_rmc(message) {
-            Ok(rmc) => {
-                println!("{:?}", expected);
-                println!("{:?}", rmc);
-                assert!(expected == rmc);
-            }
+            Ok(rmc) => assert!(expected == rmc),
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn test_parse_gsa() {
+        let message = "$GPGSA,A,3,05,12,21,22,30,09,18,06,14,01,31,,1.2,0.8,0.6*36\r\n";
+        let expected = GsaMessage {
+            mode: FixMode::Automatic,
+            fix_type: FixType::ThreeD,
+            satellites_used: 11,
+            position_dilution_of_precision: 1.2,
+            horizontal_dilution_of_precision: 0.8,
+            vertical_dilution_of_precision: 0.6,
+        };
+        match NmeaMessage::parse_gsa(message) {
+            Ok(gsa) => assert!(expected == gsa),
             _ => assert!(false),
         }
     }
@@ -384,6 +497,7 @@ mod tests {
         let gga = "$GPGGA,033403.456,0102.3456,N,0102.3456,W,1,11,0.8,108.2,M,,,,0000*01\r\n";
         let vtg = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
         let rmc = "$GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12\r\n";
+        let gsa = "$GPGSA,A,3,05,12,21,22,30,09,18,06,14,01,31,,1.2,0.8,0.6*36\r\n";
 
         match NmeaMessage::parse(gga).unwrap() {
             NmeaMessage::Gga(gga) => (),
@@ -395,6 +509,10 @@ mod tests {
         };
         match NmeaMessage::parse(rmc).unwrap() {
             NmeaMessage::Rmc(rmc) => (),
+            _ => assert!(false)
+        };
+        match NmeaMessage::parse(gsa).unwrap() {
+            NmeaMessage::Gsa(gsa) => (),
             _ => assert!(false)
         };
     }
