@@ -4,7 +4,7 @@
 
 use std::error::Error;
 use std::mem::transmute;
-use std::num::{Int, Float};
+use std::num::{Int, Float, ParseFloatError};
 
 use telemetry::Degrees;
 use telemetry::MetersPerSecond;
@@ -36,6 +36,19 @@ pub struct VtgMessage {
 }
 
 
+/**
+ * RMC: Recommended minimum specific GNSS data.
+ */
+#[derive(PartialEq)]
+#[derive(Debug)]
+pub struct RmcMessage {
+    pub latitude_degrees: f64,
+    pub longitude_degrees: f64,
+    pub speed_m_s: MetersPerSecond,
+    pub course_d: Degrees,
+    pub magnetic_variation: Degrees,
+}
+
 #[derive(PartialEq)]
 pub struct BinaryMessage {
     x_gravity: Gravity,
@@ -51,9 +64,10 @@ pub struct BinaryMessage {
 
 #[derive(PartialEq)]
 pub enum NmeaMessage {
+    Binary(BinaryMessage),
     Gga(GgaMessage),
     Vtg(VtgMessage),
-    Binary(BinaryMessage),
+    Rmc(RmcMessage),
 }
 
 
@@ -61,7 +75,7 @@ macro_rules! bail_err {
     ($option:expr) => (
         match $option {
             Ok(s) => s,
-            Err(e) => return Err(e.description().to_string()),
+            Err(e) => return Err(e.description().to_string())
         };
     );
 }
@@ -69,7 +83,7 @@ macro_rules! bail_none {
     ($option:expr) => (
         match $option {
             Some(s) => s,
-            None => return Err("Message too short".to_string()),
+            None => return Err("Message too short".to_string())
         };
     );
 }
@@ -90,81 +104,173 @@ macro_rules! array_to_type {
 
 impl NmeaMessage {
     fn parse(message: &str) -> Result<NmeaMessage, String> {
+        // These if statements are sorted in the rough likelihood of appearance
         if message.starts_with("$GPGGA") {
-            // $GPGGA,hhmmss.sss,ddmm.mmmm,a,dddmm.mmmm,a,x,xx,x.x,x.x,M,,,,xxxx*hh<CR><LF>
-            let mut iterator = message.split(',');
-
-            iterator.next();  // Skip the message type
-            iterator.next();  // Skip the timestamp since midnight UTC
-
-            let latitude_degrees = {
-                let string = bail_none!(iterator.next());
-                let degrees: i32 = bail_err!(string[0..2].parse());
-                let minutes: f64 = bail_err!(string[2..].parse());
-
-                let north_indicator = bail_none!(iterator.next());
-                let north = north_indicator == "N";
-                let d = degrees as f64 + minutes / 60.0f64;
-                if north { d } else { -d }
-            };
-
-            let longitude_degrees = {
-                let string = bail_none!(iterator.next());
-                let degrees: i32 = bail_err!(string[0..2].parse());
-                let minutes: f64 = bail_err!(string[2..].parse());
-
-                let east_indicator = bail_none!(iterator.next());
-                let east = east_indicator == "E";
-                let d = degrees as f64 + minutes / 60.0f64;
-                if east { d } else { -d }
-            };
-
-            iterator.next();  // Skip the GPS quality indicator
-            iterator.next();  // Skip the satellites used
-
-            let hdop_str = bail_none!(iterator.next());
-            let hdop: f32 = bail_err!(hdop_str.parse());
-
-            Ok(
-                NmeaMessage::Gga (
-                    GgaMessage {
-                        latitude_degrees: latitude_degrees,
-                        longitude_degrees: longitude_degrees,
-                        horizontal_dilution_of_precision: hdop,
-                    }
-                )
-            )
-
+            match NmeaMessage::parse_gga(message) {
+                Ok(gga) => Ok(NmeaMessage::Gga(gga)),
+                Err(e) => Err(e)
+            }
         } else if message.starts_with("$GPVTG") {
-            // GPVTG,x.x,T,x.x,M,x.x,N,x.x,K,a*hh<CR><LF>
-            let mut iterator = message.split(',');
-
-            iterator.next();  // Skip the message type
-
-            let course_d_str = bail_none!(iterator.next());
-            let course_d: f32 = bail_err!(course_d_str.parse());
-            iterator.next();  // Skip the letter T indicating true course
-
-            iterator.next();  // Skip the magnetic course
-            iterator.next();  // Skip the letter M indicating magnetic course
-
-            iterator.next();  // Skip speed in knots
-            iterator.next();  // Skip the letter N indicating knots
-
-            let speed_km_h_str = bail_none!(iterator.next());
-            let speed_km_h: f32 = bail_err!(speed_km_h_str.parse());
-
-            Ok(
-                NmeaMessage::Vtg (
-                    VtgMessage {
-                        course_d: course_d,
-                        speed_m_s: speed_km_h * 1000.0 / (60.0 * 60.0),
-                    }
-                )
-            )
+            match NmeaMessage::parse_vtg(message) {
+                Ok(vtg) => Ok(NmeaMessage::Vtg(vtg)),
+                Err(e) => Err(e)
+            }
+        } else if message.starts_with("$GPRMC") {
+            match NmeaMessage::parse_rmc(message) {
+                Ok(rmc) => Ok(NmeaMessage::Rmc(rmc)),
+                Err(e) => Err(e)
+            }
         } else {
             Err("Unknown NMEA message type".to_string())
         }
+    }
+
+    /**
+     * Time, position and fix related data for a GPS receiver.
+     */
+    fn parse_gga(message: &str) -> Result<GgaMessage, String> {
+        // $GPGGA,hhmmss.sss,ddmm.mmmm,a,dddmm.mmmm,a,x,xx,x.x,x.x,M,,,,xxxx*hh<CR><LF>
+        let mut iterator = message.split(',');
+
+        iterator.next();  // Skip the message type
+        iterator.next();  // Skip the UTC time
+
+        let latitude_degrees = {
+            let string = bail_none!(iterator.next());
+            let d = bail_err!(NmeaMessage::parse_degrees_minutes(string));
+
+            let north_indicator = bail_none!(iterator.next());
+            let north = north_indicator == "N";
+            if north { d } else { -d }
+        };
+
+        let longitude_degrees = {
+            let string = bail_none!(iterator.next());
+            let d = bail_err!(NmeaMessage::parse_degrees_minutes(string));
+
+            let east_indicator = bail_none!(iterator.next());
+            let east = east_indicator == "E";
+            if east { d } else { -d }
+        };
+
+        let gps_quality_indicator = bail_none!(iterator.next());
+        if gps_quality_indicator == "0" {
+            return Err("Position fix unavailable".to_string());
+        }
+        iterator.next();  // Skip the satellites used
+
+        let hdop_str = bail_none!(iterator.next());
+        let hdop: f32 = bail_err!(hdop_str.parse());
+        // Ignore altitude, DGPS station id, and checksum
+
+        Ok(
+            GgaMessage {
+                latitude_degrees: latitude_degrees,
+                longitude_degrees: longitude_degrees,
+                horizontal_dilution_of_precision: hdop,
+            }
+        )
+    }
+
+    /**
+     * The actual course and speed relative to the ground.
+     */
+    fn parse_vtg(message: &str) -> Result<VtgMessage, String> {
+        // $GPVTG,x.x,T,x.x,M,x.x,N,x.x,K,a*hh<CR><LF>
+        let mut iterator = message.split(',');
+
+        iterator.next();  // Skip the message type
+
+        let course_d_str = bail_none!(iterator.next());
+        let course_d: f32 = bail_err!(course_d_str.parse());
+        iterator.next();  // Skip the letter T indicating true course
+
+        iterator.next();  // Skip the magnetic course
+        iterator.next();  // Skip the letter M indicating magnetic course
+
+        iterator.next();  // Skip speed in knots
+        iterator.next();  // Skip the letter N indicating knots
+
+        let speed_km_h_str = bail_none!(iterator.next());
+        let speed_km_h: f32 = bail_err!(speed_km_h_str.parse());
+        iterator.next();  // Skip the letter K indicating km/h
+
+        let mode_and_checksum = bail_none!(iterator.next());
+        if mode_and_checksum.starts_with("N") {
+            return Err("Data not valid".to_string());
+        }
+
+        Ok(
+            VtgMessage {
+                course_d: course_d,
+                speed_m_s: speed_km_h * 1000.0 / (60.0 * 60.0),
+            }
+        )
+    }
+
+    /**
+     * Time, date, position, course and speed data.
+     */
+    fn parse_rmc(message: &str) -> Result<RmcMessage, String> {
+        // $GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12<CR><LF>
+        let mut iterator = message.split(',');
+
+        iterator.next();  // Skip the message type
+        iterator.next();  // Skip the UTC time
+
+        let status = bail_none!(iterator.next());
+        if status == "V" {
+            return Err("Navigation receiver warning".to_string());
+        }
+
+        let latitude_degrees = {
+            let string = bail_none!(iterator.next());
+            let d = bail_err!(NmeaMessage::parse_degrees_minutes(string));
+
+            let north_indicator = bail_none!(iterator.next());
+            let north = north_indicator == "N";
+            if north { d } else { -d }
+        };
+
+        let longitude_degrees = {
+            let string = bail_none!(iterator.next());
+            let d = bail_err!(NmeaMessage::parse_degrees_minutes(string));
+
+            let east_indicator = bail_none!(iterator.next());
+            let east = east_indicator == "E";
+            if east { d } else { -d }
+        };
+
+        let speed_knots_str = bail_none!(iterator.next());
+        let speed_knots: f32 = bail_err!(speed_knots_str.parse());
+        let speed_m_s: MetersPerSecond = speed_knots * 0.5144;
+
+        let course_d_str = bail_none!(iterator.next());
+        let course: Degrees = bail_err!(course_d_str.parse());
+
+        iterator.next();  // Skip UTC date
+
+        let magnetic_variation = {
+            let magnetic_d_str = bail_none!(iterator.next());
+            let magnetic: Degrees = bail_err!(magnetic_d_str.parse());
+            let east_west = bail_none!(iterator.next());
+            if east_west == "E" { -magnetic } else { magnetic }
+        };
+
+        let mode_and_checksum = bail_none!(iterator.next());
+        if mode_and_checksum.starts_with("N") {
+            return Err("Data not valid".to_string());
+        }
+
+        Ok(
+            RmcMessage {
+                latitude_degrees: latitude_degrees,
+                longitude_degrees: longitude_degrees,
+                speed_m_s: speed_m_s,
+                course_d: course,
+                magnetic_variation: magnetic_variation,
+            }
+        )
     }
 
     fn parse_binary(message: &[u8; 34]) -> Result<NmeaMessage, String> {
@@ -194,6 +300,23 @@ impl NmeaMessage {
             )
         }
     }
+
+    fn parse_degrees_minutes(degrees_minutes: &str) -> Result<f64, ParseFloatError> {
+        let decimal_point_index = match degrees_minutes.chars().position(|x| x == '.') {
+            Some(index) => index,
+            None => return degrees_minutes.parse::<f64>()
+        };
+        // There are always two digits for whole number minutes
+        let degrees: f64 = match degrees_minutes[0..decimal_point_index - 2].parse() {
+            Ok(i) => i,
+            Err(e) => return Err(e)
+        };
+        let minutes: f64 = match degrees_minutes[decimal_point_index - 2..].parse() {
+            Ok(f) => f,
+            Err(e) => return Err(e)
+        };
+        Ok(degrees as f64 + minutes / 60.0f64)
+    }
 }
 
 
@@ -204,7 +327,7 @@ mod tests {
     use std::mem::transmute;
     use std::num::{Int, Float};
     use std::path::Path;
-    use super::{BinaryMessage, NmeaMessage, GgaMessage, VtgMessage};
+    use super::{BinaryMessage, GgaMessage, NmeaMessage, RmcMessage, VtgMessage};
     use super::NmeaMessage::{Binary, Gga, Vtg};
     use termios::{Speed, Termio};
 
@@ -216,11 +339,9 @@ mod tests {
             longitude_degrees: -1.0390933333333334f64,
             horizontal_dilution_of_precision: 0.8f32,
         };
-        match NmeaMessage::parse(message).unwrap() {
-            Gga(gga) => {
-                assert!(expected == gga);
-            }
-            _ => assert!(false),
+        match NmeaMessage::parse_gga(message) {
+            Ok(gga) => assert!(expected == gga),
+            _ => assert!(false)
         }
     }
 
@@ -232,16 +353,55 @@ mod tests {
             course_d: 123.4,
             speed_m_s: 10.0,
         };
-        match NmeaMessage::parse(message).unwrap() {
-            Vtg(vtg) => {
-                assert!(expected == vtg);
-            },
+        match NmeaMessage::parse_vtg(message) {
+            Ok(vtg) => assert!(expected == vtg),
+            _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn test_parse_rmc() {
+        let message = "$GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12\r\n";
+        let expected = RmcMessage {
+            latitude_degrees: 24.784915,
+            longitude_degrees: 121.008705,
+            speed_m_s: 0.0,
+            course_d: 0.0,
+            magnetic_variation: 3.9,
+        };
+        match NmeaMessage::parse_rmc(message) {
+            Ok(rmc) => {
+                println!("{:?}", expected);
+                println!("{:?}", rmc);
+                assert!(expected == rmc);
+            }
             _ => assert!(false),
         }
     }
 
     #[test]
+    fn test_parse() {
+        let gga = "$GPGGA,033403.456,0102.3456,N,0102.3456,W,1,11,0.8,108.2,M,,,,0000*01\r\n";
+        let vtg = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
+        let rmc = "$GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12\r\n";
+
+        match NmeaMessage::parse(gga).unwrap() {
+            NmeaMessage::Gga(gga) => (),
+            _ => assert!(false)
+        };
+        match NmeaMessage::parse(vtg).unwrap() {
+            NmeaMessage::Vtg(vtg) => (),
+            _ => assert!(false)
+        };
+        match NmeaMessage::parse(rmc).unwrap() {
+            NmeaMessage::Rmc(rmc) => (),
+            _ => assert!(false)
+        };
+    }
+
+    #[test]
     fn test_tty() {
+        return;
         // This will fail on everything but the Pi, so let's just ignore it if we're not running on
         // the Pi.
         if !cfg!(target_arch = "arm") {
@@ -249,7 +409,7 @@ mod tests {
         }
         let mut tty = match File::open(Path::new("/dev/ttyAMA0")) {
             Ok(f) => f,
-            Err(m) => panic!("Unable to open /dev/ttyAMA0."),
+            Err(m) => panic!("Unable to open /dev/ttyAMA0.")
         };
         tty.set_speed(Speed::B1152000);
         tty.drop_input_output();
@@ -258,7 +418,7 @@ mod tests {
         reader.read_line(&mut message);
         match NmeaMessage::parse(&message) {
             Ok(m) => (),
-            Err(e) => panic!("Unable to parse NmeaMessage"),
+            Err(e) => panic!("Unable to parse NmeaMessage")
         }
     }
 
@@ -288,17 +448,13 @@ mod tests {
             temperature: temperature,
         };
         match NmeaMessage::parse_binary(&message).unwrap() {
-            Binary(binary) => {
-                println!("x_gravity: expected {}, computed {}", expected.x_gravity, binary.x_gravity);
-                assert!(binary == expected);
-            },
-            _ => assert!(false),
+            Binary(binary) => assert!(binary == expected),
+            _ => assert!(false)
         }
     }
 
     #[test]
     fn test_convert() {
-        println!("{}, {}", convert![f32, 0xBD4FE154u32], 0.93452);
         assert!((convert![f32, 0xBD4FE154u32] - -0.050752).abs() < 0.001);
     }
 }
