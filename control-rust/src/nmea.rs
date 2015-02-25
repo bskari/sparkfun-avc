@@ -96,6 +96,16 @@ pub struct GsvMessage {
 
 
 /**
+ * GLL: Latitude/longitude.
+ */
+#[derive(PartialEq)]
+pub struct GllMessage {
+    pub latitude_degrees: f64,
+    pub longitude_degrees: f64,
+}
+
+
+/**
  * Magnetometer, accelerometer, pressure and temperature.
  */
 #[derive(PartialEq)]
@@ -115,6 +125,7 @@ pub struct BinaryMessage {
 pub enum NmeaMessage {
     Binary(BinaryMessage),
     Gga(GgaMessage),
+    Gll(GllMessage),
     Gsa(GsaMessage),
     Gsv(GsvMessage),
     Vtg(VtgMessage),
@@ -179,6 +190,11 @@ impl NmeaMessage {
         } else if message.starts_with("$GPGSV") {
             match NmeaMessage::parse_gsv(message) {
                 Ok(gsv) => Ok(NmeaMessage::Gsv(gsv)),
+                Err(e) => Err(e),
+            }
+        } else if message.starts_with("$GPGLL") {
+            match NmeaMessage::parse_gll(message) {
+                Ok(gll) => Ok(NmeaMessage::Gll(gll)),
                 Err(e) => Err(e),
             }
         } else {
@@ -462,6 +478,53 @@ impl NmeaMessage {
         )
     }
 
+    /**
+     * GLL: Latitude/longitude.
+     */
+    fn parse_gll(message: &str) -> Result<GllMessage, String> {
+        // $GPGLL,ddmm.mmmm,a,dddmm.mmmm,a,hhmmss.sss,A,a*hh<CR><LF>
+        let mut iterator = message.split(',');
+
+        iterator.next();  // Skip the message type
+
+        let latitude_degrees = {
+            let string = bail_none!(iterator.next());
+            let d = bail_err!(NmeaMessage::parse_degrees_minutes(string));
+
+            let north_indicator = bail_none!(iterator.next());
+            let north = north_indicator == "N";
+            if north { d } else { assert!(north_indicator == "S"); -d }
+        };
+
+        let longitude_degrees = {
+            let string = bail_none!(iterator.next());
+            let d = bail_err!(NmeaMessage::parse_degrees_minutes(string));
+
+            let east_indicator = bail_none!(iterator.next());
+            let east = east_indicator == "E";
+            if east { d } else { assert!(east_indicator == "W"); -d }
+        };
+
+        iterator.next();  // Skip UTC time
+
+        let status = bail_none!(iterator.next());
+        if status == "V" {
+            return Err("Data not valid".to_string());
+        }
+
+        let mode_indicator = bail_none!(iterator.next());
+        if status == "V" {
+            return Err("Data not valid".to_string());
+        }
+
+        Ok(
+            GllMessage {
+                latitude_degrees: latitude_degrees,
+                longitude_degrees: longitude_degrees,
+            }
+        )
+    }
+
     fn parse_binary(message: &[u8; 34]) -> Result<NmeaMessage, String> {
         // The payload length from the GPS is always 34 bytes
         unsafe {
@@ -521,6 +584,7 @@ mod tests {
         FixMode,
         FixType,
         GgaMessage,
+        GllMessage,
         GsaMessage,
         GsvMessage,
         NmeaMessage,
@@ -670,12 +734,26 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_gll() {
+        let message = "$GPGLL,2447.0944,N,12100.5213,E,112609.932,A,A*57\r\n";
+        let expected = GllMessage {
+            latitude_degrees: 24.784906666666668,
+            longitude_degrees: 121.00868833333334,
+        };
+        match NmeaMessage::parse_gll(message) {
+            Ok(gll) => assert!(expected == gll),
+            _ => assert!(false)
+        };
+    }
+
+    #[test]
     fn test_parse() {
         let gga = "$GPGGA,033403.456,0102.3456,N,0102.3456,W,1,11,0.8,108.2,M,,,,0000*01\r\n";
         let vtg = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
         let rmc = "$GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12\r\n";
         let gsa = "$GPGSA,A,3,05,12,21,22,30,09,18,06,14,01,31,,1.2,0.8,0.6*36\r\n";
         let gsv = "$GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72\r\n";
+        let gll = "$GPGLL,2447.0944,N,12100.5213,E,112609.932,A,A*57\r\n";
 
         match NmeaMessage::parse(gga).unwrap() {
             NmeaMessage::Gga(gga) => (),
@@ -696,7 +774,11 @@ mod tests {
         match NmeaMessage::parse(gsv).unwrap() {
             NmeaMessage::Gsv(gsv) => (),
             _ => assert!(false)
-        }
+        };
+        match NmeaMessage::parse(gll).unwrap() {
+            NmeaMessage::Gll(gll) => (),
+            _ => assert!(false)
+        };
     }
 
     #[test]
