@@ -49,8 +49,14 @@ set +e
 grep -q rust /home/pi/.bashrc
 if [ "$?" -ne 0 ];
 then
-    'Adding rust and cargo to PATH'
-    echo 'PATH="${PATH}:/home/pi/rust/bin:/home/pi/cargo/bin' >> /home/pi/.bashrc
+    echo 'Adding rust and cargo to PATH'
+    echo 'PATH="${PATH}:/home/pi/rust/bin:/home/pi/cargo/bin"' >> /home/pi/.bashrc
+    if [ -z "${LD_LIBRARY_PATH}" ];
+    then
+        echo 'LD_LIBRARY_PATH="/home/pi/rust/" >> /home/pi/.bashrc
+    else
+        echo 'LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/home/pi/rust/" >> /home/pi/.bashrc
+    fi
 fi
 
 popd
