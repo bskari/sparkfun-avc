@@ -18,6 +18,7 @@ pub trait Termio {
     fn drop_input(&self) -> Result<i32, i32>;
     fn drop_output(&self) -> Result<i32, i32>;
     fn drop_input_output(&self) -> Result<i32, i32>;
+    fn input_buffer_count(&self) -> Result<i32, i32>;
     fn errno(&self) -> i32;
 }
 impl<T> Termio for T where T: AsRawFd {
@@ -78,6 +79,16 @@ impl<T> Termio for T where T: AsRawFd {
     fn drop_input_output(&self) -> Result<i32, i32> {
         let fd = self.as_raw_fd();
         if unsafe { tcflush(fd, TcFlushOptions::TCIOFLUSH as i32) } < 0 {
+            Err(self.errno())
+        } else {
+            Ok(0)
+        }
+    }
+
+    fn input_buffer_count(&self) -> Result<i32, i32> {
+        let mut buffer_size: i32 = 0;
+        let fd = self.as_raw_fd();
+        if unsafe { ioctl(fd, IoCtlOptions::FIONREAD as i32, transmute(&buffer_size)) } < 0 {
             Err(self.errno())
         } else {
             Ok(0)
@@ -256,6 +267,10 @@ enum TcFlushOptions {
     TCIOFLUSH = 2,
 }
 
+enum IoCtlOptions {
+    FIONREAD = 21531,
+}
+
 #[allow(dead_code)]
 extern {
     fn tcgetattr(fd: i32, termios_p: *mut CTermios) -> i32;
@@ -270,4 +285,5 @@ extern {
     fn cfsetispeed(termios_p: *mut CTermios, speed: speed_t) -> i32;
     fn cfsetospeed(termios_p: *mut CTermios, speed: speed_t) -> i32;
     fn cfsetspeed(termios_p: *mut CTermios, speed: speed_t) -> i32;
+    fn ioctl(fd: i32, request: i32, value: *mut i32) -> i32;
 }

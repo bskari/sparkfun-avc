@@ -218,7 +218,7 @@ impl NmeaMessage {
 
             let north_indicator = bail_none!(iterator.next());
             let north = north_indicator == "N";
-            if north { d } else { assert!(north_indicator == "S"); -d }
+            if north { d } else { debug_assert!(north_indicator == "S"); -d }
         };
 
         let longitude_degrees = {
@@ -227,7 +227,7 @@ impl NmeaMessage {
 
             let east_indicator = bail_none!(iterator.next());
             let east = east_indicator == "E";
-            if east { d } else { assert!(east_indicator == "W"); -d }
+            if east { d } else { debug_assert!(east_indicator == "W"); -d }
         };
 
         let gps_quality_indicator = bail_none!(iterator.next());
@@ -306,7 +306,7 @@ impl NmeaMessage {
 
             let north_indicator = bail_none!(iterator.next());
             let north = north_indicator == "N";
-            if north { d } else { assert!(north_indicator == "S"); -d }
+            if north { d } else { debug_assert!(north_indicator == "S"); -d }
         };
 
         let longitude_degrees = {
@@ -315,7 +315,7 @@ impl NmeaMessage {
 
             let east_indicator = bail_none!(iterator.next());
             let east = east_indicator == "E";
-            if east { d } else { assert!(east_indicator == "W"); -d }
+            if east { d } else { debug_assert!(east_indicator == "W"); -d }
         };
 
         let speed_knots_str = bail_none!(iterator.next());
@@ -331,7 +331,7 @@ impl NmeaMessage {
             let magnetic_d_str = bail_none!(iterator.next());
             let magnetic: Degrees = bail_err!(magnetic_d_str.parse());
             let east_west = bail_none!(iterator.next());
-            if east_west == "E" { -magnetic } else { assert!(east_west == "W"); magnetic }
+            if east_west == "E" { -magnetic } else { debug_assert!(east_west == "W"); magnetic }
         };
 
         let mode_and_checksum = bail_none!(iterator.next());
@@ -364,7 +364,7 @@ impl NmeaMessage {
         let fix_mode = if fix_mode_str == "A" {
                 FixMode::Automatic
             } else {
-                assert!(fix_mode_str == "M");
+                debug_assert!(fix_mode_str == "M");
                 FixMode::Manual
             };
 
@@ -374,7 +374,7 @@ impl NmeaMessage {
             } else if fix_type_str == "2" {
                 FixType::TwoD
             } else {
-                assert!(fix_type_str == "3");
+                debug_assert!(fix_type_str == "3");
                 FixType::ThreeD
             };
 
@@ -493,7 +493,7 @@ impl NmeaMessage {
 
             let north_indicator = bail_none!(iterator.next());
             let north = north_indicator == "N";
-            if north { d } else { assert!(north_indicator == "S"); -d }
+            if north { d } else { debug_assert!(north_indicator == "S"); -d }
         };
 
         let longitude_degrees = {
@@ -502,7 +502,7 @@ impl NmeaMessage {
 
             let east_indicator = bail_none!(iterator.next());
             let east = east_indicator == "E";
-            if east { d } else { assert!(east_indicator == "W"); -d }
+            if east { d } else { debug_assert!(east_indicator == "W"); -d }
         };
 
         iterator.next();  // Skip UTC time
@@ -578,7 +578,9 @@ mod tests {
     use std::io::{BufRead, BufReader, Read};
     use std::mem::transmute;
     use std::num::{Int, Float};
+    use std::old_io::Timer;
     use std::path::Path;
+    use std::time::Duration;
     use super::{
         BinaryMessage,
         FixMode,
@@ -593,6 +595,7 @@ mod tests {
         VtgMessage,
     };
     use super::NmeaMessage::{Binary, Gga, Vtg};
+
     use termios::{Speed, Termio};
 
     #[test]
@@ -783,7 +786,6 @@ mod tests {
 
     #[test]
     fn test_tty() {
-        return;
         // This will fail on everything but the Pi, so let's just ignore it if we're not running on
         // the Pi.
         if !cfg!(target_arch = "arm") {
@@ -795,12 +797,26 @@ mod tests {
         };
         tty.set_speed(Speed::B1152000);
         tty.drop_input_output();
-        let mut reader = BufReader::new(tty);
         let mut message = String::new();
+        let mut timer = Timer::new().unwrap();
+        let mut buffer_ready = false;
+        for _ in range(0, 20) {
+            if tty.input_buffer_count().unwrap() > 0 {
+                buffer_ready = true;
+                break;
+            } else {
+                timer.sleep(Duration::milliseconds(50));
+            }
+        }
+        assert!({
+            "No messages received from the GPS over the virtual TTY";
+            buffer_ready
+        });
+        let mut reader = BufReader::new(tty);
         reader.read_line(&mut message);
         match NmeaMessage::parse(&message) {
             Ok(m) => (),
-            Err(e) => panic!("Unable to parse NmeaMessage")
+            Err(e) => panic!(format!("Unable to parse NmeaMessage\n{}\nbecause {}", message, e))
         }
     }
 
