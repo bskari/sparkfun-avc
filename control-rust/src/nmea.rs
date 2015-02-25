@@ -106,6 +106,19 @@ pub struct GllMessage {
 
 
 /**
+ * STI: Pitch, roll, yaw, pressure, temperature.
+ */
+#[derive(PartialEq)]
+pub struct StiMessage {
+    pitch: Degrees,
+    roll: Degrees,
+    yaw: Degrees,
+    pressure: Pascal,
+    temperature: Celsius,
+}
+
+
+/**
  * Magnetometer, accelerometer, pressure and temperature.
  */
 #[derive(PartialEq)]
@@ -130,6 +143,7 @@ pub enum NmeaMessage {
     Gsv(GsvMessage),
     Vtg(VtgMessage),
     Rmc(RmcMessage),
+    Sti(StiMessage),
 }
 
 
@@ -175,6 +189,11 @@ impl NmeaMessage {
         } else if message.starts_with("$GPVTG") {
             match NmeaMessage::parse_vtg(message) {
                 Ok(vtg) => Ok(NmeaMessage::Vtg(vtg)),
+                Err(e) => Err(e)
+            }
+        } else if message.starts_with("$PSTI") {
+            match NmeaMessage::parse_sti(message) {
+                Ok(sti) => Ok(NmeaMessage::Sti(sti)),
                 Err(e) => Err(e)
             }
         } else if message.starts_with("$GPRMC") {
@@ -525,6 +544,53 @@ impl NmeaMessage {
         )
     }
 
+    /**
+     * STI: Pitch, roll, yaw, pressure, temperature.
+     */
+    fn parse_sti(message: &str) -> Result<StiMessage, String> {
+        // $PSTI,004,001,1,34.7,121.6,-48.2,99912,29.4*08<CR><LF>
+        let mut iterator = message.split(',');
+
+        iterator.next();  // Skip the message type
+        iterator.next();  // Skip message id
+        iterator.next();  // Skip message sub id
+
+        let validity_flag = bail_none!(iterator.next());
+        if validity_flag == "0" {
+            return Err("Magnetic calibration not done".to_string());
+        }
+        debug_assert!(validity_flag == "1");
+
+        let pitch_str = bail_none!(iterator.next());
+        let pitch: Degrees = bail_err!(pitch_str.parse());
+
+        let roll_str = bail_none!(iterator.next());
+        let roll: Degrees = bail_err!(roll_str.parse());
+
+        let yaw_str = bail_none!(iterator.next());
+        let yaw: Degrees = bail_err!(yaw_str.parse());
+
+        let pressure_str = bail_none!(iterator.next());
+        let pressure: Pascal = bail_err!(pressure_str.parse());
+
+        let temperature_and_checksum_str = bail_none!(iterator.next());
+        let star_index = match temperature_and_checksum_str.chars().position(|x| x == '*') {
+            Some(index) => index,
+            None => return Err("Invalid temperature".to_string()),
+        };
+        let temperature: Celsius = bail_err!(temperature_and_checksum_str[0..star_index].parse());
+
+        Ok(
+            StiMessage {
+                pitch: pitch,
+                roll: roll,
+                yaw: yaw,
+                pressure: pressure,
+                temperature: temperature,
+            }
+        )
+    }
+
     fn parse_binary(message: &[u8; 34]) -> Result<NmeaMessage, String> {
         // The payload length from the GPS is always 34 bytes
         unsafe {
@@ -592,6 +658,7 @@ mod tests {
         NmeaMessage,
         RmcMessage,
         SatelliteInformation,
+        StiMessage,
         VtgMessage,
     };
     use super::NmeaMessage::{Binary, Gga, Vtg};
@@ -750,6 +817,25 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_sti() {
+        let message = "$PSTI,004,001,1,34.7,121.6,-48.2,99912,29.4*08\r\n";
+        let expected = StiMessage {
+            pitch: 34.7,
+            roll: 121.6,
+            yaw: -48.2,
+            pressure: 99912,
+            temperature: 29.4,
+        };
+        match NmeaMessage::parse_sti(message) {
+            Ok(sti) => assert!(expected == sti),
+            Err(e) => {
+                println!("{}", e);
+                assert!(false)
+            }
+        };
+    }
+
+    #[test]
     fn test_parse() {
         let gga = "$GPGGA,033403.456,0102.3456,N,0102.3456,W,1,11,0.8,108.2,M,,,,0000*01\r\n";
         let vtg = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
@@ -757,6 +843,7 @@ mod tests {
         let gsa = "$GPGSA,A,3,05,12,21,22,30,09,18,06,14,01,31,,1.2,0.8,0.6*36\r\n";
         let gsv = "$GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72\r\n";
         let gll = "$GPGLL,2447.0944,N,12100.5213,E,112609.932,A,A*57\r\n";
+        let sti = "$PSTI,004,001,1,34.7,121.6,-48.2,99912,29.4*08\r\n";
 
         match NmeaMessage::parse(gga).unwrap() {
             NmeaMessage::Gga(gga) => (),
@@ -780,6 +867,10 @@ mod tests {
         };
         match NmeaMessage::parse(gll).unwrap() {
             NmeaMessage::Gll(gll) => (),
+            _ => assert!(false)
+        };
+        match NmeaMessage::parse(sti).unwrap() {
+            NmeaMessage::Sti(sti) => (),
             _ => assert!(false)
         };
     }
