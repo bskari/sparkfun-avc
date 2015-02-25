@@ -48,6 +48,7 @@ pub struct RmcMessage {
     pub magnetic_variation: Degrees,
 }
 
+
 /**
  * GSA: GNSS DOP and active satellites.
  */
@@ -72,6 +73,31 @@ pub struct GsaMessage {
     vertical_dilution_of_precision: f32,
 }
 
+
+/**
+ * GSV: GNSS satellites in view.
+ */
+#[derive(PartialEq)]
+#[derive(Debug)]
+pub struct SatelliteInformation {
+    id: i32,
+    elevation: Degrees,
+    azimuth: Degrees,
+    snr_db: i32,
+}
+#[derive(PartialEq)]
+#[derive(Debug)]
+pub struct GsvMessage {
+    pub message_count: i32,
+    pub message_sequence_number: i32,
+    pub satellites_in_view: i32,
+    pub satellites: Vec<SatelliteInformation>,
+}
+
+
+/**
+ * Magnetometer, accelerometer, pressure and temperature.
+ */
 #[derive(PartialEq)]
 pub struct BinaryMessage {
     x_gravity: Gravity,
@@ -90,6 +116,7 @@ pub enum NmeaMessage {
     Binary(BinaryMessage),
     Gga(GgaMessage),
     Gsa(GsaMessage),
+    Gsv(GsvMessage),
     Vtg(VtgMessage),
     Rmc(RmcMessage),
 }
@@ -148,6 +175,11 @@ impl NmeaMessage {
             match NmeaMessage::parse_gsa(message) {
                 Ok(gsa) => Ok(NmeaMessage::Gsa(gsa)),
                 Err(e) => Err(e)
+            }
+        } else if message.starts_with("$GPGSV") {
+            match NmeaMessage::parse_gsv(message) {
+                Ok(gsv) => Ok(NmeaMessage::Gsv(gsv)),
+                Err(e) => Err(e),
             }
         } else {
             Err("Unknown NMEA message type".to_string())
@@ -364,6 +396,72 @@ impl NmeaMessage {
         )
     }
 
+    /**
+     * GSV: Number of satellites in view, IDs, elevation, azimuth and SNR.
+     */
+    fn parse_gsv(message: &str) -> Result<GsvMessage, String> {
+        // $GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72<CR><LF>
+        let mut iterator = message.split(',');
+
+        iterator.next();  // Skip the message type
+
+        let message_count_str = bail_none!(iterator.next());
+        let message_count: i32 = bail_err!(message_count_str.parse());
+
+        let message_sequence_number_str = bail_none!(iterator.next());
+        let message_sequence_number: i32 = bail_err!(message_sequence_number_str.parse());
+
+        let satellites_in_view_str = bail_none!(iterator.next());
+        let satellites_in_view: i32 = bail_err!(satellites_in_view_str.parse());
+
+        let mut satellites: Vec<SatelliteInformation> = Vec::with_capacity(6);
+        let mut done = false;
+
+        loop {
+            let id_str = bail_none!(iterator.next());
+            let id: i32 = bail_err!(id_str.parse());
+            let elevation_str = bail_none!(iterator.next());
+            let elevation: Degrees = bail_err!(elevation_str.parse());
+            let azimuth_str = bail_none!(iterator.next());
+            let azimuth: Degrees = bail_err!(azimuth_str.parse());
+            let snr_str = bail_none!(iterator.next());
+            let snr: i32 = match snr_str.parse() {
+                    Ok(value) => value,
+                    Err(_) => {
+                        done = true;
+                        // This might be the last in the series, in which case the string looks
+                        // like "47*72" where the 72 is the message checksum
+                        let mut snr_iterator = snr_str.split('*');
+                        let snr = bail_none!(snr_iterator.next());
+                        match snr.parse::<i32>() {
+                            Ok(value) => value,
+                            Err(e) => return Err(e.description().to_string())
+                        }
+                    }
+                };
+            satellites.push(
+                SatelliteInformation {
+                    id: id,
+                    elevation: elevation,
+                    azimuth: azimuth,
+                    snr_db: snr,
+                }
+            );
+            if done {
+                break;
+            }
+        }
+
+        Ok(
+            GsvMessage {
+                message_count: message_count,
+                message_sequence_number: message_sequence_number,
+                satellites_in_view: satellites_in_view,
+                satellites: satellites,
+            }
+        )
+    }
+
     fn parse_binary(message: &[u8; 34]) -> Result<NmeaMessage, String> {
         // The payload length from the GPS is always 34 bytes
         unsafe {
@@ -424,9 +522,11 @@ mod tests {
         FixType,
         GgaMessage,
         GsaMessage,
+        GsvMessage,
         NmeaMessage,
         RmcMessage,
-        VtgMessage
+        SatelliteInformation,
+        VtgMessage,
     };
     use super::NmeaMessage::{Binary, Gga, Vtg};
     use termios::{Speed, Termio};
@@ -442,7 +542,7 @@ mod tests {
         match NmeaMessage::parse_gga(message) {
             Ok(gga) => assert!(expected == gga),
             _ => assert!(false)
-        }
+        };
     }
 
     #[test]
@@ -493,11 +593,89 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_gsv() {
+        let message = "$GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72\r\n";
+        let expected = GsvMessage {
+            message_count: 3,
+            message_sequence_number: 1,
+            satellites_in_view: 12,
+            satellites: vec![
+                SatelliteInformation {
+                    id: 05,
+                    elevation: 54.0,
+                    azimuth: 069.0,
+                    snr_db: 45,
+                },
+                SatelliteInformation {
+                    id: 12,
+                    elevation: 44.0,
+                    azimuth: 061.0,
+                    snr_db: 44,
+                },
+                SatelliteInformation {
+                    id: 21,
+                    elevation: 07.0,
+                    azimuth: 184.0,
+                    snr_db: 46,
+                },
+                SatelliteInformation {
+                    id: 22,
+                    elevation: 78.0,
+                    azimuth: 289.0,
+                    snr_db: 47
+                },
+            ],
+        };
+        match NmeaMessage::parse_gsv(message) {
+            Ok(gsv) => assert!(expected == gsv),
+            _ => assert!(false),
+        }
+
+        let message_2 = "$GPGSV,3,2,12,30,65,118,45,09,12,047,37,18,62,157,47,06,08,144,45*7C\r\n";
+        let expected_2 = GsvMessage {
+            message_count: 3,
+            message_sequence_number: 2,
+            satellites_in_view: 12,
+            satellites: vec![
+                SatelliteInformation {
+                    id: 30,
+                    elevation: 65.0,
+                    azimuth: 118.0,
+                    snr_db: 45,
+                },
+                SatelliteInformation {
+                    id: 09,
+                    elevation: 12.0,
+                    azimuth: 047.0,
+                    snr_db: 37,
+                },
+                SatelliteInformation {
+                    id: 18,
+                    elevation: 62.0,
+                    azimuth: 157.0,
+                    snr_db: 47,
+                },
+                SatelliteInformation {
+                    id: 06,
+                    elevation: 08.0,
+                    azimuth: 144.0,
+                    snr_db: 45
+                },
+            ],
+        };
+        match NmeaMessage::parse_gsv(message_2) {
+            Ok(gsv) => {println!("\n{:?}\n{:?}", expected_2, gsv); assert!(expected_2 == gsv) },
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
     fn test_parse() {
         let gga = "$GPGGA,033403.456,0102.3456,N,0102.3456,W,1,11,0.8,108.2,M,,,,0000*01\r\n";
         let vtg = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
         let rmc = "$GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12\r\n";
         let gsa = "$GPGSA,A,3,05,12,21,22,30,09,18,06,14,01,31,,1.2,0.8,0.6*36\r\n";
+        let gsv = "$GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72\r\n";
 
         match NmeaMessage::parse(gga).unwrap() {
             NmeaMessage::Gga(gga) => (),
@@ -515,6 +693,10 @@ mod tests {
             NmeaMessage::Gsa(gsa) => (),
             _ => assert!(false)
         };
+        match NmeaMessage::parse(gsv).unwrap() {
+            NmeaMessage::Gsv(gsv) => (),
+            _ => assert!(false)
+        }
     }
 
     #[test]
