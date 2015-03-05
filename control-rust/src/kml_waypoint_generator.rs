@@ -11,7 +11,7 @@ use waypoint_generator::WaypointGenerator;
  * Loads and returns waypoints from a KML file.
  */
 #[allow(dead_code)]
-struct KmlWaypointGenerator {
+pub struct KmlWaypointGenerator {
     waypoints: Vec<Point>,
     current_waypoint: u32,
 }

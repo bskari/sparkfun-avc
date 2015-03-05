@@ -1,3 +1,4 @@
+extern crate log;
 extern crate time;
 use std::num::Float;
 use std::old_io::timer;
@@ -14,10 +15,10 @@ use telemetry::{
     is_turn_left,
     relative_degrees,
 };
+use telemetry_message::CommandMessage;
 use waypoint_generator::WaypointGenerator;
 
 type MilliSeconds = u64;
-
 
 #[derive(PartialEq)]
 enum ControlState {
@@ -32,7 +33,7 @@ pub struct Control<'a> {
     run: bool,
     telemetry_tx: Sender<()>,
     telemetry_rx: Receiver<TelemetryState>,
-    command_rx: Receiver<String>,
+    command_rx: Receiver<CommandMessage>,
     collision_time_ms: MilliSeconds,
     waypoint_generator: &'a (WaypointGenerator + 'a),
 }
@@ -42,7 +43,7 @@ impl<'a> Control<'a> {
     pub fn new(
         telemetry_tx: Sender<()>,
         telemetry_rx: Receiver<TelemetryState>,
-        command_rx: Receiver<String>,
+        command_rx: Receiver<CommandMessage>,
         waypoint_generator: &'a (WaypointGenerator + 'a),
     ) -> Control {
         Control {
@@ -63,14 +64,10 @@ impl<'a> Control<'a> {
         loop {
             // Check for new messages
             while let Ok(message) = self.command_rx.try_recv() {
-                if message == "start" {
-                    self.run = true;
-                } else if message == "stop" {
-                    self.run = false;
-                } else if message == "quit" {
-                    return;
-                } else {
-                    // TODO: Log an error
+                match message {
+                    CommandMessage::Start => self.run = true,
+                    CommandMessage::Stop => self.run = false,
+                    CommandMessage::Quit => return,
                 }
             }
 

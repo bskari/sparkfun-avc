@@ -1,12 +1,11 @@
-use logger::Logger;
+extern crate log;
 use telemetry::{Telemetry, Point, TelemetryState};
 use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
 use telemetry_message::TelemetryMessage::{Command, Compass, Gps};
 
 
 #[allow(dead_code)]
-struct FilteredTelemetry<'a> {
-    logger: &'a (Logger + 'a),
+struct FilteredTelemetry {
     throttle: f32,
     steering: f32,
     gps_message: Box<GpsMessage>,
@@ -15,10 +14,9 @@ struct FilteredTelemetry<'a> {
 }
 
 
-impl <'a> FilteredTelemetry<'a> {
-    fn new(logger: &Logger) -> FilteredTelemetry {
+impl FilteredTelemetry {
+    fn new() -> FilteredTelemetry {
         FilteredTelemetry {
-            logger: logger,
             throttle: 0.0f32,
             steering: 0.0f32,
             gps_message: box GpsMessage {
@@ -44,7 +42,7 @@ impl <'a> FilteredTelemetry<'a> {
 }
 
 
-impl <'a> Telemetry for FilteredTelemetry <'a> {
+impl Telemetry for FilteredTelemetry {
     fn get_raw_gps(&self) -> &GpsMessage {
         & *self.gps_message
     }
@@ -60,11 +58,11 @@ impl <'a> Telemetry for FilteredTelemetry <'a> {
 
     fn process_drive_command(&mut self, throttle: f32, steering: f32) -> () {
         if throttle < -1.0 || throttle > 1.0 {
-            self.logger.info("Invalid throttle");
+            info!("Invalid throttle");
             return;
         }
         if steering < -1.0 || steering > 1.0 {
-            self.logger.warning("Invalid steering");
+            warn!("Invalid steering");
             return;
         }
 

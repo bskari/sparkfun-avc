@@ -5,4 +5,5 @@ version = "0.0.1"
 authors = ["Brandon Skari <brandon@skari.org>"]
 
 [dependencies]
+log = "0.2.5"
 time = "0.1.17"

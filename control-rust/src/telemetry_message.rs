@@ -10,8 +10,10 @@ pub struct CompassMessage {
     pub magnetometer: (f32, f32, f32),
     pub ms_since_midnight: i32,
 }
-pub struct CommandMessage {
-    pub command: String,
+pub enum CommandMessage {
+    Start,
+    Stop,
+    Quit,
 }
 
 #[allow(dead_code)]
