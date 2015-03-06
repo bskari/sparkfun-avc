@@ -1,11 +1,14 @@
 extern crate log;
+use std::old_io::timer;
+use std::sync::mpsc::{Receiver, Sender};
+use std::time::duration::Duration;
+
 use telemetry::{Telemetry, Point, TelemetryState};
 use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
-use telemetry_message::TelemetryMessage::{Command, Compass, Gps};
 
 
 #[allow(dead_code)]
-struct FilteredTelemetry {
+pub struct FilteredTelemetry {
     throttle: f32,
     steering: f32,
     gps_message: Box<GpsMessage>,
@@ -15,28 +18,58 @@ struct FilteredTelemetry {
 
 
 impl FilteredTelemetry {
-    fn new() -> FilteredTelemetry {
+    pub fn new() -> FilteredTelemetry {
         FilteredTelemetry {
-            throttle: 0.0f32,
-            steering: 0.0f32,
+            throttle: 0.0,
+            steering: 0.0,
             gps_message: box GpsMessage {
-                x_m: 0f32,
-                y_m: 0f32,
-                heading_d: 0f32,
-                speed_m_s: 0f32,
-                ms_since_midnight: 0i32,
+                point: Point {x: 0.0, y: 0.0 },
+                heading: 0.0,
+                speed: 0.0,
+                std_dev_x: 2.0,
+                std_dev_y: 2.0,
             },
-            compass_message: box CompassMessage {
-                heading_d: 0f32,
-                magnetometer: (0f32, 0f32, 0f32),
-                ms_since_midnight: 0i32,
-            },
+            compass_message: box CompassMessage { heading: 0.0, std_dev: 0.0 },
             state: TelemetryState {
                 location: Point { x: 0.0, y: 0.0 },
-                heading: 0.0f32,
-                speed_m_s: 0.0f32,
-                stopped: true
-            },
+                heading: 0.0,
+                speed: 0.0,
+                stopped: true},
+        }
+    }
+
+    pub fn run(
+        &mut self,
+        request_telemetry_rx: Receiver<()>,
+        telemetry_tx: Sender<TelemetryState>,
+        telemetry_message_rx: Receiver<TelemetryMessage>,
+        quit_rx: Receiver<()>
+    ) {
+        loop {
+            match quit_rx.try_recv() {
+                Ok(_) => {
+                    info!("Telemetry shutting down");
+                    return;
+                },
+                Err(_) => (),
+            }
+
+            let mut processed = false;
+
+            while let Ok(message) = request_telemetry_rx.try_recv() {
+                telemetry_tx.send(self.state);
+                processed = true;
+            }
+
+            while let Ok(message) = telemetry_message_rx.try_recv() {
+                // TODO: Process the message
+                processed = true;
+            };
+
+            // I don't know if this is a great solution or not
+            if !processed {
+                timer::sleep(Duration::milliseconds(10));
+            }
         }
     }
 }
@@ -75,11 +108,9 @@ impl Telemetry for FilteredTelemetry {
     #[allow(unused_variables)]
     fn handle_message(&mut self, telemetry_message: &TelemetryMessage) -> () {
         match telemetry_message {
-            &Gps(ref gps_message) => {
+            &TelemetryMessage::Gps(ref gps_message) => {
             },
-            &Compass(ref compass_message) => {
-            },
-            &Command(ref command_message) => {
+            &TelemetryMessage::Compass(ref compass_message) => {
             },
         }
     }

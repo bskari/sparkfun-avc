@@ -31,28 +31,25 @@ enum ControlState {
 pub struct Control<'a> {
     state: ControlState,
     run: bool,
-    telemetry_tx: Sender<()>,
-    telemetry_rx: Receiver<TelemetryState>,
-    command_rx: Receiver<CommandMessage>,
     collision_time_ms: MilliSeconds,
+    request_telemetry_tx: Sender<()>,
+    telemetry_rx: Receiver<TelemetryState>,
     waypoint_generator: &'a (WaypointGenerator + 'a),
 }
 
 
 impl<'a> Control<'a> {
     pub fn new(
-        telemetry_tx: Sender<()>,
+        request_telemetry_tx: Sender<()>,
         telemetry_rx: Receiver<TelemetryState>,
-        command_rx: Receiver<CommandMessage>,
         waypoint_generator: &'a (WaypointGenerator + 'a),
     ) -> Control {
         Control {
             state: ControlState::WaitingForStart,
             run: false,
-            telemetry_rx: telemetry_rx,
-            telemetry_tx: telemetry_tx,
-            command_rx: command_rx,
             collision_time_ms: 0,
+            telemetry_rx: telemetry_rx,
+            request_telemetry_tx: request_telemetry_tx,
             waypoint_generator: waypoint_generator,
         }
     }
@@ -60,21 +57,28 @@ impl<'a> Control<'a> {
     /**
      * Drives the car around. Should be run in a thread.
      */
-    pub fn run(&mut self) {
+    pub fn run(&mut self, command_rx: Receiver<CommandMessage>, quit_rx: Receiver<()>) {
         loop {
+            match quit_rx.try_recv() {
+                Ok(_) => {
+                    info!("Control shutting down");
+                    return;
+                },
+                Err(_) => (),
+            };
+
             // Check for new messages
-            while let Ok(message) = self.command_rx.try_recv() {
+            while let Ok(message) = command_rx.try_recv() {
                 match message {
                     CommandMessage::Start => self.run = true,
                     CommandMessage::Stop => self.run = false,
-                    CommandMessage::Quit => return,
                 }
             }
 
             if !self.run_incremental() {
                 return;
             }
-            timer::sleep(Duration::milliseconds(100));
+            timer::sleep(Duration::milliseconds(50));
         }
     }
 
@@ -84,7 +88,7 @@ impl<'a> Control<'a> {
     fn run_incremental(&mut self) -> bool {
         // Request the lastest telemetry information
         let state;
-        self.telemetry_tx.send(());
+        self.request_telemetry_tx.send(());
         match self.telemetry_rx.recv() {
             Ok(received_state) => state = received_state,
             Err(e) => return false,
@@ -247,7 +251,6 @@ mod tests {
 
     #[test]
     fn test_collision_recovery() {
-        let (command_tx, command_rx) = channel();
         let (telemetry_tx, telemetry_rx) = channel();
         let (telemetry_2_tx, telemetry_2_rx) = channel();
 
@@ -268,7 +271,6 @@ mod tests {
         let mut control = Control::new(
             telemetry_tx,
             telemetry_2_rx,
-            command_rx,
             &waypoint_generator);
         control.state = ControlState::Running;
         control.run = true;

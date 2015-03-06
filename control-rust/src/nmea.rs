@@ -22,7 +22,7 @@ pub type Celsius = f32;
 pub struct GgaMessage {
     pub latitude_degrees: f64,
     pub longitude_degrees: f64,
-    pub horizontal_dilution_of_precision: f32,
+    pub hdop: f32,
 }
 
 
@@ -31,8 +31,8 @@ pub struct GgaMessage {
  */
 #[derive(PartialEq)]
 pub struct VtgMessage {
-    pub course_d: Degrees,
-    pub speed_m_s: MetersPerSecond,
+    pub course: Degrees,
+    pub speed: MetersPerSecond,
 }
 
 
@@ -43,8 +43,8 @@ pub struct VtgMessage {
 pub struct RmcMessage {
     pub latitude_degrees: f64,
     pub longitude_degrees: f64,
-    pub speed_m_s: MetersPerSecond,
-    pub course_d: Degrees,
+    pub speed: MetersPerSecond,
+    pub course: Degrees,
     pub magnetic_variation: Degrees,
 }
 
@@ -65,12 +65,12 @@ pub enum FixType {
 }
 #[derive(PartialEq)]
 pub struct GsaMessage {
-    mode: FixMode,
-    fix_type: FixType,
-    satellites_used: i32,
-    position_dilution_of_precision: f32,
-    horizontal_dilution_of_precision: f32,
-    vertical_dilution_of_precision: f32,
+    pub mode: FixMode,
+    pub fix_type: FixType,
+    pub satellites_used: i32,
+    pub pdop: f32,
+    pub hdop: f32,
+    pub vdop: f32,
 }
 
 
@@ -179,7 +179,7 @@ macro_rules! array_to_type {
 }
 
 impl NmeaMessage {
-    fn parse(message: &str) -> Result<NmeaMessage, String> {
+    pub fn parse(message: &str) -> Result<NmeaMessage, String> {
         // These if statements are sorted in the rough likelihood of appearance
         if message.starts_with("$GPGGA") {
             match NmeaMessage::parse_gga(message) {
@@ -263,7 +263,7 @@ impl NmeaMessage {
             GgaMessage {
                 latitude_degrees: latitude_degrees,
                 longitude_degrees: longitude_degrees,
-                horizontal_dilution_of_precision: hdop,
+                hdop: hdop,
             }
         )
     }
@@ -298,8 +298,8 @@ impl NmeaMessage {
 
         Ok(
             VtgMessage {
-                course_d: course_d,
-                speed_m_s: speed_km_h * 1000.0 / (60.0 * 60.0),
+                course: course_d,
+                speed: speed_km_h * 1000.0 / (60.0 * 60.0),
             }
         )
     }
@@ -339,7 +339,7 @@ impl NmeaMessage {
 
         let speed_knots_str = bail_none!(iterator.next());
         let speed_knots: f32 = bail_err!(speed_knots_str.parse());
-        let speed_m_s: MetersPerSecond = speed_knots * 0.5144;
+        let speed: MetersPerSecond = speed_knots * 0.5144;
 
         let course_d_str = bail_none!(iterator.next());
         let course: Degrees = bail_err!(course_d_str.parse());
@@ -362,8 +362,8 @@ impl NmeaMessage {
             RmcMessage {
                 latitude_degrees: latitude_degrees,
                 longitude_degrees: longitude_degrees,
-                speed_m_s: speed_m_s,
-                course_d: course,
+                speed: speed,
+                course: course,
                 magnetic_variation: magnetic_variation,
             }
         )
@@ -424,9 +424,9 @@ impl NmeaMessage {
                 mode: fix_mode,
                 fix_type: fix_type,
                 satellites_used: satellites_used,
-                position_dilution_of_precision: pdop,
-                horizontal_dilution_of_precision: hdop,
-                vertical_dilution_of_precision: vdop,
+                pdop: pdop,
+                hdop: hdop,
+                vdop: vdop,
             }
         )
     }
@@ -671,7 +671,7 @@ mod tests {
         let expected = GgaMessage {
             latitude_degrees: 1.0390933333333334f64,
             longitude_degrees: -1.0390933333333334f64,
-            horizontal_dilution_of_precision: 0.8f32,
+            hdop: 0.8f32,
         };
         match NmeaMessage::parse_gga(message) {
             Ok(gga) => assert!(expected == gga),
@@ -684,8 +684,8 @@ mod tests {
         // 36 km/h = 10 m/s
         let message = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
         let expected = VtgMessage {
-            course_d: 123.4,
-            speed_m_s: 10.0,
+            course: 123.4,
+            speed: 10.0,
         };
         match NmeaMessage::parse_vtg(message) {
             Ok(vtg) => assert!(expected == vtg),
@@ -699,8 +699,8 @@ mod tests {
         let expected = RmcMessage {
             latitude_degrees: 24.784915,
             longitude_degrees: 121.008705,
-            speed_m_s: 0.0,
-            course_d: 0.0,
+            speed: 0.0,
+            course: 0.0,
             magnetic_variation: 3.9,
         };
         match NmeaMessage::parse_rmc(message) {
@@ -716,9 +716,9 @@ mod tests {
             mode: FixMode::Automatic,
             fix_type: FixType::ThreeD,
             satellites_used: 11,
-            position_dilution_of_precision: 1.2,
-            horizontal_dilution_of_precision: 0.8,
-            vertical_dilution_of_precision: 0.6,
+            pdop: 1.2,
+            hdop: 0.8,
+            vdop: 0.6,
         };
         match NmeaMessage::parse_gsa(message) {
             Ok(gsa) => assert!(expected == gsa),

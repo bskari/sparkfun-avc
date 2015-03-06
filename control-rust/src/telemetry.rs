@@ -9,15 +9,17 @@ use telemetry_message::TelemetryMessage;
 pub type Meter = f32;
 pub type Degrees = f32;
 pub type MetersPerSecond = f32;
+#[derive(Copy)]
 pub struct Point {
     pub x: Meter,
     pub y: Meter,
 }
 
+#[derive(Copy)]
 pub struct TelemetryState {
     pub location: Point,
     pub heading: Degrees,
-    pub speed_m_s: MetersPerSecond,
+    pub speed: MetersPerSecond,
     pub stopped: bool,
 }
 
@@ -203,6 +205,14 @@ pub fn latitude_longitude_to_point(latitude: f64, longitude: f64) -> Point {
         x: (latitude_d_to_m_per_longitude_d(central_latitude) * longitude) as f32,
         y: (m_per_latitude_d() * latitude) as f32,
     }
+}
+
+
+/**
+ * Estimation of converting HDOP to standard deviation. This is a complete guess.
+ */
+pub fn hdop_to_std_dev(hdop: f32) -> Meter {
+    hdop * 2.0
 }
 
 
