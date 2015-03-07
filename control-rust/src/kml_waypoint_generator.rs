@@ -46,7 +46,11 @@ impl KmlWaypointGenerator {
 
         let mut waypoints = Vec::<Point>::new();
         let file_path = Path::new("/tmp/waypoints/doc.kml");
-        let mut xml_file = BufferedReader::new(File::open(&file_path));
+        let file = match File::open(&file_path) {
+            Ok(f) => f,
+            Err(_) => panic!("Couldn't open doc.kml"),
+        };
+        let mut xml_file = BufferedReader::new(file);
         let mut coordinates_open_tag = false;
         // We should use a real XML parser here, but Google Earth saves the
         // <coordinates> tag on one line, then the coordinates on the next,

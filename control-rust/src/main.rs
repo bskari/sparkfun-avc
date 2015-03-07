@@ -1,6 +1,7 @@
 // Silence warnings about use of unstable features
 #![feature(box_syntax)]
 #![feature(core)]
+#![feature(env)]
 #![feature(fs)]
 #![feature(io)]
 #![feature(libc)]
@@ -10,11 +11,13 @@
 #[macro_use]
 
 extern crate log;
+extern crate getopts; // This needs to be declared after log, otherwise you get compilation errors
 extern crate time;
+use getopts::Options;
 use log::{set_logger, LogLevel, LogLevelFilter, LogRecord};
+use std::env;
 use std::sync::mpsc::{channel, Sender, Receiver};
-use std::thread;
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, spawn};
 use time::{now, strftime};
 
 use control::Control;
@@ -36,10 +39,12 @@ mod telemetry_provider;
 mod termios;
 mod waypoint_generator;
 
-struct StdoutLogger;
+struct StdoutLogger {
+    level: LogLevel,
+}
 impl log::Log for StdoutLogger {
     fn enabled(&self, level: LogLevel, _module: &str) -> bool {
-        level <= LogLevel::Info
+        level <= self.level
     }
 
     fn log(&self, record: &LogRecord) {
@@ -49,21 +54,32 @@ impl log::Log for StdoutLogger {
                 Ok(s) => s,
                 Err(_) => "UNKNOWN".to_string()  // This should never happen
             } + &format!("{}", now_tm.tm_nsec)[0..3];
-            println!("{} - {} - {}", time_str, record.level(), record.args());
+            let location = record.location();
+            let file_name = match location.file.split('/').last() {
+                Some(slashes) => {
+                    match slashes.split('.').next() {
+                        Some(name) => name,
+                        None => "UNKNOWN",
+                    }
+                },
+                None => "UNKNOWN",
+            };
+            println!(
+                "{time} {file}:{line} {level:<5} {message}",
+                time=time_str,
+                file=file_name,
+                line=location.line,
+                level=record.level(),
+                message=record.args());
         }
     }
 }
 
 
 fn main() {
-    let status = set_logger(|max_log_level| {
-        max_log_level.set(LogLevelFilter::Info);
-        Box::new(StdoutLogger)
-    });
-    match status {
-        Ok(_) => (),
-        Err(e) => println!("Unable to initialize logger: {}", e)
-    };
+    if !handle_opts() {
+        return;
+    }
     info!("Starting up");
 
     let mut quitters = Vec::new();
@@ -76,8 +92,12 @@ fn main() {
 
     // TODO: Send quit when Ctrl + C is pressed
     let mut join_handles = Vec::new();
-    join_handles.push(spawn_control(request_telemetry_tx, telemetry_rx, command_rx,
-                                    quit_command_rx));
+    join_handles.push(
+        spawn_control(
+            request_telemetry_tx,
+            telemetry_rx,
+            command_rx,
+            quit_command_rx));
 
     let (telemetry_message_tx, telemetry_message_rx) = channel();
     let (quit_termio_tx, quit_termio_rx) = channel();
@@ -86,8 +106,12 @@ fn main() {
 
     let (quit_telemetry_tx, quit_telemetry_rx) = channel();
 
-    join_handles.push(spawn_telemetry(request_telemetry_rx, telemetry_tx, telemetry_message_rx,
-                                      quit_telemetry_rx));
+    join_handles.push(
+        spawn_telemetry(
+            request_telemetry_rx,
+            telemetry_tx,
+            telemetry_message_rx,
+            quit_telemetry_rx));
     quitters.push(quit_telemetry_tx);
 
     for quitter in quitters {
@@ -114,7 +138,7 @@ fn spawn_control(
     command_rx: Receiver<CommandMessage>,
     quit_rx: Receiver<()>,
 ) -> JoinHandle {
-    thread::spawn(move || {
+    spawn(move || {
         let waypoint_generator = KmlWaypointGenerator::new(
             "../control/paths/solid-state-depot.kmz");
         let mut control = Control::new(
@@ -131,7 +155,7 @@ fn spawn_telemetry_provider(
     telemetry_message_tx: Sender<TelemetryMessage>,
     quit_rx: Receiver<()>,
 ) -> JoinHandle {
-    thread::spawn(move || {
+    spawn(move || {
         let mut provider = TelemetryProvider::new(telemetry_message_tx);
         provider.run(quit_rx);
     })
@@ -144,8 +168,47 @@ fn spawn_telemetry(
     telemetry_message_rx: Receiver<TelemetryMessage>,
     quit_rx: Receiver<()>,
 ) -> JoinHandle {
-    thread::spawn(move || {
+    spawn(move || {
         let mut telemetry = FilteredTelemetry::new();
         telemetry.run(request_telemetry_rx, telemetry_tx, telemetry_message_rx, quit_rx);
     })
+}
+
+
+fn handle_opts() -> bool {
+    let mut opts = Options::new();
+    opts.optflag("v", "verbose", "Prints extra logging.");
+    opts.optflag("h", "help", "Print this help menu.");
+    let mut args = std::env::args();
+    args.next();  // Skip the program name
+    let matches = match opts.parse(args) {
+        Ok(m) => m,
+        Err(e) => panic!("Unable to parse options: {}", e),
+    };
+    if matches.opt_present("h") {
+        print_usage(opts);
+        return false;
+    }
+
+    let level = if matches.opt_present("v") {
+            LogLevel::Debug
+        } else {
+            LogLevel::Info
+        };
+
+    let status = set_logger(|max_log_level| {
+        max_log_level.set(LogLevelFilter::Debug);
+        Box::new(StdoutLogger { level: level })
+    });
+    match status {
+        Ok(_) => (),
+        Err(e) => panic!("Unable to initialize logger: {}", e)
+    };
+    true
+}
+
+
+fn print_usage(opts: Options) {
+    let brief = "Usage: control-rust [options]";
+    print!("{}", opts.usage(&brief));
 }

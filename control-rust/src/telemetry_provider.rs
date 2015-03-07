@@ -121,7 +121,7 @@ impl TelemetryProvider {
                             break;
                         }
                     },
-                    NmeaMessage::Sti(sti) => (),  // I don't think there's anything useful here
+                    NmeaMessage::Sti(_) => (),  // I don't think there's anything useful here
                 },
                 Err(_) => (),
             }
