@@ -202,8 +202,8 @@ pub fn latitude_longitude_to_point(latitude: f64, longitude: f64) -> Point {
     let longitude_diff = longitude - central_longitude;
     Point {
         // Hopefully LLVM will optimize this call out
-        x: (latitude_d_to_m_per_longitude_d(central_latitude) * longitude) as f32,
-        y: (m_per_latitude_d() * latitude) as f32,
+        x: (latitude_d_to_m_per_longitude_d(central_latitude) * longitude_diff) as f32,
+        y: (m_per_latitude_d() * latitude_diff) as f32,
     }
 }
 

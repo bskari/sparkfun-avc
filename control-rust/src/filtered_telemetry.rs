@@ -56,8 +56,14 @@ impl FilteredTelemetry {
 
             let mut processed = false;
 
-            while let Ok(message) = request_telemetry_rx.try_recv() {
-                telemetry_tx.send(self.state);
+            while let Ok(_) = request_telemetry_rx.try_recv() {
+                match telemetry_tx.send(self.state) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("Unable to send telemetry: {}", e);
+                        return;
+                    }
+                }
                 processed = true;
             }
 

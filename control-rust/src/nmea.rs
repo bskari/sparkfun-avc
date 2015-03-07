@@ -4,7 +4,7 @@
 
 use std::error::Error;
 use std::mem::transmute;
-use std::num::{Int, Float, ParseFloatError};
+use std::num::{Int, ParseFloatError};
 
 use telemetry::Degrees;
 use telemetry::MetersPerSecond;
@@ -165,11 +165,9 @@ macro_rules! bail_none {
 }
 macro_rules! convert {
     ($to:ty, $value:expr) => (
-        unsafe {
-            transmute::<u32, $to>(
-                transmute::<_, u32>($value).to_le()
-            )
-        }
+        transmute::<u32, $to>(
+            transmute::<_, u32>($value).to_le()
+        )
     )
 }
 macro_rules! array_to_type {

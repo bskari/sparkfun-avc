@@ -85,13 +85,24 @@ impl<T> Termio for T where T: AsRawFd {
         }
     }
 
+    #[allow(unused_mut)]
     fn input_buffer_count(&self) -> Result<i32, i32> {
-        let mut buffer_size: i32 = 0;
         let fd = self.as_raw_fd();
-        if unsafe { ioctl(fd, IoCtlOptions::FIONREAD as i32, transmute(&buffer_size)) } < 0 {
+        let buffer_size = unsafe {
+            // I don't know if this mut annotation is necessary with transmute; will the compiler
+            // optimize the value out?
+            let mut size: i32 = 0;
+            let result = ioctl(fd, IoCtlOptions::FIONREAD as i32, transmute(&size));
+            if result < 0 {
+                result
+            } else {
+                size
+            }
+        };
+        if buffer_size < 0 {
             Err(self.errno())
         } else {
-            Ok(0)
+            Ok(buffer_size)
         }
     }
 

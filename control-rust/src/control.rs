@@ -3,12 +3,10 @@ extern crate time;
 use std::num::Float;
 use std::old_io::timer;
 use std::sync::mpsc::{Sender, Receiver};
-use std::thread::Thread;
 use std::time::duration::Duration;
 
 use telemetry::{
     Degrees,
-    Point,
     TelemetryState,
     difference_d,
     distance,
@@ -88,10 +86,19 @@ impl<'a> Control<'a> {
     fn run_incremental(&mut self) -> bool {
         // Request the lastest telemetry information
         let state;
-        self.request_telemetry_tx.send(());
+        match self.request_telemetry_tx.send(()) {
+            Ok(_) => (),
+            Err(e) => {
+                error!("Unable to request telemetry information: {}", e);
+                return false;
+            }
+        }
         match self.telemetry_rx.recv() {
             Ok(received_state) => state = received_state,
-            Err(e) => return false,
+            Err(e) => {
+                error!("Unable to receive telemetry information: {}", e);
+                return false;
+            }
         }
 
         // Halting the car supercedes all other states
@@ -179,7 +186,7 @@ impl<'a> Control<'a> {
                 steering_magnitude
             };
 
-        self.drive(throttle, steering_magnitude);
+        self.drive(throttle, steering);
     }
 
     fn collision_recovery(&mut self, now_ms: MilliSeconds) {

@@ -1,8 +1,11 @@
 // Silence warnings about use of unstable features
 #![feature(box_syntax)]
 #![feature(core)]
+#![feature(fs)]
 #![feature(io)]
-#![feature(path)]
+#![feature(libc)]
+#![feature(old_io)]
+#![feature(old_path)]
 #![feature(std_misc)]
 #[macro_use]
 
@@ -18,9 +21,8 @@ use control::Control;
 use filtered_telemetry::FilteredTelemetry;
 use kml_waypoint_generator::KmlWaypointGenerator;
 use telemetry::TelemetryState;
-use telemetry_message::{CommandMessage, CompassMessage, GpsMessage, TelemetryMessage};
+use telemetry_message::{CommandMessage, TelemetryMessage};
 use telemetry_provider::TelemetryProvider;
-use waypoint_generator::WaypointGenerator;
 
 mod control;
 mod driver;
@@ -45,7 +47,7 @@ impl log::Log for StdoutLogger {
             let now_tm = now();
             let time_str = match strftime("%Y/%m/%d %H:%M:%S.", &now_tm) {
                 Ok(s) => s,
-                Err(e) => "UNKNOWN".to_string()  // This should never happen
+                Err(_) => "UNKNOWN".to_string()  // This should never happen
             } + &format!("{}", now_tm.tm_nsec)[0..3];
             println!("{} - {} - {}", time_str, record.level(), record.args());
         }
@@ -59,8 +61,8 @@ fn main() {
         Box::new(StdoutLogger)
     });
     match status {
-        Ok(logger) => (),
-        Err(e) => println!("Unable to initialize logger")
+        Ok(_) => (),
+        Err(e) => println!("Unable to initialize logger: {}", e)
     };
     info!("Starting up");
 
@@ -79,6 +81,7 @@ fn main() {
 
     let (telemetry_message_tx, telemetry_message_rx) = channel();
     let (quit_termio_tx, quit_termio_rx) = channel();
+    quitters.push(quit_termio_tx);
     join_handles.push(spawn_telemetry_provider(telemetry_message_tx, quit_termio_rx));
 
     let (quit_telemetry_tx, quit_telemetry_rx) = channel();
@@ -97,7 +100,7 @@ fn main() {
     for handle in join_handles {
         match handle.join() {
             Ok(_) => (),
-            Err(e) => error!("Unable to join thread: {}", e)
+            Err(_) => error!("Unable to join thread, child thread panicked")
         }
     }
 
