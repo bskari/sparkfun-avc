@@ -165,9 +165,11 @@ macro_rules! bail_none {
 }
 macro_rules! convert {
     ($to:ty, $value:expr) => (
-        transmute::<u32, $to>(
-            transmute::<_, u32>($value).to_le()
-        )
+        unsafe {
+            transmute::<u32, $to>(
+                transmute::<_, u32>($value).to_le()
+            )
+        }
     )
 }
 macro_rules! array_to_type {
@@ -176,6 +178,8 @@ macro_rules! array_to_type {
     )
 }
 
+// convert! needs unsafe in tests, but not in regular code
+#[allow(unused_unsafe)]
 impl NmeaMessage {
     pub fn parse(message: &str) -> Result<NmeaMessage, String> {
         // These if statements are sorted in the rough likelihood of appearance

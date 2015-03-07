@@ -268,7 +268,7 @@ mod tests {
                 TelemetryState {
                     location: Point { x: 0.0, y: 0.0 },
                     heading: 0.0f32,
-                    speed_m_s: 0.0f32,
+                    speed: 0.0f32,
                     stopped: true
                 });
         });
