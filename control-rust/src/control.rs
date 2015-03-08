@@ -1,18 +1,13 @@
 extern crate log;
 extern crate time;
+use std::mem::transmute;
 use std::num::Float;
 use std::old_io::timer;
 use std::sync::mpsc::{Sender, Receiver};
 use std::time::duration::Duration;
 
-use telemetry::{
-    Degrees,
-    TelemetryState,
-    difference_d,
-    distance,
-    is_turn_left,
-    relative_degrees,
-};
+use driver::{Driver, Percentage};
+use telemetry::{Degrees, TelemetryState, difference_d, distance, is_turn_left, relative_degrees};
 use telemetry_message::CommandMessage;
 use waypoint_generator::WaypointGenerator;
 
@@ -26,21 +21,23 @@ enum ControlState {
 }
 
 
-pub struct Control<'a> {
+pub struct Control {
     state: ControlState,
     run: bool,
     collision_time_ms: MilliSeconds,
     request_telemetry_tx: Sender<()>,
     telemetry_rx: Receiver<TelemetryState>,
-    waypoint_generator: &'a (WaypointGenerator + 'a),
+    waypoint_generator: Box<WaypointGenerator>,
+    driver: Box<Driver>,
 }
 
 
-impl<'a> Control<'a> {
+impl Control {
     pub fn new(
         request_telemetry_tx: Sender<()>,
         telemetry_rx: Receiver<TelemetryState>,
-        waypoint_generator: &'a (WaypointGenerator + 'a),
+        waypoint_generator: Box<WaypointGenerator>,
+        driver: Box<Driver>,
     ) -> Control {
         Control {
             state: ControlState::WaitingForStart,
@@ -49,7 +46,7 @@ impl<'a> Control<'a> {
             telemetry_rx: telemetry_rx,
             request_telemetry_tx: request_telemetry_tx,
             waypoint_generator: waypoint_generator,
-        }
+            driver: driver,}
     }
 
     /**
@@ -135,7 +132,7 @@ impl<'a> Control<'a> {
         self.state = ControlState::Running;
     }
 
-    fn running(&self, state: &TelemetryState) {
+    fn running(&mut self, state: &TelemetryState) {
         while self.waypoint_generator.reached(&state.location) {
             self.waypoint_generator.next();
             if self.waypoint_generator.done() {
@@ -208,8 +205,8 @@ impl<'a> Control<'a> {
     }
 
     #[allow(unused_variables)]
-    fn drive(&self, throttle_percentage: f32, steering_percentage: f32) {
-        // TODO
+    fn drive(&mut self, throttle_percentage: Percentage, steering_percentage: Percentage) {
+        self.driver.drive(throttle_percentage, steering_percentage);
     }
 }
 
@@ -233,27 +230,39 @@ mod tests {
     use std::sync::mpsc::{channel, Sender, Receiver};
     use std::thread::Thread;
 
+    use driver::{Driver, Percentage};
     use super::{Control, ControlState, MilliSeconds};
     use super::ToMilliseconds;
     use telemetry::{Meter, Point, TelemetryState};
     use waypoint_generator::WaypointGenerator;
 
     struct DummyWaypointGenerator {
-        // I got
-        // error: structure literal must either have at least one field or use functional structure update syntax
-        // if I left this out and I'm not sure how to work around it
-        _dummy: f32,
-    }
-    impl DummyWaypointGenerator {
-        fn new() -> DummyWaypointGenerator { DummyWaypointGenerator { _dummy: 0.0 } }
+        done: bool,
     }
     impl WaypointGenerator for DummyWaypointGenerator {
         fn get_current_waypoint(&self, point: &Point) -> Point { Point {x: 100.0, y: 100.0 } }
         fn get_current_raw_waypoint(&self, point: &Point) -> Point { Point { x: 100.0, y: 100.0 } }
-        fn next(&self) {}
+        fn next(&mut self) { self.done = true; }
         fn reached(&self, point: &Point) -> bool { false }
-        fn done(&self) -> bool { false }
+        fn done(&self) -> bool { self.done }
         fn reach_distance(&self) -> Meter { 1.0 }
+    }
+
+    struct DummyDriver {
+        throttle: Percentage,
+        steering: Percentage,
+    }
+    impl Driver for DummyDriver {
+        fn drive(&mut self, throttle: Percentage, steering: Percentage) {
+            self.throttle = throttle;
+            self.steering = steering;
+        }
+        fn get_throttle(&self) -> Percentage {
+            self.throttle
+        }
+        fn get_steering(&self) -> Percentage {
+            self.steering
+        }
     }
 
     #[test]
@@ -269,16 +278,20 @@ mod tests {
                     location: Point { x: 0.0, y: 0.0 },
                     heading: 0.0f32,
                     speed: 0.0f32,
-                    stopped: true
-                });
+                    stopped: true});
         });
 
-        let waypoint_generator = DummyWaypointGenerator::new();
+        let waypoint_generator = Box::new(DummyWaypointGenerator {
+            done: false,});
+        let driver = Box::new(DummyDriver {
+            throttle: 0.0,
+            steering: 0.0,});
 
         let mut control = Control::new(
             telemetry_tx,
             telemetry_2_rx,
-            &waypoint_generator);
+            waypoint_generator,
+            driver);
         control.state = ControlState::Running;
         control.run = true;
         control.run_incremental();
@@ -286,33 +299,33 @@ mod tests {
         let now = time::now().to_milliseconds();
         control.collision_recovery(now + 0);
         assert!(control.state == ControlState::CollisionRecovery);
-        //assert!(driver.get_throttle() == 0.0 as Percentage);
-        //assert!(driver.get_steering() == 0.0 as Percentage);
+        assert!(control.driver.get_throttle() == 0.0 as Percentage);
+        assert!(control.driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(now + 400);
         assert!(control.state == ControlState::CollisionRecovery);
-        //assert!(driver.get_throttle() == 0.0 as Percentage);
-        //assert!(driver.get_steering() == 0.0 as Percentage);
+        assert!(control.driver.get_throttle() == 0.0 as Percentage);
+        assert!(control.driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(now + 600);
         assert!(control.state == ControlState::CollisionRecovery);
-        //assert!(driver.get_throttle() < 0.0 as Percentage);
-        //assert!(driver.get_steering() != 0.0 as Percentage);
+        assert!(control.driver.get_throttle() < 0.0 as Percentage);
+        assert!(control.driver.get_steering() != 0.0 as Percentage);
 
         control.collision_recovery(now + 1400);
         assert!(control.state == ControlState::CollisionRecovery);
-        //assert!(driver.get_throttle() < 0.0 as Percentage);
-        //assert!(driver.get_steering() != 0.0 as Percentage);
+        assert!(control.driver.get_throttle() < 0.0 as Percentage);
+        assert!(control.driver.get_steering() != 0.0 as Percentage);
 
         control.collision_recovery(now + 1600);
         assert!(control.state == ControlState::CollisionRecovery);
-        //assert!(driver.get_throttle() == 0.0 as Percentage);
-        //assert!(driver.get_steering() == 0.0 as Percentage);
+        assert!(control.driver.get_throttle() == 0.0 as Percentage);
+        assert!(control.driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(now + 1900);
         assert!(control.state == ControlState::CollisionRecovery);
-        //assert!(driver.get_throttle() == 0.0 as Percentage);
-        //assert!(driver.get_steering() == 0.0 as Percentage);
+        assert!(control.driver.get_throttle() == 0.0 as Percentage);
+        assert!(control.driver.get_steering() == 0.0 as Percentage);
 
         control.collision_recovery(now + 2100);
         assert!(control.state != ControlState::CollisionRecovery);

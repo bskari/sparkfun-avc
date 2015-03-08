@@ -126,7 +126,7 @@ impl WaypointGenerator for KmlWaypointGenerator {
         Point { x: 0.0, y: 0.0 }
     }
 
-    fn next(&self) {
+    fn next(&mut self) {
         // TODO
     }
 

@@ -19,7 +19,7 @@ pub trait WaypointGenerator {
     /**
      * Moves to the next waypoint.
      */
-    fn next(&self);
+    fn next(&mut self);
 
     /**
      * Returns true if the waypoint has been reached.
