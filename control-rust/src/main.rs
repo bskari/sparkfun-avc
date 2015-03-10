@@ -16,8 +16,13 @@ extern crate time;
 use getopts::Options;
 use log::{set_logger, LogLevel, LogLevelFilter, LogRecord};
 use std::env;
+use std::old_io::IoErrorKind;
+use std::old_io::net::pipe::UnixStream;
+use std::old_io::timer::sleep;
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::str::from_utf8;
 use std::thread::{JoinHandle, spawn};
+use std::time::duration::Duration;
 use time::{now, strftime};
 
 use control::Control;
@@ -115,6 +120,15 @@ fn main() {
             quit_telemetry_rx));
     quitters.push(quit_telemetry_tx);
 
+    let (quit_command_message_tx, quit_command_message_rx) = channel();
+    quitters.push(quit_command_message_tx);
+    join_handles.push(
+        spawn_command_message_listener(
+            command_tx,
+            quit_command_message_rx));
+
+    sleep(Duration::milliseconds(1000));
+
     for quitter in quitters {
         match quitter.send(()) {
             Ok(_) => (),
@@ -182,6 +196,76 @@ fn spawn_telemetry(
     spawn(move || {
         let mut telemetry = FilteredTelemetry::new();
         telemetry.run(request_telemetry_rx, telemetry_tx, telemetry_message_rx, quit_rx);
+    })
+}
+
+
+fn spawn_command_message_listener(
+    command_tx: Sender<CommandMessage>,
+    quit_rx: Receiver<()>,
+) -> JoinHandle {
+    spawn(move || {
+        // Keep listening for start and stop messages on a Unix socket
+        let server = Path::new("/tmp/command-socket");
+        let mut socket = match UnixStream::connect(&server) {
+            Ok(socket) => socket,
+            Err(e) => {
+                error!("Unable to open Unix socket: {}", e);
+                return;
+            }
+        };
+
+        socket.set_timeout(Some(1000u64));
+        let mut message_bytes = Vec::<u8>::new();
+        loop {
+            let mut processing_required = false;
+            loop {
+                match socket.read_u8() {
+                    Ok(byte) => {
+                        if byte == '\n' as u8 {
+                            processing_required = true;
+                            break;
+                        } else {
+                            message_bytes.push(byte);
+                        }
+                    },
+                    Err(e) => {
+                        match e.kind {
+                            IoErrorKind::TimedOut => break,
+                            _ => {
+                                error!("Error reading from domain socket: {}", e);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            if processing_required {
+                match from_utf8(message_bytes.as_slice()) {
+                    Ok(message) => {
+                        if message == "start" {
+                            // TODO Send start command message
+                            info!("Received message \"{}\" on Unix socket", message);
+                        } else if message == "stop" {
+                            // TODO Send stop command message
+                            info!("Received message \"{}\" on Unix socket", message);
+                        } else {
+                            warn!("Unknown message \"{}\" on Unix socket", message);
+                        }
+                    },
+                    Err(_) => error!("Unable to interpret bytes from Unix socket as UTF8"),
+                }
+                message_bytes.clear();
+            }
+
+            match quit_rx.try_recv() {
+                Ok(_) => {
+                    info!("Command message thread shutting down");
+                    return;
+                },
+                Err(_) => (),
+            }
+        }
     })
 }
 
