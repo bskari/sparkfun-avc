@@ -1,13 +1,14 @@
 """Starts the Python parts for the Rust control."""
 import argparse
 import os
+import pwd
 import signal
 import socket
 import sys
 import threading
 import time
 
-#from control.button import Button
+from control.button import Button
 from control.test.dummy_logger import DummyLogger
 
 # pylint: disable=global-statement
@@ -59,25 +60,49 @@ class CommandForwarder(threading.Thread):
         command messages to them.
         """
         while self._run:
-            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-                try:
-                    sock.bind(self._socket_file_name)
-                    sock.listen(1)
-                    sock.settimeout(1)
-                    while self._run:
-                        try:
-                            self._connection, _ = sock.accept()
-                            # Now we're connected, so just wait until someone
-                            # calls handle_message
-                            while self._run:
-                                time.sleep(1)
-                            return
-                        except socket.timeout:
-                            continue
+            try:
+                self.run_socket()
+            except Exception as exc:
+                print('Error in CommandForwarder: {}'.format(exc))
+                return
 
-                except Exception as exc:
-                    print('Error with socket: {}'.format(exc))
-                    continue
+    def run_socket(self):
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(self._socket_file_name)
+            pi = pwd.getpwnam('pi')
+            os.chown(self._socket_file_name, pi.pw_uid, pi.pw_gid)
+            sock.listen(1)
+            sock.settimeout(1)
+            try:
+                self.wait_for_connections(sock)
+            except socket.error as exc:
+                print('Error with socket: {}'.format(exc))
+                if exc.errno == 32:  # Broken pipe
+                    print('Closing socket')
+                    sock.shutdown(socket.SHUT_RDWR)
+                    sock.close()
+                    return
+                elif exc.errno == 98:  # Address already in use
+                    print('Quitting waiting for connections')
+                    return
+                else:
+                    return
+
+    def wait_for_connections(self, sock):
+        while self._run:
+            try:
+                self._connection, _ = sock.accept()
+                print('Client connected')
+                # Now we're connected, so just wait until someone
+                # calls handle_message
+                while self._run:
+                    time.sleep(1)
+                    # Test to see if we're still connected
+                    self._connection.send(b'')
+                return
+            except socket.timeout:
+                continue
 
     def kill(self):
         """Stops the thread."""
@@ -127,7 +152,7 @@ class StdinReader(threading.Thread):
             else:
                 self._command.handle_message({'command': command})
 
-    def kill(self): 
+    def kill(self):
         """Stops the thread."""
         self._run = False
 
@@ -136,11 +161,10 @@ def start_threads(stdin):
     """Runs everything."""
     dummy_logger = DummyLogger()
     forwarder = CommandForwarder('/tmp/command-socket')
-    #button = Button(forwarder, dummy_logger)
+    button = Button(forwarder, dummy_logger)
 
     global THREADS
-    #THREADS = [forwarder, button]
-    THREADS = [forwarder]
+    THREADS = [forwarder, button]
     if stdin:
         reader = StdinReader(forwarder)
         THREADS.append(reader)
@@ -148,6 +172,12 @@ def start_threads(stdin):
     for thread in THREADS:
         thread.start()
     print('Started all threads')
+
+    # Once forwarder quits, we can kill everything else
+    forwarder.join()
+    for thread in THREADS:
+        thread.kill()
+        thread.join()
 
 
 def make_parser():
