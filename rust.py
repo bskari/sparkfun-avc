@@ -45,10 +45,6 @@ class CommandForwarder(threading.Thread):
 
     def __init__(self, socket_file_name):
         super(CommandForwarder, self).__init__()
-        try:
-            os.unlink(socket_file_name)
-        except Exception:
-            pass
 
         self._socket_file_name = socket_file_name
         self._run = True
@@ -69,6 +65,10 @@ class CommandForwarder(threading.Thread):
     def run_socket(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                os.unlink(self._socket_file_name)
+            except Exception:
+                pass
             sock.bind(self._socket_file_name)
             pi = pwd.getpwnam('pi')
             os.chown(self._socket_file_name, pi.pw_uid, pi.pw_gid)
