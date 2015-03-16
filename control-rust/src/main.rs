@@ -26,9 +26,10 @@ use std::time::duration::Duration;
 use time::{now, strftime};
 
 use control::Control;
-use driver::{Driver, Percentage};
+use driver::Percentage;
 use filtered_telemetry::FilteredTelemetry;
 use kml_waypoint_generator::KmlWaypointGenerator;
+use socket_driver::SocketDriver;
 use telemetry::TelemetryState;
 use telemetry_message::{CommandMessage, TelemetryMessage};
 use telemetry_provider::TelemetryProvider;
@@ -39,6 +40,7 @@ mod filtered_telemetry;
 mod kml_waypoint_generator;
 mod location_filter;
 mod nmea;
+mod socket_driver;
 mod telemetry;
 mod telemetry_message;
 mod telemetry_provider;
@@ -153,18 +155,10 @@ fn spawn_control(
     command_rx: Receiver<CommandMessage>,
     quit_rx: Receiver<()>,
 ) -> JoinHandle {
-    // TODO Use a real driver
-    struct DummyDriver { unused: bool }
-    impl Driver for DummyDriver {
-        fn drive(&mut self, throttle: Percentage, steering: Percentage) {}
-        fn get_throttle(&self) -> Percentage { 0.0 }
-        fn get_steering(&self) -> Percentage { 0.0 }
-    }
-
     spawn(move || {
         let waypoint_generator = Box::new(KmlWaypointGenerator::new(
             "../control/paths/solid-state-depot.kmz"));
-        let driver = Box::new(DummyDriver { unused: true } );
+        let driver = Box::new(SocketDriver::new());
         let mut control = Control::new(
             request_telemetry_tx,
             telemetry_rx,

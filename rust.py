@@ -9,7 +9,9 @@ import threading
 import time
 
 from control.button import Button
+from control.driver import Driver
 from control.test.dummy_logger import DummyLogger
+from control.test.dummy_telemetry import DummyTelemetry
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
@@ -39,6 +41,86 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     sys.exit(0)
 
 
+class DriverListener(threading.Thread):
+    """Receives commands on a socket from the controlling program to drive."""
+
+    def __init__(self, socket_file_name):
+        super(DriverListener, self).__init__()
+
+        self._socket_file_name = socket_file_name
+        self._run = True
+        self._connected = False
+        self._connection = None
+
+        dummy_logger = DummyLogger()
+        dummy_telemetry = DummyTelemetry(dummy_logger, (100, 100))
+        self._driver = Driver(dummy_telemetry, dummy_logger)
+
+    def run(self):
+        """Runs in a thread. Waits for clients to connects then receives and
+        handles drive messages.
+        """
+        try:
+            while self._run:
+                try:
+                    self.run_socket()
+                except Exception as exc:
+                    print('Error in DriverListener: {}'.format(exc))
+                    return
+        except Exception as exc:
+            print('DriverListener failed with exception {}'.format(exc))
+
+    def run_socket(self):
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                os.unlink(self._socket_file_name)
+            except Exception:
+                pass
+            sock.bind(self._socket_file_name)
+            pi = pwd.getpwnam('pi')
+            os.chown(self._socket_file_name, pi.pw_uid, pi.pw_gid)
+            sock.listen(1)
+            sock.settimeout(1)
+            try:
+                self.wait_for_connections(sock)
+            except socket.timeout:
+                return
+            except socket.error as exc:
+                print('DriverListener error with socket: {}'.format(exc))
+                if exc.errno == 32:  # Broken pipe
+                    print('DriverListener closing socket')
+                    sock.shutdown(socket.SHUT_RDWR)
+                    sock.close()
+                    return
+                elif exc.errno == 98:  # Address already in use
+                    print('DriverListener quitting waiting for connections')
+                    return
+                else:
+                    print('Unknown error')
+                    return
+
+    def wait_for_connections(self, sock):
+        while self._run:
+            self._connection, _ = sock.accept()
+            self._connected = True
+            print('DriverListener client connected')
+            # Now we're connected, so just wait until someone
+            # calls handle_message
+            while self._run:
+                try:
+                    command = self._connection.recv(4096)
+                    throttle, steering = [float(i) for i in command.split(' ')]
+                    print('DriverListener driving {} {}'.format(throttle, steering))
+                    self._driver.drive(throttle, steering)
+                except socket.timeout:
+                    continue
+
+    def kill(self):
+        """Stops the thread."""
+        self._run = False
+
+
 class CommandForwarder(threading.Thread):
     """Forwards commands to clients connected to a socket."""
     VALID_COMMANDS = {'start', 'stop'}
@@ -55,12 +137,15 @@ class CommandForwarder(threading.Thread):
         """Runs in a thread. Waits for clients to connects then forwards
         command messages to them.
         """
-        while self._run:
-            try:
-                self.run_socket()
-            except Exception as exc:
-                print('Error in CommandForwarder: {}'.format(exc))
-                return
+        try:
+            while self._run:
+                try:
+                    self.run_socket()
+                except Exception as exc:
+                    print('Error in CommandForwarder: {}'.format(exc))
+                    return
+        except Exception as exc:
+            print('CommandForwarder failed with exception {}'.format(exc))
 
     def run_socket(self):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
@@ -77,14 +162,15 @@ class CommandForwarder(threading.Thread):
             try:
                 self.wait_for_connections(sock)
             except socket.error as exc:
-                print('Error with socket: {}'.format(exc))
+                print('CommandForwarder error with socket: {}'.format(exc))
+                self._connected = False
                 if exc.errno == 32:  # Broken pipe
-                    print('Closing socket')
+                    print('CommandForwarder closing socket')
                     sock.shutdown(socket.SHUT_RDWR)
                     sock.close()
                     return
                 elif exc.errno == 98:  # Address already in use
-                    print('Quitting waiting for connections')
+                    print('CommandForwarder quitting waiting for connections')
                     return
                 else:
                     return
@@ -93,7 +179,8 @@ class CommandForwarder(threading.Thread):
         while self._run:
             try:
                 self._connection, _ = sock.accept()
-                print('Client connected')
+                self._connected = True
+                print('CommandForwarder command client connected')
                 # Now we're connected, so just wait until someone
                 # calls handle_message
                 while self._run:
@@ -111,15 +198,15 @@ class CommandForwarder(threading.Thread):
     def handle_message(self, message):
         """Forwards command messages, e.g. 'start' or 'stop'."""
         if not self._connected:
-            print('Received message "{}" but nobody is connected', message)
+            print('CommandForwarder received message "{}" but nobody is connected', message)
             return
         if 'command' not in message:
-            print('No command in command message')
+            print('CommandForwarder no command in command message')
             return
 
         if message['command'] not in self.VALID_COMMANDS:
             print(
-                'Unknown command: "{command}"'.format(
+                'CommandForwarder unknown command: "{command}"'.format(
                     command=message['command']
                 )
             )
@@ -144,13 +231,16 @@ class StdinReader(threading.Thread):
         self._run = True
 
     def run(self):
-        print('Waiting for commands')
-        while self._run:
-            command = sys.stdin.readline()
-            if command == '':
-                continue
-            else:
-                self._command.handle_message({'command': command})
+        try:
+            print('CommandForwarder waiting for commands')
+            while self._run:
+                command = sys.stdin.readline()
+                if command == '':
+                    continue
+                else:
+                    self._command.handle_message({'command': command})
+        except Exception as exc:
+            print('StdinReader failed with exception {}'.format(exc))
 
     def kill(self):
         """Stops the thread."""
@@ -163,8 +253,10 @@ def start_threads(stdin):
     forwarder = CommandForwarder('/tmp/command-socket')
     button = Button(forwarder, dummy_logger)
 
+    driver = DriverListener('/tmp/driver-socket')
+
     global THREADS
-    THREADS = [forwarder, button]
+    THREADS = [forwarder, button, driver]
     if stdin:
         reader = StdinReader(forwarder)
         THREADS.append(reader)
@@ -175,6 +267,7 @@ def start_threads(stdin):
 
     # Once forwarder quits, we can kill everything else
     forwarder.join()
+    print('Forwarder thread exited, killing all threads')
     for thread in THREADS:
         thread.kill()
         thread.join()
@@ -215,9 +308,12 @@ def main():
     # TODO: Use the Raspberry Pi camera module Python module to save video
 
     print('Calling start_threads')
-
     start_threads(stdin=args.stdin)
+    print('Done calling start_threads')
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print('main failed with exception {}'.format(exc))
