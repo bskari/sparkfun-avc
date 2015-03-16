@@ -4,6 +4,7 @@ import os
 import pwd
 import signal
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -61,6 +62,7 @@ class DriverListener(threading.Thread):
         handles drive messages.
         """
         try:
+            print('DriverListener waiting for commands')
             while self._run:
                 try:
                     self.run_socket()
@@ -186,6 +188,9 @@ class CommandForwarder(threading.Thread):
                 while self._run:
                     time.sleep(1)
                     # Test to see if we're still connected
+                    # TODO: If nobody's connected, this causes the program to
+                    # quit. Goes directly to quit, does not throw an exception,
+                    # does not collect $200.
                     self._connection.send(b'')
                 return
             except socket.timeout:
@@ -232,7 +237,7 @@ class StdinReader(threading.Thread):
 
     def run(self):
         try:
-            print('CommandForwarder waiting for commands')
+            print('StdinReader waiting for commands')
             while self._run:
                 command = sys.stdin.readline()
                 if command == '':
@@ -247,13 +252,13 @@ class StdinReader(threading.Thread):
         self._run = False
 
 
-def start_threads(stdin):
+def start_threads(stdin, control_socket, driver_socket):
     """Runs everything."""
     dummy_logger = DummyLogger()
-    forwarder = CommandForwarder('/tmp/command-socket')
+    forwarder = CommandForwarder(control_socket)
     button = Button(forwarder, dummy_logger)
 
-    driver = DriverListener('/tmp/driver-socket')
+    driver = DriverListener(driver_socket)
 
     global THREADS
     THREADS = [forwarder, button, driver]
@@ -288,10 +293,26 @@ def make_parser():
     )
 
     parser.add_argument(
+        '--driver-socket',
+        dest='driver_socket',
+        help='The Unix domain socket to listen for drive commands on.',
+        default='/tmp/driver-socket',
+        type=str,
+    )
+
+    parser.add_argument(
         '-i',
         '--stdin',
         dest='stdin',
         help='Read control commands from stdin as well as from other sources.',
+        action='store_true'
+    )
+
+    parser.add_argument(
+        '-w',
+        '--watchdog',
+        dest='watchdog',
+        help='Run in a watchdog form with restart.',
         action='store_true'
     )
 
@@ -305,15 +326,28 @@ def main():
     parser = make_parser()
     args = parser.parse_args()
 
+    # I was getting an error where calling connection.send on a closed socket
+    # was immediately exiting the program. So, use a watchdog and fork a
+    # subprocess to restart instead.
+    if args.watchdog:
+        raw_args = ['python'] + [
+            arg for arg in sys.argv
+            if arg != '-w' and arg != '--watchdog'
+        ]
+
+        for _ in range(10):
+            print('Forking subprocess for watchdog')
+            process = subprocess.Popen(raw_args)
+            exit_code = process.wait()
+            print('Child process exited with code {}'.format(exit_code))
+        return
+
     # TODO: Use the Raspberry Pi camera module Python module to save video
 
     print('Calling start_threads')
-    start_threads(stdin=args.stdin)
+    start_threads(args.stdin, args.control_socket, args.driver_socket)
     print('Done calling start_threads')
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as exc:
-        print('main failed with exception {}'.format(exc))
+    main()
