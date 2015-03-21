@@ -2,10 +2,10 @@
 # Prepares a fresh installation of an SD card for the Sparkfun AVC. This should
 # be safe to run multiple times.
 
-# First, download Raspbian net install and burn it to an SD card:
-#   wget https://dl.dropbox.com/u/45842273/2012-07-15-wheezy-raspian-minimal.img.7z
-#   7x z 2012-07-15-wheezy-raspian-minimal.img.7z
-#   dd if=2012-07-15-wheezy-raspian-minimal.img of=/dev/sdb bs=1M
+# First, download Minibian and burn it to an SD card:
+#   wget http://sourceforge.net/projects/minibian/files/2014-11-24-wheezy-minibian.tar.gz/download -o minibian.tar.gz
+#   tar -xvzf minibian.tar.gz
+#   dd if=*minibian*img of=/dev/sdb bs=1M
 # Install git and clone the repo:
 #   (root password is raspberry)
 #   apt-get update
@@ -22,11 +22,12 @@ then
     exit 1
 fi
 
-echo 'Want to update the firmware? (y/n) '
+echo -n 'Want to update the firmware? (y/n) '
 read firmware
 if [ "${firmware}" == 'y' ];
 then
     apt-get install curl  # Curl is needed for the rpi-update script
+    apt-get install binutils # readelf is needed for the rpi-update script
     curl https://raw.githubusercontent.com/Hexxeh/rpi-update/master/rpi-update > /usr/bin/rpi-update
     chmod +x /usr/bin/rpi-update
     rpi-update

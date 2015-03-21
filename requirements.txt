@@ -1,4 +1,7 @@
-RPIO >= 0.10, < 0.11
+# RPIO 0.10 doesn't work with Python 3. I have a pull request open to fix it,
+# the guy is MIA. So uh, screw it, we'll install manually from my branch on
+# Github.
+#RPIO >= 0.10, < 0.11
 cherrypy >= 3.3.0, < 3.4
 netifaces >= 0.10.4, < 0.11
 numpy >= 1.9.1, < 1.10

@@ -1,8 +1,8 @@
 set -u
 set -e
 pushd ~pi
-git clone https://github.com/bskari/dotfiles .dotfiles
+git clone https://github.com/bskari/dotfiles ~pi/.dotfiles
 popd
-pushd .dotfiles
+pushd ~pi/.dotfiles
 bash setup.sh
 popd

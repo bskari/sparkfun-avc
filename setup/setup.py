@@ -38,7 +38,7 @@ def main():
             'bash_profile',
             not exists('/home/pi/.bash_profile') or newer('bash_profile', '/home/pi/.bash_profile'),
             (
-                'cp .bash_profile /home/pi/.bash_profile',
+                'cp bash_profile /home/pi/.bash_profile',
             )
         ),
         (
@@ -65,7 +65,7 @@ def main():
         ),
         (
             'hostapd.conf',
-            newer('hostapd.conf', '/etc/hostapd/hostapd.conf') or newer('hostapd', '/etc/default/hostapd'),
+            not exists('/etc/hostapd/hostapd.conf') or newer('hostapd.conf', '/etc/hostapd/hostapd.conf') or newer('hostapd', '/etc/default/hostapd'),
             (
                 'cp hostapd /etc/default/hostapd',
                 'cp hostapd.conf /etc/hostapd/hostapd.conf',
@@ -102,6 +102,13 @@ def main():
             not exists('/home/pi/.virtualenvs/sparkfun'),
             (
                 'bash setup-virtualenv.sh',
+            )
+        ),
+        (
+            'Rust',
+            not exists('/home/pi/rust') or not exists('/home/pi/cargo'),
+            (
+                'bash setup-rust.sh',
             )
         ),
         (
