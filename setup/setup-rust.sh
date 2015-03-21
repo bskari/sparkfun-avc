@@ -62,9 +62,9 @@ then
     echo 'PATH="${PATH}:/home/pi/rust/bin:/home/pi/cargo/bin"' >> /home/pi/.bashrc
     if [ -z "${LD_LIBRARY_PATH}" ];
     then
-        echo 'LD_LIBRARY_PATH="/home/pi/rust/" >> /home/pi/.bashrc
+        echo 'LD_LIBRARY_PATH="/home/pi/rust/lib/" >> /home/pi/.bashrc
     else
-        echo 'LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/home/pi/rust/" >> /home/pi/.bashrc
+        echo 'LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/home/pi/rust/lib/" >> /home/pi/.bashrc
     fi
 fi
 
