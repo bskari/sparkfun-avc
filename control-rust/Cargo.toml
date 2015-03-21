@@ -3,3 +3,8 @@
 name = "control-rust"
 version = "0.0.1"
 authors = ["Brandon Skari <brandon@skari.org>"]
+
+[dependencies]
+getopts = "0.2.4"
+log = "0.2.5"
+time = "0.1.17"
