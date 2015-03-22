@@ -82,7 +82,11 @@ def start_threads(
         address=monitor_address
     )
     button = Button(command, logger)
-    telemetry_dumper = TelemetryDumper(telemetry, web_socket_handler)
+    telemetry_dumper = TelemetryDumper(
+        telemetry,
+        waypoint_generator,
+        web_socket_handler
+    )
 
     global THREADS
     THREADS = [command, telemetry_data, http_server, button, telemetry_dumper]

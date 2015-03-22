@@ -29,6 +29,7 @@ sparkfun.status = sparkfun.status || {};
  *  compass: Object,
  *  gps: Object,
  *  accelerometer: Object,
+ *  compassCalibrated: Object,
  * } telemetryFields
  * @param {Object} logs
  * @param {string} webSocketAddress
@@ -64,6 +65,7 @@ sparkfun.status.init = function(
     sparkfun.status.compass = telemetryFields.compass;
     sparkfun.status.gps = telemetryFields.gps;
     sparkfun.status.accelerometer = telemetryFields.accelerometer;
+    sparkfun.status.compassCalibrated = telemetryFields.compassCalibrated;
 
     sparkfun.status.logs = logs;
 
@@ -95,33 +97,51 @@ sparkfun.status.init = function(
     };
 
     sparkfun.status.webSocket.onmessage = function (evt) {
+        console.log(evt.data);
         var data = JSON.parse(evt.data);
         if (data.type === 'log') {
             sparkfun.status.logs.text(
-                data.message + '\n' + sparkfun.status.logs.text()
-            );
+                data.message + '\n' + sparkfun.status.logs.text());
         } else if (data.type === 'telemetry') {
             console.log(data.message);
             var telemetry = JSON.parse(data.message);
+            // Do some processing here to offload the burden from Python
+            telemetry['waypoint_distance'] = Math.sqrt(
+                sparkfun.status.square(
+                    Math.abs(
+                        telemetry['x_m'] - telemetry['waypoint_x_m']))
+                + sparkfun.status.square(
+                    Math.abs(
+                        telemetry['y_m'] - telemetry['waypoint_y_m'])));
+
+            telemetry['waypoint_heading'] = sparkfun.status.relativeDegrees(
+                telemetry['x_m'],
+                telemetry['y_m'],
+                telemetry['waypoint_x_m'],
+                telemetry['waypoint_y_m']);
+
             var typeToField = {
                 'x_m': sparkfun.status.carX_m,
                 'y_m': sparkfun.status.carY_m,
-                'speed': sparkfun.status.carSpeed,
-                'heading': sparkfun.status.carHeading,
+                'speed_m_s': sparkfun.status.carSpeed,
+                'heading_d': sparkfun.status.carHeading,
                 'throttle': sparkfun.status.carThrottle,
                 'steering': sparkfun.status.carSteering,
-                'waypoint-x-m': sparkfun.status.waypointX_m,
-                'waypoint-y-m': sparkfun.status.waypointY_m,
-                'waypoint-distance': sparkfun.status.waypointDistance,
-                'waypoint-heading': sparkfun.status.waypointHeading,
+                'waypoint_x_m': sparkfun.status.waypointX_m,
+                'waypoint_y_m': sparkfun.status.waypointY_m,
+                'waypoint_distance': sparkfun.status.waypointDistance,
+                'waypoint_heading': sparkfun.status.waypointHeading,
                 'satellites': sparkfun.status.satellites,
                 'accuracy': sparkfun.status.accuracy,
                 'compass': sparkfun.status.compass,
                 'gps': sparkfun.status.gps,
-                'accelerometer': sparkfun.status.accelerometer
-            };
+                'accelerometer': sparkfun.status.accelerometer,
+                'compass_calibrated': sparkfun.status.compassCalibrated};
             for (var key in telemetry) {
                 if (telemetry.hasOwnProperty(key)) {
+                    if (typeof(telemetry[key]) === 'number') {
+                        telemetry[key] = sparkfun.status.round(telemetry[key], 3);
+                    }
                     if (typeToField[key] !== undefined) {
                         typeToField[key].text(telemetry[key]);
                     }
@@ -230,4 +250,53 @@ sparkfun.status.addAlert = function (message) {
         '<div class="alert alert-danger">' +
             '<button type="button" class="close" data-dismiss="alert">' +
             '&times;</button>' + message + '</div>');
-}
+};
+
+
+/**
+ * @param {number} value
+ * @return {number}
+ */
+sparkfun.status.square = function (value) {
+    'use strict';
+    return value * value;
+};
+
+
+/**
+ * @param {number} value
+ * @return {number}
+ */
+sparkfun.status.round = function (value, exponent) {
+    'use strict';
+    var power = Math.pow(10, exponent);
+    return Math.round(value * power) / power;
+};
+
+
+
+/**
+ * @param {number} x1
+ * @param {number} y1
+ * @param {number} x2
+ * @param {number} y2
+ * @return {number}
+ */
+sparkfun.status.relativeDegrees = function (x1, y1, x2, y2) {
+    'use strict';
+    var relativeY = y2 - y1;
+    var relativeX = x2 - x1;
+    if (relativeX === 0.0) {
+        if (relativeY > 0.0) {
+            return 0.0;
+        } else {
+            return 180.0;
+        }
+    }
+
+    var degrees = Math.atan(relativeY / relativeX) * 180.0 / 3.14159265358979;
+    if (relativeX > 0.0) {
+        return 90.0 - degrees;
+    }
+    return 270.0 - degrees;
+};

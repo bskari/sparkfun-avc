@@ -38,6 +38,8 @@ class Telemetry(object):
     HISTORICAL_SPEED_READINGS_COUNT = 20
 
     def __init__(self, logger):
+        self.compass_calibrated = False
+
         self._data = {}
         self._logger = logger
         self._speed_history = collections.deque()
@@ -46,7 +48,6 @@ class Telemetry(object):
         # TODO: For the competition, just hard code the compass. For now, the
         # Kalman filter should start reading in values and correct quickly.
         self._location_filter = LocationFilter(0.0, 0.0, 0.0)
-        self._throttle = None
         self._estimated_steering = 0.0
         self._target_steering = 0.0
         self._estimated_throttle = 0.0
@@ -91,7 +92,6 @@ class Telemetry(object):
         """
         assert -1.0 <= throttle <= 1.0, 'Bad throttle in telemetry'
         assert -1.0 <= steering <= 1.0, 'Bad steering in telemetry'
-        self._throttle = throttle
 
         self._target_steering = steering
         self._target_throttle = throttle

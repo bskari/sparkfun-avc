@@ -1,6 +1,7 @@
 """Implements the WaypointGenerator interface. Returns waypoints from a KML
 file. All WaypointGenerator implementations should have two methods:
     get_current_waypoint(self, x_m, y_m) -> (float, float)
+    get_raw_waypoint(self) -> (float, float)
     reached(self, x_m y_m) -> bool
     next(self)
     done(self) -> bool
@@ -35,6 +36,12 @@ class KmlWaypointGenerator(object):
         if len(self._waypoints) > 0:
             return self._waypoints[0]
         raise ValueError('No waypoints left')
+
+    def get_raw_waypoint(self):
+        """Returns the raw waypoint. Should only be used with monitors."""
+        if len(self._waypoints) > 0:
+            return self._waypoints[0]
+        return (0.0, 0.0)
 
     def reached(self, x_m, y_m):
         """Returns True if the current waypoint has been reached."""

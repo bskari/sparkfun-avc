@@ -46,7 +46,13 @@ class TelemetryData(threading.Thread):
         """
         while self._run:
             # This blocks until a new message is received
-            line = self._serial.readline().decode('utf-8')
+            try:
+                line = self._serial.readline().decode('utf-8')
+            except Exception as exc:  #pylint: disable=bad-builtin
+                self._logger.warn(
+                    'Unable to decode GPS message: {}'.format(exc)
+                )
+                continue
 
             if line.startswith('$PSTI'):
                 self._handle_psti(line)
@@ -57,9 +63,10 @@ class TelemetryData(threading.Thread):
         """Handles PSTI (pitch, roll, yaw, pressure, temperature) messages."""
         if self._compass_calibrated:
             return
-        self._compass_calibrated = psti_message.split(',')[2] == '1'
+        self._compass_calibrated = psti_message.split(',')[3] == '1'
         if self._compass_calibrated:
             self._logger.info('Compass calibrated')
+        self._telemetry.compass_calibrated = True
 
     def _handle_gprmc(self, gprmc_message):
         """Handles GPRMC (recommended minimum specific GNSS data) messages."""
