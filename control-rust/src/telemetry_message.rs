@@ -13,6 +13,7 @@ pub struct CompassMessage {
     pub std_dev: Degrees,
 }
 pub enum CommandMessage {
+    CalibrateCompass,
     Start,
     Stop,
 }

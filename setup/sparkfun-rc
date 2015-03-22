@@ -26,7 +26,7 @@ do_start()
 		return 1
 	fi
 
-	sudo -u pi bash /home/pi/sparkfun-avc/setup/launch.sh
+	sudo -u pi bash /home/pi/sparkfun-avc/setup/launch-rust.sh
 	return 0
 }
 

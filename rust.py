@@ -13,6 +13,7 @@ from control.button import Button
 from control.driver import Driver
 from control.test.dummy_logger import DummyLogger
 from control.test.dummy_telemetry import DummyTelemetry
+from monitor.http_server import HttpServer
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
@@ -125,7 +126,7 @@ class DriverListener(threading.Thread):
 
 class CommandForwarder(threading.Thread):
     """Forwards commands to clients connected to a socket."""
-    VALID_COMMANDS = {'start', 'stop'}
+    VALID_COMMANDS = {'calibrate-compass', 'line-up', 'start', 'stop'}
 
     def __init__(self, socket_file_name):
         super(CommandForwarder, self).__init__()
@@ -218,7 +219,16 @@ class CommandForwarder(threading.Thread):
             return
 
         try:
-            self._connection.sendall(message['command'].encode('utf-8'))
+            if message['command'] == 'line-up':
+                # TODO: Right now, line-up just means start recording the camera
+                pass
+            else:
+                self._connection.sendall(message['command'].encode('utf-8'))
+
+            if message['command'] == 'stop':
+                # TODO: We also want to stop the camera when someone clicks stop
+                pass
+
         except Exception as exc:
             print(
                 'Unable to forward command "{}": {}'.format(
@@ -257,11 +267,19 @@ def start_threads(stdin, control_socket, driver_socket):
     dummy_logger = DummyLogger()
     forwarder = CommandForwarder(control_socket)
     button = Button(forwarder, dummy_logger)
+    dummy_telemetry = DummyTelemetry(dummy_logger, (50.0, 50.0))
+    http_server = HttpServer(
+        forwarder,
+        dummy_telemetry,
+        dummy_logger,
+        port=8080,
+        address='0.0.0.0'
+    )
 
     driver = DriverListener(driver_socket)
 
     global THREADS
-    THREADS = [forwarder, button, driver]
+    THREADS = [forwarder, button, driver, http_server]
     if stdin:
         reader = StdinReader(forwarder)
         THREADS.append(reader)

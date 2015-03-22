@@ -13,9 +13,10 @@
 extern crate log;
 extern crate getopts; // This needs to be declared after log, otherwise you get compilation errors
 extern crate time;
-use getopts::Options;
+use getopts::{Matches, Options};
 use log::{set_logger, LogLevel, LogLevelFilter, LogRecord};
 use std::env;
+use std::error::Error;
 use std::old_io::IoErrorKind;
 use std::old_io::net::pipe::UnixStream;
 use std::old_io::timer::sleep;
@@ -84,10 +85,21 @@ impl log::Log for StdoutLogger {
 }
 
 
+macro_rules! warn_err {
+    ($option:expr) => (
+        match $option {
+            Ok(s) => s,
+            Err(e) => warn!("{}", e.description().to_string())
+        };
+    );
+}
+
+
 fn main() {
-    if !handle_opts() {
-        return;
-    }
+    let options = match handle_opts() {
+        Some(options) => options,
+        None => panic!("Unable to parse options"),
+    };
     info!("Starting up");
 
     let mut quitters = Vec::new();
@@ -100,8 +112,22 @@ fn main() {
 
     // TODO: Send quit when Ctrl + C is pressed
     let mut join_handles = Vec::new();
+    let path_file_name = match options.opt_str("p") {
+        Some(value) => value,
+        None => "../paths/solid-state-depot.kmz".to_string(),
+    };
+    let max_throttle: f32 = match options.opt_str("max-throttle") {
+        Some(value) => match value.parse() {
+            Ok(throttle_value) => throttle_value,
+            Err(err) => panic!("Invalid throttle, should be between 0.25 and 1.0"),
+        },
+        None => 1.0,
+    };
+
     join_handles.push(
         spawn_control(
+            path_file_name.as_slice(),
+            max_throttle,
             request_telemetry_tx,
             telemetry_rx,
             command_rx,
@@ -132,10 +158,7 @@ fn main() {
     sleep(Duration::milliseconds(1000));
 
     for quitter in quitters {
-        match quitter.send(()) {
-            Ok(_) => (),
-            Err(e) => error!("Unable to send quit message: {}", e)
-        }
+        warn_err!(quitter.send(()));
     }
 
     for handle in join_handles {
@@ -150,15 +173,16 @@ fn main() {
 
 
 fn spawn_control(
+    path_file_name: &str,
+    max_throttle: f32,
     request_telemetry_tx: Sender<()>,
     telemetry_rx: Receiver<TelemetryState>,
     command_rx: Receiver<CommandMessage>,
     quit_rx: Receiver<()>,
 ) -> JoinHandle {
+    let waypoint_generator = Box::new(KmlWaypointGenerator::new(&path_file_name));
     spawn(move || {
-        let waypoint_generator = Box::new(KmlWaypointGenerator::new(
-            "../control/paths/solid-state-depot.kmz"));
-        let driver = Box::new(SocketDriver::new());
+        let driver = Box::new(SocketDriver::new(max_throttle));
         let mut control = Control::new(
             request_telemetry_tx,
             telemetry_rx,
@@ -237,12 +261,13 @@ fn spawn_command_message_listener(
             if processing_required {
                 match from_utf8(message_bytes.as_slice()) {
                     Ok(message) => {
+                        info!("Received message \"{}\" on Unix socket", message);
                         if message == "start" {
-                            // TODO Send start command message
-                            info!("Received message \"{}\" on Unix socket", message);
+                            warn_err!(command_tx.send(CommandMessage::Start));
                         } else if message == "stop" {
-                            // TODO Send stop command message
-                            info!("Received message \"{}\" on Unix socket", message);
+                            warn_err!(command_tx.send(CommandMessage::Stop));
+                        } else if message == "calibrate-compass" {
+                            warn_err!(command_tx.send(CommandMessage::CalibrateCompass));
                         } else {
                             warn!("Unknown message \"{}\" on Unix socket", message);
                         }
@@ -264,10 +289,12 @@ fn spawn_command_message_listener(
 }
 
 
-fn handle_opts() -> bool {
+fn handle_opts() -> Option<Matches> {
     let mut opts = Options::new();
     opts.optflag("v", "verbose", "Prints extra logging.");
     opts.optflag("h", "help", "Print this help menu.");
+    opts.optopt("p", "path", "Filename for KML path to drive.", "FILE");
+    opts.optopt("", "max-throttle", "Maximum throttle to drive at (defaults to 1.0)", "THROTTLE");
     let mut args = std::env::args();
     args.next();  // Skip the program name
     let matches = match opts.parse(args) {
@@ -276,7 +303,7 @@ fn handle_opts() -> bool {
     };
     if matches.opt_present("h") {
         print_usage(opts);
-        return false;
+        return None;
     }
 
     let level = if matches.opt_present("v") {
@@ -293,7 +320,19 @@ fn handle_opts() -> bool {
         Ok(_) => (),
         Err(e) => panic!("Unable to initialize logger: {}", e)
     };
-    true
+    match matches.opt_str("max-throttle") {
+        Some(throttle_str) => {
+            let throttle: f32 = match throttle_str.parse() {
+                Ok(value) => value,
+                Err(_) => panic!("Invalid throttle, should be between 0.25 and 1.0"),
+            };
+            if throttle < 0.25 || throttle > 1.0 {
+                panic!("Invalid throttle, should be between 0.25 and 1.0");
+            }
+        },
+        None => ()
+    };
+    Some(matches)
 }
 
 

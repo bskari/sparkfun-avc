@@ -15,6 +15,7 @@ type MilliSeconds = u64;
 
 #[derive(PartialEq)]
 enum ControlState {
+    CalibrateCompass,
     WaitingForStart,
     Running,
     CollisionRecovery,
@@ -25,6 +26,7 @@ pub struct Control {
     state: ControlState,
     run: bool,
     collision_time_ms: MilliSeconds,
+    calibrate_time_ms: MilliSeconds,
     request_telemetry_tx: Sender<()>,
     telemetry_rx: Receiver<TelemetryState>,
     waypoint_generator: Box<WaypointGenerator>,
@@ -43,6 +45,7 @@ impl Control {
             state: ControlState::WaitingForStart,
             run: false,
             collision_time_ms: 0,
+            calibrate_time_ms: 0,
             telemetry_rx: telemetry_rx,
             request_telemetry_tx: request_telemetry_tx,
             waypoint_generator: waypoint_generator,
@@ -65,6 +68,15 @@ impl Control {
             // Check for new messages
             while let Ok(message) = command_rx.try_recv() {
                 match message {
+                    CommandMessage::CalibrateCompass => {
+                        if self.state != ControlState::WaitingForStart {
+                            warn!("Tried to calibrate compass while running, ignoring");
+                        } else {
+                            self.calibrate_time_ms = time::now().to_milliseconds();
+                            self.state = ControlState::CalibrateCompass;
+                            self.run = true;
+                        }
+                    },
                     CommandMessage::Start => self.run = true,
                     CommandMessage::Stop => self.run = false,
                 }
@@ -117,6 +129,10 @@ impl Control {
             ControlState::CollisionRecovery => {
                 let now_ms = time::now().to_milliseconds();
                 self.collision_recovery(now_ms);
+            },
+            ControlState::CalibrateCompass => {
+                let now_ms = time::now().to_milliseconds();
+                self.calibrate_compass(now_ms);
             }
         }
 
@@ -204,7 +220,16 @@ impl Control {
         }
     }
 
-    #[allow(unused_variables)]
+    fn calibrate_compass(&mut self, now_ms: MilliSeconds) {
+        // Drive around in circles for 5 seconds
+        if now_ms < self.calibrate_time_ms + 5000 {
+            self.drive(0.25f32, 1.0f32);
+        } else {
+            self.state = ControlState::WaitingForStart;
+            self.run = false;
+        }
+    }
+
     fn drive(&mut self, throttle_percentage: Percentage, steering_percentage: Percentage) {
         self.driver.drive(throttle_percentage, steering_percentage);
     }
