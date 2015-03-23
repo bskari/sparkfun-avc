@@ -1,4 +1,4 @@
-use std::fs::{File, PathExt};
+use std::fs::{File, PathExt, remove_dir_all};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::Command;
@@ -34,6 +34,7 @@ impl KmlWaypointGenerator {
         // A KML file is a zip archive containing a single file named "doc.kml"
         // that is an XML file
         let temp_directory = "/tmp/waypoints";
+        remove_dir_all(temp_directory);
         let zip_io_result = Command::new("unzip")
             .arg(file_name)
             .arg("-d")  // Output directory
