@@ -112,7 +112,7 @@ class StatusApp(object):
     def run(self):
         """Runs the car."""
         self._check_post()
-        self._command.handle_message('start')
+        self._command.handle_message({'command': 'start'})
         self._logger.info('Received run command from web')
         return {'success': True}
 
@@ -121,7 +121,7 @@ class StatusApp(object):
     def stop(self):
         """Stops the car."""
         self._check_post()
-        self._command.handle_message('stop')
+        self._command.handle_message({'command': 'stop'})
         self._logger.info('Received stop command from web')
         return {'success': True}
 
@@ -131,7 +131,7 @@ class StatusApp(object):
         """Calibrates the compass."""
         self._check_post()
         self._logger.info('Received calibrate compass command from web')
-        self._command.handle_message('calibrate-compass')
+        self._command.handle_message({'command': 'calibrate-compass'})
         return {'success': True}
 
     @cherrypy.expose
@@ -139,7 +139,7 @@ class StatusApp(object):
     def line_up(self):  # pylint: disable=no-self-use
         """Plays the Mario Kart line up sound."""
         self._check_post()
-        self._command.handle_message('line-up')
+        self._command.handle_message({'command': 'line-up'})
         if os.path.isfile('/usr/bin/mpg123') and os.path.isfile('sound/race-start.mp3'):
             subprocess.Popen(
                 ('/usr/bin/mpg123', 'sound/race-start.mp3'),
@@ -152,7 +152,7 @@ class StatusApp(object):
     def count_down(self):  # pylint: disable=no-self-use
         """Plays the Mario Kart count down sound."""
         self._check_post()
-        self._command.handle_message('line-up')
+        self._command.handle_message({'command': 'count-down'})
         if os.path.isfile('/usr/bin/mpg123') and os.path.isfile('sound/count-down.mp3'):
             subprocess.Popen(
                 ('mpg123', 'sound/count-down.mp3'),

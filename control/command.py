@@ -1,6 +1,5 @@
 """Class to control the RC car."""
 
-import gc
 import math
 import random
 import sys
@@ -66,7 +65,6 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         """We just define this function separately so that it's easy to patch
         when testing.
         """
-        gc.collect()  # Let's try to preemptvely avoid GC interruptions
         self._sleep_time = time.time()
         if self._wake_time is not None:
             time_awake = self._sleep_time - self._wake_time

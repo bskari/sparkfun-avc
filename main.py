@@ -12,8 +12,8 @@ from control.command import Command
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
-from control.test.dummy_driver import DummyDriver
-from control.test.dummy_telemetry_data import DummyTelemetryData
+from control.driver import Driver
+from control.telemetry_data import TelemetryData
 from monitor.http_server import HttpServer
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
@@ -55,15 +55,17 @@ def get_configuration(value, default):
 def start_threads(
         waypoint_generator,
         logger,
-        web_socket_handler
+        web_socket_handler,
+        max_throttle
 ):
     """Runs everything."""
     # TODO: Get latitude longitude central coordinate from the GPS
     telemetry = Telemetry(logger)  # Sparkfun HQ
-    driver = DummyDriver(telemetry, logger)
+    driver = Driver(telemetry, logger)
+    driver.set_max_throttle(max_throttle)
 
     command = Command(telemetry, driver, waypoint_generator, logger)
-    telemetry_data = DummyTelemetryData(telemetry, logger)
+    telemetry_data = TelemetryData(telemetry, logger)
     telemetry_data.set_driver(driver)
     first_waypoint = waypoint_generator.get_current_waypoint(0.0, 0.0)
     telemetry_data._x_m = first_waypoint[0] - 100.0
@@ -139,6 +141,14 @@ def make_parser():
         type=str,
     )
 
+    parser.add_argument(
+        '--max-throttle',
+        dest='max_throttle',
+        help='The max throttle to drive at.',
+        default=1.0,
+        type=float,
+    )
+
     return parser
 
 
@@ -197,7 +207,7 @@ def main():
         logger.info('Setting waypoints to Solid State Depot for testing')
         waypoint_generator = KmlWaypointGenerator(
             logger,
-            'control/paths/solid-state-depot.kmz'
+            'paths/solid-state-depot.kmz'
         )
 
     logger.debug('Calling start_threads')
@@ -205,7 +215,8 @@ def main():
     start_threads(
         waypoint_generator,
         logger,
-        web_socket_handler
+        web_socket_handler,
+        args.max_throttle,
     )
 
 

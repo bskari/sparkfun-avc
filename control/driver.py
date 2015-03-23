@@ -34,6 +34,7 @@ class Driver(object):
             STEERING_GPIO_PIN,
             self._get_steering(0.0)
         )
+        self._max_throttle = 1.0
 
     def drive(self, throttle_percentage, steering_percentage):
         """Sends a command to the RC car. Throttle should be a float between
@@ -61,9 +62,15 @@ class Driver(object):
                 steering_percentage
             )
         )
+
+        if throttle_percentage > 0.0:
+            throttle = min(self._max_throttle, throttle_percentage)
+        else:
+            throttle = max(-self._max_throttle, throttle_percentage)
+
         self._servo.set_servo(
             THROTTLE_GPIO_PIN,
-            self._get_throttle(throttle_percentage)
+            self._get_throttle(throttle)
         )
         self._servo.set_servo(
             STEERING_GPIO_PIN,
@@ -93,3 +100,7 @@ class Driver(object):
         if not (-1.0 <= percentage <= 1.0):
             raise ValueError('Bad steering')
         return int(STEERING_NEUTRAL_US + STEERING_DIFF * percentage) // 10 * 10
+
+    def set_max_throttle(self, max_throttle):
+        """Sets the maximum throttle."""
+        self._max_throttle = min(1.0, max_throttle)

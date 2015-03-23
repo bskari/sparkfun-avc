@@ -18,14 +18,7 @@ def benchmark_location_filter_update_gps():
     iterations = 100
     start = time.time()
     for _ in range(iterations):
-        location_filter.update_gps(
-            100.0,
-            100.0,
-            1.0,
-            1.0,
-            20.0,
-            4.5
-        )
+        location_filter.update_gps(100.0, 100.0, 1.0, 1.0, 20.0, 4.5)
     end = time.time()
     print(
         '{} iterations of LocationFilter.update_gps, each took {:.5}'.format(
@@ -70,7 +63,7 @@ def benchmark_command_run_course_iterator():
     telemetry = Telemetry(logger)
     waypoint_generator = KmlWaypointGenerator(
         logger,
-        'control/paths/solid-state-depot.kmz'
+        'paths/solid-state-depot.kmz'
     )
     driver = DummyDriver(telemetry, logger)
     command = Command(telemetry, driver, waypoint_generator, logger)
