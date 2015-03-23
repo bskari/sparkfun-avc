@@ -1,13 +1,14 @@
 // Silence warnings about use of unstable features
-#![feature(box_syntax)]
 #![feature(core)]
-#![feature(env)]
-#![feature(fs)]
 #![feature(io)]
+#![feature(io_ext)]
 #![feature(libc)]
-#![feature(old_io)]
-#![feature(old_path)]
+#![feature(old_io)]  // For socket stuff
+#![feature(old_path)]  // For socket stuff
+#![feature(path_ext)]  // For is_file, etc.
 #![feature(std_misc)]
+#![feature(str_words)]
+#![feature(thread_sleep)]
 #[macro_use]
 
 extern crate log;
@@ -15,19 +16,15 @@ extern crate getopts; // This needs to be declared after log, otherwise you get 
 extern crate time;
 use getopts::{Matches, Options};
 use log::{set_logger, LogLevel, LogLevelFilter, LogRecord};
-use std::env;
 use std::error::Error;
-use std::old_io::IoErrorKind;
 use std::old_io::net::pipe::UnixStream;
-use std::old_io::timer::sleep;
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::str::from_utf8;
-use std::thread::{JoinHandle, spawn};
+use std::thread::{JoinHandle, sleep, spawn};
 use std::time::duration::Duration;
 use time::{now, strftime};
 
 use control::Control;
-use driver::Percentage;
 use filtered_telemetry::FilteredTelemetry;
 use kml_waypoint_generator::KmlWaypointGenerator;
 use socket_driver::SocketDriver;
@@ -119,7 +116,7 @@ fn main() {
     let max_throttle: f32 = match options.opt_str("max-throttle") {
         Some(value) => match value.parse() {
             Ok(throttle_value) => throttle_value,
-            Err(err) => panic!("Invalid throttle, should be between 0.25 and 1.0"),
+            Err(_) => panic!("Invalid throttle, should be between 0.25 and 1.0"),
         },
         None => 1.0,
     };
@@ -236,46 +233,38 @@ fn spawn_command_message_listener(
         socket.set_timeout(Some(1000u64));
         let mut message_bytes = Vec::<u8>::new();
         loop {
-            let mut processing_required = false;
+            let mut buffer: [u8; 20] = [0; 20];
             loop {
-                match socket.read_u8() {
-                    Ok(byte) => {
-                        if byte == '\n' as u8 {
-                            processing_required = true;
+                match socket.read(&mut buffer) {
+                    Ok(size) => if size > 0 {
+                        for index in (0..size) {
+                            message_bytes.push(buffer[index])
+                        }
+                        if message_bytes[message_bytes.len() - 1] == '\n' as u8 {
                             break;
-                        } else {
-                            message_bytes.push(byte);
                         }
                     },
                     Err(e) => {
-                        match e.kind {
-                            IoErrorKind::TimedOut => break,
-                            _ => {
-                                error!("Error reading from domain socket: {}", e);
-                                return;
-                            }
-                        }
+                        error!("Error reading from domain socket: {}", e);
                     }
                 }
             }
-            if processing_required {
-                match from_utf8(message_bytes.as_slice()) {
-                    Ok(message) => {
-                        info!("Received message \"{}\" on Unix socket", message);
-                        if message == "start" {
-                            warn_err!(command_tx.send(CommandMessage::Start));
-                        } else if message == "stop" {
-                            warn_err!(command_tx.send(CommandMessage::Stop));
-                        } else if message == "calibrate-compass" {
-                            warn_err!(command_tx.send(CommandMessage::CalibrateCompass));
-                        } else {
-                            warn!("Unknown message \"{}\" on Unix socket", message);
-                        }
-                    },
-                    Err(_) => error!("Unable to interpret bytes from Unix socket as UTF8"),
-                }
-                message_bytes.clear();
+            match from_utf8(message_bytes.as_slice()) {
+                Ok(message) => {
+                    info!("Received message \"{}\" on Unix socket", message);
+                    if message == "start" {
+                        warn_err!(command_tx.send(CommandMessage::Start));
+                    } else if message == "stop" {
+                        warn_err!(command_tx.send(CommandMessage::Stop));
+                    } else if message == "calibrate-compass" {
+                        warn_err!(command_tx.send(CommandMessage::CalibrateCompass));
+                    } else {
+                        warn!("Unknown message \"{}\" on Unix socket", message);
+                    }
+                },
+                Err(_) => error!("Unable to interpret bytes from Unix socket as UTF8"),
             }
+            message_bytes.clear();
 
             match quit_rx.try_recv() {
                 Ok(_) => {

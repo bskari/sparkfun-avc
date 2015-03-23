@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::old_io::timer;
+use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
 use std::time::duration::Duration;
 
 use telemetry::{Degrees, MetersPerSecond, Point, hdop_to_std_dev, latitude_longitude_to_point};
@@ -53,12 +54,12 @@ impl TelemetryProvider {
         // Just do this test to make sure we're running on the Pi with GPS attached. If we just
         // blindly enter the loop without the GPS attached, we'll dead lock.
         let mut gps_message_received = false;
-        for _ in range(0, 5) {
+        for _ in (0..5) {
             if tty.input_buffer_count().unwrap() > 0 {
                 gps_message_received = true;
                 break;
             }
-            timer::sleep(Duration::milliseconds(50));
+            thread::sleep(Duration::milliseconds(50));
         }
         if !gps_message_received {
             error!("No messages received from GPS, aborting telemetry provider thread");

@@ -1,9 +1,8 @@
 extern crate log;
 extern crate time;
-use std::mem::transmute;
 use std::num::Float;
-use std::old_io::timer;
 use std::sync::mpsc::{Sender, Receiver};
+use std::thread;
 use std::time::duration::Duration;
 
 use driver::{Driver, Percentage};
@@ -85,7 +84,7 @@ impl Control {
             if !self.run_incremental() {
                 return;
             }
-            timer::sleep(Duration::milliseconds(50));
+            thread::sleep(Duration::milliseconds(50));
         }
     }
 

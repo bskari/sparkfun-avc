@@ -534,7 +534,7 @@ impl NmeaMessage {
         }
 
         let mode_indicator = bail_none!(iterator.next());
-        if status == "V" {
+        if mode_indicator == "V" {
             return Err("Data not valid".to_string());
         }
 
@@ -893,7 +893,7 @@ mod tests {
         let mut message = String::new();
         let mut timer = Timer::new().unwrap();
         let mut buffer_ready = false;
-        for _ in range(0, 20) {
+        for _ in (0..20) {
             if tty.input_buffer_count().unwrap() > 0 {
                 buffer_ready = true;
                 break;

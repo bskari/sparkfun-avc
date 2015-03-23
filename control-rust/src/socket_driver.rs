@@ -1,6 +1,6 @@
 use std::num::Float;
 use std::old_io::net::pipe::UnixStream;
-use std::sync::mpsc::{Select, Receiver};
+use std::old_path::posix::Path;
 use std::time::Duration;
 
 use driver::{Driver, Percentage};
@@ -18,7 +18,7 @@ pub struct SocketDriver {
 impl SocketDriver {
     pub fn new(max_throttle: Percentage) -> SocketDriver {
         let server = Path::new("/tmp/driver-socket");
-        let mut socket = match UnixStream::connect(&server) {
+        let socket = match UnixStream::connect(&server) {
             Ok(socket) => socket,
             Err(e) => panic!("Unable to open Unix socket for driver: {}", e),
         };

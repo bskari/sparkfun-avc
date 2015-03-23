@@ -368,7 +368,7 @@ mod tests {
             latitude_d_to_m_per_longitude_d(0.0));
 
         // Should be symmetrical
-        for degrees in range(0i32, 85) {
+        for degrees in (0i32..85) {
             assert_approx_eq(
                 latitude_d_to_m_per_longitude_d(degrees as f64),
                 latitude_d_to_m_per_longitude_d(-degrees as f64));
@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_wrap_degrees() {
-        for d in range(0i32, 360) {
+        for d in (0i32..360) {
             assert_approx_eq(d as f32, wrap_degrees(d as f32));
         }
 

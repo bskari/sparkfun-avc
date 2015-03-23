@@ -1,7 +1,7 @@
-use std::old_io::BufferedReader;
-use std::old_io::File;
-use std::old_io::fs::PathExtensions;
-use std::old_io::process::Command;
+use std::fs::{File, PathExt};
+use std::io::{BufRead, BufReader};
+use std::path::Path;
+use std::process::Command;
 
 use telemetry::{Meter, Point, latitude_longitude_to_point};
 use waypoint_generator::WaypointGenerator;
@@ -39,7 +39,12 @@ impl KmlWaypointGenerator {
             .arg("-d")  // Output directory
             .arg(temp_directory)
             .spawn();
-        match zip_io_result {
+        let mut zip_child = match zip_io_result {
+            Ok(child) => (child),
+            Err(e) => panic!("Failed to unzip file: {}", e),
+        };
+
+        match zip_child.wait() {
             Ok(_) => (),
             Err(e) => panic!("Failed to unzip file: {}", e),
         };
@@ -50,7 +55,7 @@ impl KmlWaypointGenerator {
             Ok(f) => f,
             Err(_) => panic!("Couldn't open doc.kml"),
         };
-        let mut xml_file = BufferedReader::new(file);
+        let xml_file = BufReader::new(file);
         let mut coordinates_open_tag = false;
         // We should use a real XML parser here, but Google Earth saves the
         // <coordinates> tag on one line, then the coordinates on the next,

@@ -1,6 +1,6 @@
 extern crate log;
-use std::old_io::timer;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
 use std::time::duration::Duration;
 
 use telemetry::{Telemetry, Point, TelemetryState};
@@ -22,14 +22,14 @@ impl FilteredTelemetry {
         FilteredTelemetry {
             throttle: 0.0,
             steering: 0.0,
-            gps_message: box GpsMessage {
+            gps_message: Box::new(GpsMessage {
                 point: Point {x: 0.0, y: 0.0 },
                 heading: 0.0,
                 speed: 0.0,
                 std_dev_x: 2.0,
                 std_dev_y: 2.0,
-            },
-            compass_message: box CompassMessage { heading: 0.0, std_dev: 0.0 },
+            }),
+            compass_message: Box::new(CompassMessage { heading: 0.0, std_dev: 0.0 }),
             state: TelemetryState {
                 location: Point { x: 0.0, y: 0.0 },
                 heading: 0.0,
@@ -74,7 +74,7 @@ impl FilteredTelemetry {
 
             // I don't know if this is a great solution or not
             if !processed {
-                timer::sleep(Duration::milliseconds(10));
+                thread::sleep(Duration::milliseconds(10));
             }
         }
     }
