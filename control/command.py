@@ -12,7 +12,7 @@ from control.telemetry import Telemetry
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     """Processes telemetry data and controls the RC car."""
-    VALID_COMMANDS = {'start', 'stop'}
+    VALID_COMMANDS = {'start', 'stop', 'calibrate-compass'}
     STRAIGHT_TIME_S = 1.0
     MIN_RUN_TIME_S = 3.0
 
@@ -60,6 +60,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             self.run_course()
         elif message['command'] == 'stop':
             self.stop()
+        elif message['command'] == 'calibrate-compass':
+            self.calibrate_compass()
 
     def _wait(self):
         """We just define this function separately so that it's easy to patch
@@ -253,6 +255,20 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self._driver.drive(0.0, 0.0)
         self.stop()
         yield False
+
+    def calibrate_compass(self):
+        # Don't calibrate while driving
+        if self._run_course:
+            return
+
+        start = time.time()
+        self._driver.drive(0.5, 1.0)
+        try:
+            while self._run and not self._run_course and time.time() < start + 5.0:
+                time.sleep(0.1)
+        except:
+            pass
+        self._driver.drive(0.0, 0.0)
 
     def run_course(self):
         """Starts the RC car running the course."""
