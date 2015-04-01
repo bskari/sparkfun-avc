@@ -231,6 +231,57 @@ different from the current algorithm.'''
         self.assertAlmostEqual(Telemetry.difference_d(360.0, 365.0), 5.0)
         self.assertAlmostEqual(Telemetry.difference_d(-355.0, 365.0), 0.0)
 
+    def assert_almost_equal_point(self, point_1, point_2):
+        """Tests that two points are almost equal."""
+        x_1, y_1 = point_1
+        x_2, y_2 = point_2
+        self.assertAlmostEqual(x_1, x_2, 4)
+        self.assertAlmostEqual(y_1, y_2, 4)
+
+    def test_offset_from_waypoint(self):
+        """Tests offset from waypoint."""
+        offset = Telemetry.offset_from_waypoint
+        almost_equal = self.assert_almost_equal_point
+
+        almost_equal(offset(0.0, 0.0, 1.0), (0.0, -1.0))
+
+        almost_equal(offset(0.0, 45.0, 1.0), (-0.707107, -0.707107))
+        almost_equal(offset(10.0, 35.0, 1.0), (-0.707107, -0.707107))
+        almost_equal(offset(20.0, 25.0, 1.0), (-0.707107, -0.707107))
+        almost_equal(offset(350.0, 55.0, 1.0), (-0.707107, -0.707107))
+        almost_equal(offset(340.0, 65.0, 1.0), (-0.707107, -0.707107))
+
+        almost_equal(offset(0.0, -45.0, 1.0), (0.707107, -0.707107))
+        almost_equal(offset(10.0, -55.0, 1.0), (0.707107, -0.707107))
+        almost_equal(offset(20.0, -65.0, 1.0), (0.707107, -0.707107))
+        almost_equal(offset(350.0, -35.0, 1.0), (0.707107, -0.707107))
+        almost_equal(offset(340.0, -25.0, 1.0), (0.707107, -0.707107))
+
+        almost_equal(offset(90.0, 45.0, 1.0), (-0.707107, 0.707107))
+        almost_equal(offset(90.0, -45.0, 1.0), (-0.707107, -0.707107))
+        almost_equal(offset(180.0, 45.0, 1.0), (0.707107, 0.707107))
+        almost_equal(offset(180.0, -45.0, 1.0), (-0.707107, 0.707107))
+        almost_equal(offset(270.0, 45.0, 1.0), (0.707107, -0.707107))
+        almost_equal(offset(270.0, -45.0, 1.0), (0.707107, 0.707107))
+
+        _345 = 36.86989764584402
+        almost_equal(offset(0.0, _345, 5.0), (-3.0, -4.0))
+        almost_equal(offset(180.0, _345, 5.0), (3.0, 4.0))
+
+    def test_distance_to_waypoint(self):
+        """Tests the distance calculation."""
+        distance = Telemetry.distance_to_waypoint
+
+        for p in (1, -1):
+            self.assertAlmostEqual(distance(p * 45, p * 90, 1.0), math.sqrt(2))
+            assert(
+                distance(p * 30.0, p * 35.0, 1.0)
+                < distance(p * 30.0, p * 35.0, 2.0)
+                < distance(p * 30.0, p * 35.0, 3.0))
+            _345 = 36.86989764584402
+            self.assertAlmostEqual(distance(p * _345, p * 90.0, 4.0), 5.0)
+            self.assertAlmostEqual(distance(p * (90 - _345), p * 90, 3.0), 5.0)
+
 
 if __name__ == '__main__':
     unittest.main()

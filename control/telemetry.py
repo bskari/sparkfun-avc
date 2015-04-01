@@ -279,3 +279,24 @@ class Telemetry(object):
         """Returns the offset in meters for a given coordinate."""
         x_m = Telemetry.distance_m(0.0, longitude_d, 0.0, CENTRAL_LONGITUDE)
         return x_m
+
+    @staticmethod
+    def distance_to_waypoint(heading_d_1, heading_d_2, distance_travelled):
+        """Calculates the distance to a waypoint, given two observed headings to
+        the waypoint and distance travelled in a straight line between the two
+        observations.
+        """
+        m_1 = math.tan(math.radians(90.0 - heading_d_1))
+        m_2 = math.tan(math.radians(90.0 - heading_d_2))
+        x = distance_travelled / (m_1 - m_2)
+        hypotenuse = x / math.cos(math.radians(90.0 - heading_d_1))
+        return hypotenuse
+
+    @staticmethod
+    def offset_from_waypoint(heading_d, offset_to_waypoint_d, distance):
+        """Calculates the offset (x, y) from a waypoint, given the heading of the
+        vehicle, the angle from the vehicle's heading to the waypoint, and the
+        distance to the waypoint.
+        """
+        angle = Telemetry.wrap_degrees(180.0 + heading_d + offset_to_waypoint_d)
+        return Telemetry.rotate_radians_clockwise((0.0, distance), math.radians(angle))
