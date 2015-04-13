@@ -5,6 +5,7 @@ import collections
 import json
 import math
 import threading
+import time
 
 from control.location_filter import LocationFilter
 from control.synchronized import synchronized
@@ -14,6 +15,17 @@ from control.synchronized import synchronized
 # Sparkfun HQ
 CENTRAL_LATITUDE = 40.091244
 CENTRAL_LONGITUDE = -105.185276
+
+# Vales for Tamiya Grasshopper, from observation
+# The turn rate when steering is -1.0 or 1.0
+MAX_TURN_RATE_D_S = 100.0
+# Time it takes to turn from steering -1.0 to 1.0
+FULL_TURN_TIME_S = 1.0
+STEERING_CHANGE_PER_S = 1.0 / STEERING_TURN_TIME_S
+# Time to go from 0 to top speed at throttle 1.0
+ZERO_TO_TOP_S = 5.0
+THROTTLE_CHANGE_PER_S = 1.0 / ZERO_TO_TOP_S
+MAX_SPEED_M_S = 4.5
 
 
 class Telemetry(object):
@@ -35,7 +47,11 @@ class Telemetry(object):
         # Kalman filter should start reading in values and correct quickly.
         self._location_filter = LocationFilter(0.0, 0.0, 0.0)
         self._throttle = None
-        self._steering = None
+        self._estimated_steering = 0.0
+        self._target_steering = 0.0
+        self._estimated_throttle = 0.0
+        self._target_throttle = 0.0
+        self._drive_time = None
 
     @synchronized
     def get_raw_data(self):
@@ -76,9 +92,10 @@ class Telemetry(object):
         assert -1.0 <= throttle <= 1.0, 'Bad throttle in telemetry'
         assert -1.0 <= steering <= 1.0, 'Bad steering in telemetry'
         self._throttle = throttle
-        self._steering = steering
 
-        # TODO: Update speed and turn rate estimatiosn
+        self._target_steering = steering
+        self._target_throttle = throttle
+        self._drive_time = time.time()
 
     @synchronized
     def handle_message(self, message):
@@ -89,9 +106,11 @@ class Telemetry(object):
                 self._speed_history.popleft()
 
         if 'compass_d' in message:
+            self._update_estimated_drive()
             self._location_filter.update_compass(message['compass_d'])
 
         if 'x_m' in message:
+            self._update_estimated_drive()
             self._location_filter.update_gps(
                 message['x_m'],
                 message['y_m'],
@@ -117,6 +136,49 @@ class Telemetry(object):
             self._speed_history.clear()
             return True
         return False
+
+    def _update_estimated_drive(self):
+        """Updates the estimations of the drive state, e.g. the current
+        throttle and steering.
+        """
+        now = time.time()
+        diff_s = now - self._drive_time
+
+        def updated(estimate, target, change_per_s):
+            """Returns the updated value."""
+            diff = abs(estimate - target)
+            if diff == 0.0:
+                return target
+            total_change = change_per_s * diff_s
+            if total_change > diff:
+                return target
+            if estimate < target:
+                return estimate + total_change
+            return estimate - total_change
+
+        self._estimated_throttle = updated(
+            self._estimated_throttle,
+            self._target_throttle,
+            THROTTLE_CHANGE_PER_S
+        )
+        self._estimated_steering = updated(
+            self._estimated_steering,
+            self._target_steering,
+            STEERING_CHANGE_PER_S
+        )
+
+        # Also tell the location filter that we've changed
+        if self._estimated_throttle != self._target_throttle:
+            self._location_filter.manual_throttle(
+                self._estimated_throttle * MAX_SPEED_M_S
+            )
+        # We always update the steering change,
+        # because we don't have sensors to get
+        # estimates for it from other sources for
+        # our Kalman filter
+        self._location_filter.manual_steering(
+            self._estimated_steering * MAX_TURN_RATE_D_S
+        )
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):
@@ -166,11 +228,11 @@ class Telemetry(object):
 
     @classmethod
     def distance_m(
-        cls,
-        latitude_d_1,
-        longitude_d_1,
-        latitude_d_2,
-        longitude_d_2
+            cls,
+            latitude_d_1,
+            longitude_d_1,
+            latitude_d_2,
+            longitude_d_2
     ):
         """Returns the distance in meters between two waypoints in degrees."""
         diff_latitude_d = latitude_d_1 - latitude_d_2
@@ -225,8 +287,8 @@ class Telemetry(object):
 
     @staticmethod
     def acceleration_mss_velocity_ms_to_radius_m(
-        acceleration_m_s_s,
-        velocity_m_s
+            acceleration_m_s_s,
+            velocity_m_s
     ):
         """Converts the lateral acceleration force (accessible from the Android
         phone) and the car's velocity to the car's turn radius in meters.
@@ -236,8 +298,8 @@ class Telemetry(object):
 
     @staticmethod
     def acceleration_mss_velocity_ms_to_ds(
-        acceleration_m_s_s,
-        velocity_m_s
+            acceleration_m_s_s,
+            velocity_m_s
     ):
         """Converts the lateral acceleration force (accessible from the Android
         phone) and the car's velocity to the car's turn rate in degrees per
@@ -294,9 +356,12 @@ class Telemetry(object):
 
     @staticmethod
     def offset_from_waypoint(heading_d, offset_to_waypoint_d, distance):
-        """Calculates the offset (x, y) from a waypoint, given the heading of the
-        vehicle, the angle from the vehicle's heading to the waypoint, and the
-        distance to the waypoint.
+        """Calculates the offset (x, y) from a waypoint, given the heading of
+        the vehicle, the angle from the vehicle's heading to the waypoint, and
+        the distance to the waypoint.
         """
         angle = Telemetry.wrap_degrees(180.0 + heading_d + offset_to_waypoint_d)
-        return Telemetry.rotate_radians_clockwise((0.0, distance), math.radians(angle))
+        return Telemetry.rotate_radians_clockwise(
+            (0.0, distance),
+            math.radians(angle)
+        )

@@ -39,9 +39,8 @@ class TelemetryData(threading.Thread):
         instance.
         """
         from control.telemetry import Telemetry
-        # Normally, you'd have a loop that periodically checks for new readings
-        # or that blocks until readings are received
         while self._run:
+            # This blocks until a new mesage is received
             line = self._serial.readline().decode('utf-8')
             if not line.startswith('$GPRMC'):
                 continue
@@ -70,6 +69,7 @@ class TelemetryData(threading.Thread):
             self._telemetry.handle_message({
                 'x_m': Telemetry.longitude_to_m_offset(longitude),
                 'y_m': Telemetry.latitude_to_m_offset(latitude),
+                # TODO: Parse other messages to estimate these
                 'x_accuracy_m': 1.0,
                 'y_accuracy_m': 1.0,
                 'gps_d': course,

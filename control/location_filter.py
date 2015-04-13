@@ -19,6 +19,13 @@ class LocationFilter(object):
         [0, 0, 1, 0],
         [0, 0, 0, 0]
     ])
+    SPEED_ESTIMATION_OBSERVER_MATRIX = numpy.matrix([  # H
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 1]
+    ])
+
 
     GPS_MEASUREMENT_NOISE = numpy.matrix([  # R
         [0, 0, 0, 0],  # x_m will be filled in by the GPS accuracy
@@ -33,6 +40,18 @@ class LocationFilter(object):
         # I've observed a lot of local interference as I drove around before.
         [0, 0, 45, 0],
         [0, 0, 0, 0]
+    ])
+    # From the speed estimation, based on input throttle
+    SPEED_ESTIMATION_MEASUREMENT_NOISE = numpy.matrix([  # R
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        # This is just a guess. I don't know if it should be greater or less
+        # than the values from the GPS. Presumably the GPS will be more
+        # accurate because I'm basing the speed estimations on imprecise
+        # observations, but presumably it will take a few GPS measurements
+        # before the speed updates, so maybe it will be more accurate at first?
+        [0, 0, 0, 2.0]
     ])
 
     # http://robotsforroboticists.com/kalman-filtering/ is a great reference
@@ -64,13 +83,13 @@ class LocationFilter(object):
         self._last_observation_s = time.time()
 
     def update_gps(
-        self,
-        x_m,
-        y_m,
-        x_accuracy_m,
-        y_accuracy_m,
-        heading_d,
-        speed_m_s
+            self,
+            x_m,
+            y_m,
+            x_accuracy_m,
+            y_accuracy_m,
+            heading_d,
+            speed_m_s
     ):
         """Update the state estimation using the provided GPS measurement."""
         measurements = numpy.matrix(
@@ -116,12 +135,33 @@ class LocationFilter(object):
 
         self._prediction_step(time_diff_s)
 
+    def manual_throttle(self, speed_m_s):
+        """Update the estimated speed based on throttle input."""
+        measurements = numpy.matrix(
+            [0.0, 0.0, 0.0, speed_m_s]
+        ).transpose()  # z
+
+        now = time.time()
+        time_diff_s = now - self._last_observation_s
+        self._last_observation_s = now
+
+        self._update(
+            measurements,
+            self.SPEED_ESTIMATION_OBSERVER_MATRIX,
+            self.SPEED_ESTIMATION_MEASUREMENT_NOISE,
+            time_diff_s
+        )
+
+    def manual_steering(self, turn_d_s):
+        """Update the estimated turn rate based on steering input."""
+        self._estimated_turn_rate = turn_d_s
+
     def _update(
-        self,
-        measurements,
-        observer_matrix,
-        measurement_noise,
-        time_diff_s
+            self,
+            measurements,
+            observer_matrix,
+            measurement_noise,
+            time_diff_s
     ):
         """Runs the Kalman update using the provided measurements."""
         # Prediction step
