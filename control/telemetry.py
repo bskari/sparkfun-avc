@@ -172,10 +172,8 @@ class Telemetry(object):
             self._location_filter.manual_throttle(
                 self._estimated_throttle * MAX_SPEED_M_S
             )
-        # We always update the steering change,
-        # because we don't have sensors to get
-        # estimates for it from other sources for
-        # our Kalman filter
+        # We always update the steering change, because we don't have sensors
+        # to get estimates for it from other sources for our Kalman filter
         self._location_filter.manual_steering(
             self._estimated_steering * MAX_TURN_RATE_D_S
         )
