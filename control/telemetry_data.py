@@ -66,10 +66,17 @@ class TelemetryData(threading.Thread):
         parts = gprmc_message.split(',')
         latitude_str = parts[3]
         longitude_str = parts[5]
-        lat_degrees, lat_minutes = map(float, latitude_str.split(','))
-        long_degrees, long_minutes = map(float, longitude_str.split(','))
-        latitude = lat_degrees + lat_minutes / 60.0
-        longitude = long_degrees + long_minutes / 60.0
+
+        decimal_index = latitude_str.find('.')
+        latitude_degrees = float(latitude_str[:decimal_index - 2])
+        latitude_minutes = float(latitude_str[decimal_index - 2:])
+
+        decimal_index = longitude_str.find('.')
+        longitude_degrees = float(longitude_str[:decimal_index - 2])
+        longitude_minutes = float(longitude_str[decimal_index - 2:])
+
+        latitude = latitude_degrees + latitude_minutes / 60.0
+        longitude = longitude_degrees + longitude_minutes / 60.0
         if parts[4] == 'S':
             latitude = -latitude
         if parts[6] == 'W':
