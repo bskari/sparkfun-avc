@@ -21,7 +21,7 @@ CENTRAL_LONGITUDE = -105.185276
 MAX_TURN_RATE_D_S = 100.0
 # Time it takes to turn from steering -1.0 to 1.0
 FULL_TURN_TIME_S = 1.0
-STEERING_CHANGE_PER_S = 1.0 / STEERING_TURN_TIME_S
+STEERING_CHANGE_PER_S = 1.0 / FULL_TURN_TIME_S
 # Time to go from 0 to top speed at throttle 1.0
 ZERO_TO_TOP_S = 5.0
 THROTTLE_CHANGE_PER_S = 1.0 / ZERO_TO_TOP_S
@@ -141,6 +141,8 @@ class Telemetry(object):
         """Updates the estimations of the drive state, e.g. the current
         throttle and steering.
         """
+        if self._drive_time is None:
+            return
         now = time.time()
         diff_s = now - self._drive_time
 
@@ -240,7 +242,7 @@ class Telemetry(object):
             diff_longitude_d
             * Telemetry.latitude_to_m_per_d_longitude(latitude_d_1)
         )
-        return math.sqrt(diff_1_m  ** 2.0 + diff_2_m ** 2.0)
+        return math.sqrt(diff_1_m ** 2.0 + diff_2_m ** 2.0)
 
     @staticmethod
     def is_turn_left(heading_d, goal_heading_d):
@@ -258,9 +260,9 @@ class Telemetry(object):
         pt_1 = list(pt_1) + [0]
         pt_2 = list(pt_2) + [0]
         cross_product = \
-                pt_1[1] * pt_2[2] - pt_1[2] * pt_2[1] \
-                + pt_1[2] * pt_2[0] - pt_1[0] * pt_2[2] \
-                + pt_1[0] * pt_2[1] - pt_1[1] * pt_2[0]
+            pt_1[1] * pt_2[2] - pt_1[2] * pt_2[1] \
+            + pt_1[2] * pt_2[0] - pt_1[0] * pt_2[2] \
+            + pt_1[0] * pt_2[1] - pt_1[1] * pt_2[0]
         if cross_product > 0:
             return True
         return False
@@ -342,9 +344,9 @@ class Telemetry(object):
 
     @staticmethod
     def distance_to_waypoint(heading_d_1, heading_d_2, distance_travelled):
-        """Calculates the distance to a waypoint, given two observed headings to
-        the waypoint and distance travelled in a straight line between the two
-        observations.
+        """Calculates the distance to a waypoint, given two observed headings
+        to the waypoint and distance travelled in a straight line between the
+        two observations.
         """
         m_1 = math.tan(math.radians(90.0 - heading_d_1))
         m_2 = math.tan(math.radians(90.0 - heading_d_2))
