@@ -3,6 +3,7 @@ import argparse
 import datetime
 import logging
 import os
+import serial
 import signal
 import subprocess
 import sys
@@ -65,7 +66,8 @@ def start_threads(
     driver.set_max_throttle(max_throttle)
 
     command = Command(telemetry, driver, waypoint_generator, logger)
-    telemetry_data = TelemetryData(telemetry, logger)
+    serial_ = serial.Serial('/dev/ttyAMA0', 115200)
+    telemetry_data = TelemetryData(telemetry, serial_, logger)
     telemetry_data.set_driver(driver)
     first_waypoint = waypoint_generator.get_current_waypoint(0.0, 0.0)
     telemetry_data._x_m = first_waypoint[0] - 100.0

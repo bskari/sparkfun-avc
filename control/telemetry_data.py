@@ -9,7 +9,7 @@ compass_d for compass readings. Optional parameters are time_s,
 accelerometer_m_s_s, and magnetometer.
 """
 
-import serial
+from serial import Serial
 import threading
 
 #pylint: disable=bad-builtin
@@ -25,19 +25,20 @@ class TelemetryData(threading.Thread):
     def __init__(
             self,
             telemetry,
+            serial,
             logger,
     ):
         """Create the TelemetryData thread."""
         super(TelemetryData, self).__init__()
 
         self._telemetry = telemetry
+        self._serial = serial
         self._logger = logger
         self._run = True
         self._iterations = 0
         self._compass_calibrated = False
 
         self._driver = None
-        self._serial = serial.Serial('/dev/ttyAMA0', 115200)
 
     def run(self):
         """Run in a thread, hands raw telemetry readings to telemetry
