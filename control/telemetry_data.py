@@ -9,6 +9,7 @@ compass_d for compass readings. Optional parameters are time_s,
 accelerometer_m_s_s, and magnetometer.
 """
 
+import numpy
 import threading
 import time
 
@@ -134,6 +135,7 @@ class TelemetryData(threading.Thread):
         switch_to_binary_mode(self._serial)
         maxes = [-1000000.0] * 3
         mins = [1000000.0] * 3
+        total_magnitudes = []
         # We should be driving for this long
         while time.time() < self._calibrate_compass_end_time():
             data = get_message(self._serial)
@@ -145,11 +147,19 @@ class TelemetryData(threading.Thread):
             )
             maxes = [max(a, b) for a, b in zip(maxes, values)]
             mins = [min(a, b) for a, b in zip(mins, values)]
+            total_magnitudes.append(sum((v ** 2 for v in values)))
 
         self._compass_offsets = [max_ - min_ for max_, min_ in zip(maxes, mins)]
         self._logger.info(
             'Compass calibrated, offsets are {}'.format(
                 (round(i, 2) for i in self._compass_offsets)
+            )
+        )
+        total_magnitudes = numpy.array(total_magnitudes)
+        self._logger.info(
+            'Magnitudes mean: {}, standard deviation {}'.format(
+                total_magnitudes.mean(),
+                total_magnitudes.std()
             )
         )
         self._calibrate_compass_end_time = None

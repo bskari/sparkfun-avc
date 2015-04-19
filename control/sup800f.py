@@ -41,12 +41,12 @@ BINARY_FORMAT = ''.join((
 ))
 BinaryMessage = collections.namedtuple(  # pylint: disable=invalid-name
     'BinaryMessage',
-    ' '.join(
+    ' '.join((
         'acceleration_g_x', 'acceleration_g_y', 'acceleration_g_z',
         'magnetic_flux_ut_x', 'magnetic_flux_ut_y', 'magnetic_flux_ut_z',
         'pressure_p',
         'temperature_c',
-    )
+    ))
 )
 
 
