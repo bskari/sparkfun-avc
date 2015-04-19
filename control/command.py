@@ -13,16 +13,14 @@ from control.telemetry import Telemetry
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     """Processes telemetry data and controls the RC car."""
     VALID_COMMANDS = {'start', 'stop', 'calibrate-compass'}
-    STRAIGHT_TIME_S = 1.0
-    MIN_RUN_TIME_S = 3.0
 
     def __init__(  # pylint: disable=too-many-arguments
-        self,
-        telemetry,
-        driver,
-        waypoint_generator,
-        logger,
-        sleep_time_milliseconds=None,
+            self,
+            telemetry,
+            driver,
+            waypoint_generator,
+            logger,
+            sleep_time_milliseconds=None,
     ):
         """Create the Command thread."""
         super(Command, self).__init__()
@@ -61,7 +59,10 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         elif message['command'] == 'stop':
             self.stop()
         elif message['command'] == 'calibrate-compass':
-            self.calibrate_compass()
+            if 'seconds' in message:
+                self.calibrate_compass(message['seconds'])
+            else:
+                self.calibrate_compass(10)
 
     def _wait(self):
         """We just define this function separately so that it's easy to patch
@@ -182,8 +183,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             # We let the waypoint generator tell us if a waypoint has been
             # reached so that it can do fancy algorithms, like "rabbit chase"
             if self._waypoint_generator.reached(
-                telemetry['x_m'],
-                telemetry['y_m']
+                    telemetry['x_m'],
+                    telemetry['y_m']
             ):
                 self._logger.info('Reached ' + str(current_waypoint))
                 self._waypoint_generator.next()
@@ -227,8 +228,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                     diff_d = Telemetry.difference_d(degrees, heading_d)
 
                     if self._waypoint_generator.reached(
-                        telemetry['x_m'],
-                        telemetry['y_m']
+                            telemetry['x_m'],
+                            telemetry['y_m']
                     ):
                         self._logger.info('Reached ' + str(current_waypoint))
                         self._waypoint_generator.next()
@@ -256,7 +257,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self.stop()
         yield False
 
-    def calibrate_compass(self):
+    def calibrate_compass(self, seconds):
+        """Calibrates the compass."""
         # Don't calibrate while driving
         if self._run_course:
             return
@@ -264,9 +266,13 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         start = time.time()
         self._driver.drive(0.5, 1.0)
         try:
-            while self._run and not self._run_course and time.time() < start + 5.0:
+            while (
+                    self._run
+                    and not self._run_course
+                    and time.time() < start + seconds
+            ):
                 time.sleep(0.1)
-        except:
+        except:  # pylint: disable=bare-except
             pass
         self._driver.drive(0.0, 0.0)
 

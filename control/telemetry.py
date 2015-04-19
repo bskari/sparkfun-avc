@@ -38,8 +38,6 @@ class Telemetry(object):
     HISTORICAL_SPEED_READINGS_COUNT = 20
 
     def __init__(self, logger):
-        self.compass_calibrated = False
-
         self._data = {}
         self._logger = logger
         self._speed_history = collections.deque()

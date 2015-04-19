@@ -12,9 +12,10 @@ from monitor.web_socket_handler import WebSocketHandler
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, command, telemetry, logger, port):
+    def __init__(self, command, telemetry, telemetry_data, logger, port):
         self._command = command
         self._telemetry = telemetry
+        self._telemetry_data = telemetry_data
         self._logger = logger
         self._port = port
 
@@ -131,7 +132,12 @@ class StatusApp(object):
         """Calibrates the compass."""
         self._check_post()
         self._logger.info('Received calibrate compass command from web')
-        self._command.handle_message({'command': 'calibrate-compass'})
+        calibrate_seconds = 20
+        self._command.handle_message({
+            'command': 'calibrate-compass',
+            'seconds': calibrate_seconds
+        })
+        self._telemetry_data.calibrate_compass(calibrate_seconds)
         return {'success': True}
 
     @cherrypy.expose
@@ -140,7 +146,10 @@ class StatusApp(object):
         """Plays the Mario Kart line up sound."""
         self._check_post()
         self._command.handle_message({'command': 'line-up'})
-        if os.path.isfile('/usr/bin/mpg123') and os.path.isfile('sound/race-start.mp3'):
+        if (
+                os.path.isfile('/usr/bin/mpg123')
+                and os.path.isfile('sound/race-start.mp3')
+        ):
             subprocess.Popen(
                 ('/usr/bin/mpg123', 'sound/race-start.mp3'),
                 stdout=open('/dev/null', 'w')

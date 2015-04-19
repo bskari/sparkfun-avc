@@ -9,10 +9,14 @@ compass_d for compass readings. Optional parameters are time_s,
 accelerometer_m_s_s, and magnetometer.
 """
 
-from serial import Serial
 import threading
+import time
 
-#pylint: disable=bad-builtin
+from control.sup800f import get_message
+from control.sup800f import parse_binary
+from control.sup800f import switch_to_binary_mode
+from control.sup800f import switch_to_nmea_mode
+
 
 # Below this speed, the GPS module uses the compass to compute heading, if the
 # compass is calibrated
@@ -36,37 +40,30 @@ class TelemetryData(threading.Thread):
         self._logger = logger
         self._run = True
         self._iterations = 0
-        self._compass_calibrated = False
+        self._compass_offsets = None
 
         self._driver = None
+        self._calibrate_compass_end_time = None
 
     def run(self):
         """Run in a thread, hands raw telemetry readings to telemetry
         instance.
         """
         while self._run:
+            if self._calibrate_compass_end_time is not None:
+                self._calibrate_compass()
+
             # This blocks until a new message is received
             try:
                 line = self._serial.readline().decode('utf-8')
-            except Exception as exc:  #pylint: disable=bad-builtin
+            except Exception as exc:  # pylint: disable=broad-except
                 self._logger.warn(
                     'Unable to decode GPS message: {}'.format(exc)
                 )
                 continue
 
-            if line.startswith('$PSTI'):
-                self._handle_psti(line)
-            elif line.startswith('$GPRMC'):
+            if line.startswith('$GPRMC'):
                 self._handle_gprmc(line)
-
-    def _handle_psti(self, psti_message):
-        """Handles PSTI (pitch, roll, yaw, pressure, temperature) messages."""
-        if self._compass_calibrated:
-            return
-        self._compass_calibrated = psti_message.split(',')[3] == '1'
-        if self._compass_calibrated:
-            self._logger.info('Compass calibrated')
-        self._telemetry.compass_calibrated = True
 
     def _handle_gprmc(self, gprmc_message):
         """Handles GPRMC (recommended minimum specific GNSS data) messages."""
@@ -96,7 +93,7 @@ class TelemetryData(threading.Thread):
         # more secure. Below a certain speed, the module uses the compass to
         # determine course, so we need to compensate. Above that speed, it
         # interpolates between GPS points and no rotation is necessary.
-        if speed_m_s < COMPASS_SPEED_CUTOFF_M_S and self._compass_calibrated:
+        if speed_m_s < COMPASS_SPEED_CUTOFF_M_S:
             course = Telemetry.wrap_degrees(course - 90.0)
 
         self._logger.debug(
@@ -127,3 +124,33 @@ class TelemetryData(threading.Thread):
         driving events, e.g. turning on throttle causes the car to move.
         """
         self._driver = driver
+
+    def calibrate_compass(self, seconds):
+        """Requests that the car calibrate the compasss."""
+        self._calibrate_compass_end_time = time.time() + seconds
+
+    def _calibrate_compass(self):
+        """Calibrates the compass."""
+        switch_to_binary_mode(self._serial)
+        maxes = [-1000000.0] * 3
+        mins = [1000000.0] * 3
+        # We should be driving for this long
+        while time.time() < self._calibrate_compass_end_time():
+            data = get_message(self._serial)
+            binary = parse_binary(data)
+            values = (
+                binary.magnetic_flux_ut_x,
+                binary.magnetic_flux_ut_y,
+                binary.magnetic_flux_ut_z
+            )
+            maxes = [max(a, b) for a, b in zip(maxes, values)]
+            mins = [min(a, b) for a, b in zip(mins, values)]
+
+        self._compass_offsets = [max_ - min_ for max_, min_ in zip(maxes, mins)]
+        self._logger.info(
+            'Compass calibrated, offsets are {}'.format(
+                (round(i, 2) for i in self._compass_offsets)
+            )
+        )
+        self._calibrate_compass_end_time = None
+        switch_to_nmea_mode(self._serial)

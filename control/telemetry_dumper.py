@@ -35,9 +35,9 @@ class TelemetryDumper(threading.Thread):
                 time.sleep(self._sleep_seconds)
                 # TODO(2015-01-04) Include waypoint and raw sensor data too
                 data = self._telemetry.get_data()
-                data['throttle'] = self._telemetry._target_throttle
-                data['steering'] = self._telemetry._target_steering
-                data['compass_calibrated'] = self._telemetry.compass_calibrated
+                data['throttle'] = self._telemetry._target_throttle  # pylint: disable=protected-access
+                data['steering'] = self._telemetry._target_steering  # pylint: disable=protected-access
+                data['compass_calibrated'] = 'unknown'
 
                 x_m, y_m = self._waypoint_generator.get_raw_waypoint()
                 data['waypoint_x_m'] = x_m

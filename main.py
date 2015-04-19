@@ -77,6 +77,7 @@ def start_threads(
     http_server = HttpServer(
         command,
         telemetry,
+        telemetry_data,
         logger,
         port=monitor_port,
         address=monitor_address
