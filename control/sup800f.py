@@ -86,15 +86,21 @@ def parse_binary(binary_message):
     return BinaryMessage(*struct.unpack(BINARY_FORMAT, binary_message))
 
 
-def change_mode(ser, mode):
+def switch_to_nmea_mode(ser):
+    """Switches to the NMEA message mode."""
+    _change_mode(ser, 1)
+
+
+def switch_to_binary_mode(ser):
+    """Switches to the binary message mode."""
+    _change_mode(ser, 2)
+
+
+def _change_mode(ser, mode):
     """Change reporting mode between NMEA messages or binary (temperature,
     accelerometer and magnetometer) mode.
     """
-    required = ('nmea', 'binary')
-    if mode not in required:
-        raise ValueError('Invalid mode: needs to in {}'.format(required))
-    toggle = 1 if mode == 'nmea' else 2
-    mode_message = struct.pack(MODE_FORMAT, 9, toggle, 0)
+    mode_message = struct.pack(MODE_FORMAT, 9, mode, 0)
     ser.write(format_message(mode_message))
     ser.flush()
     if not check_response(ser, limit=3):

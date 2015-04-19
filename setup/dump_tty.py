@@ -3,7 +3,10 @@
 import argparse
 import serial
 
-from control.sup800f import change_mode, get_message, parse_binary
+from control.sup800f import get_message
+from control.sup800f import parse_binary
+from control.sup800f import switch_to_binary_mode
+from control.sup800f import switch_to_nmea_mode
 
 
 def make_parser():
@@ -49,11 +52,11 @@ def main():
 
     ser = serial.Serial(args.tty, args.baud_rate)
     if args.gps or (args.gps is None and args.binary is None):
-        change_mode(ser, 'nmea')
+        switch_to_nmea_mode(ser)
         while True:
             print(ser.readline())
     else:
-        change_mode(ser, 'binary')
+        switch_to_binary_mode(ser)
 
         format_string = '\n'.join((
             'acceleration X: {}',
