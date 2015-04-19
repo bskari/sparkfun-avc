@@ -9,4 +9,5 @@ numpy >= 1.9.1, < 1.10
 # pyopencv 3.0.0 is in beta and not released to PyPI as of 2015-01-15, so
 # you'll need to install it manually
 #pyopencv >= 3.0.0
+pyserial >= 2.7.0, < 2.8
 ws4py >= 0.3.4, < 0.4
