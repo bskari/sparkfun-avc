@@ -46,9 +46,16 @@ echo 'Get ready to expand the root FS and enable the camera (press enter)'
 read
 raspi-config  # Expand the root FS, enable the camera
 
+adduser --disabled-password --gecos '' pi
 echo -n 'Password for user pi? '
 read password
 echo "pi:${password}" | chpasswd
+echo -n 'WPA passphrase? '
+read wpa_passphrase
+echo "${wpa_passphrase}" > '/tmp/wpa-passphrase.txt'
+echo 'SSID name? '
+read ssid_name
+echo "${ssid_name}" > '/tmp/ssid-name.txt'
 
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
