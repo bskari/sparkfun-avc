@@ -31,6 +31,7 @@ def main():
             'dotfiles',
             not exists('/home/pi/.dotfiles'),
             (
+                'rm -f /home/pi/.bashrc',
                 'bash setup-dotfiles.sh',
             )
         ),
@@ -124,6 +125,13 @@ def main():
             True,
             (
                 'bash setup-gps.sh',
+            )
+        ),
+        (
+            'configure sudoers',
+            newer('sudoers', '/etc/sudoers'),
+            (
+                'cp sudoers /etc/sudoers',
             )
         ),
     )
