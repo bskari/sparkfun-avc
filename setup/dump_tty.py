@@ -79,7 +79,7 @@ def main():
             if len(data) != 42:
                 continue
             print(data)
-            binary = parse_binary(data)._fields  # pylint: disable=protected-access
+            binary = parse_binary(data)  # pylint: disable=protected-access
             print(format_string.format(*binary))  # pylint: disable=star-args
 
 

@@ -123,7 +123,11 @@ def check_response(ser, limit=None):
         if limit is None:
             return True
         else:
-            return count < limit
+            nonlocal count
+            count += 1
+            if count > limit:
+                print('No response received')
+            return count <= limit
 
     while check():
         data = get_message(ser)
@@ -133,9 +137,9 @@ def check_response(ser, limit=None):
             )
         except:  # pylint: disable=bare-except
             continue
-        if message_id not in (83, 84):
+        if message_id not in (0x83, 0x84):
             continue
-        if message_id == 83:
+        if message_id == 0x83:
             return True
         else:
             return False
