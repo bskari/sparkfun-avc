@@ -1,28 +1,26 @@
 // Silence warnings about use of unstable features
+#![feature(convert)]
 #![feature(core)]
-#![feature(io)]
-#![feature(io_ext)]
 #![feature(libc)]
-#![feature(old_io)]  // For socket stuff
-#![feature(old_path)]  // For socket stuff
 #![feature(path_ext)]  // For is_file, etc.
 #![feature(std_misc)]
 #![feature(str_words)]
-#![feature(thread_sleep)]
 #[macro_use]
 
 extern crate log;
 extern crate getopts; // This needs to be declared after log, otherwise you get compilation errors
 extern crate time;
+extern crate unix_socket;
 use getopts::{Matches, Options};
-use log::{set_logger, LogLevel, LogLevelFilter, LogRecord};
+use log::{set_logger, LogLevel, LogLevelFilter, LogMetadata, LogRecord};
 use std::error::Error;
-use std::old_io::net::pipe::UnixStream;
+use std::path::Path;
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::io::Read;
 use std::str::from_utf8;
-use std::thread::{JoinHandle, sleep, spawn};
-use std::time::duration::Duration;
+use std::thread::{JoinHandle, sleep_ms, spawn};
 use time::{now, strftime};
+use unix_socket::UnixStream;
 
 use control::Control;
 use filtered_telemetry::FilteredTelemetry;
@@ -49,19 +47,19 @@ struct StdoutLogger {
     level: LogLevel,
 }
 impl log::Log for StdoutLogger {
-    fn enabled(&self, level: LogLevel, _module: &str) -> bool {
-        level <= self.level
+    fn enabled(&self, metadata: &LogMetadata) -> bool {
+        metadata.level() <= self.level
     }
 
     fn log(&self, record: &LogRecord) {
-        if self.enabled(record.level(), record.location().module_path) {
+        if self.enabled(record.metadata()) {
             let now_tm = now();
             let time_str = match strftime("%Y/%m/%d %H:%M:%S.", &now_tm) {
                 Ok(s) => s,
                 Err(_) => "UNKNOWN".to_string()  // This should never happen
             } + &format!("{}", now_tm.tm_nsec)[0..3];
             let location = record.location();
-            let file_name = match location.file.split('/').last() {
+            let file_name = match location.file().split('/').last() {
                 Some(slashes) => {
                     match slashes.split('.').next() {
                         Some(name) => name,
@@ -74,7 +72,7 @@ impl log::Log for StdoutLogger {
                 "{time} {file}:{line} {level:<5} {message}",
                 time=time_str,
                 file=file_name,
-                line=location.line,
+                line=location.line(),
                 level=record.level(),
                 message=record.args());
         }
@@ -123,7 +121,7 @@ fn main() {
 
     join_handles.push(
         spawn_control(
-            path_file_name.as_slice(),
+            &path_file_name,
             max_throttle,
             request_telemetry_tx,
             telemetry_rx,
@@ -152,7 +150,7 @@ fn main() {
             command_tx,
             quit_command_message_rx));
 
-    sleep(Duration::milliseconds(1000));
+    sleep_ms(1000);
 
     for quitter in quitters {
         warn_err!(quitter.send(()));
@@ -230,7 +228,8 @@ fn spawn_command_message_listener(
             }
         };
 
-        socket.set_timeout(Some(1000u64));
+        // UnixStream got pushed out of std to a crate, and set_timeout is not supported any more
+        //socket.set_timeout(Some(1000u64));
         let mut message_bytes = Vec::<u8>::new();
         loop {
             let mut buffer: [u8; 20] = [0; 20];

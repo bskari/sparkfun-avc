@@ -1,5 +1,4 @@
 use std::f64;
-use std::num::Float;
 
 use telemetry_message::CompassMessage;
 use telemetry_message::GpsMessage;
@@ -9,12 +8,14 @@ use telemetry_message::TelemetryMessage;
 pub type Meter = f32;
 pub type Degrees = f32;
 pub type MetersPerSecond = f32;
+#[derive(Clone)]
 #[derive(Copy)]
 pub struct Point {
     pub x: Meter,
     pub y: Meter,
 }
 
+#[derive(Clone)]
 #[derive(Copy)]
 pub struct TelemetryState {
     pub location: Point,
@@ -380,7 +381,7 @@ mod tests {
     }
 
     #[test]
-    #[should_fail]  // We're using a less accurate spherical method right now
+    #[should_panic]  // We're using a less accurate spherical method right now
     fn test_latitude_d_to_m_per_longitude_d_oblong() {
         // Known values, from http://www.csgnetwork.com/degreelenllavcalc.html
         // M_PER_D_LATITUDE = 111319.458,

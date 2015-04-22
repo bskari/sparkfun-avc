@@ -1,9 +1,7 @@
 extern crate log;
 extern crate time;
-use std::num::Float;
 use std::sync::mpsc::{Sender, Receiver};
 use std::thread;
-use std::time::duration::Duration;
 
 use driver::{Driver, Percentage};
 use telemetry::{Degrees, TelemetryState, difference_d, distance, is_turn_left, relative_degrees};
@@ -84,7 +82,7 @@ impl Control {
             if !self.run_incremental() {
                 return;
             }
-            thread::sleep(Duration::milliseconds(50));
+            thread::sleep_ms(50);
         }
     }
 

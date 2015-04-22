@@ -1,9 +1,9 @@
+use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::duration::Duration;
 
 use telemetry::{Degrees, MetersPerSecond, Point, hdop_to_std_dev, latitude_longitude_to_point};
 use telemetry_message::{GpsMessage, TelemetryMessage};
@@ -59,7 +59,7 @@ impl TelemetryProvider {
                 gps_message_received = true;
                 break;
             }
-            thread::sleep(Duration::milliseconds(50));
+            thread::sleep_ms(50);
         }
         if !gps_message_received {
             error!("No messages received from GPS, aborting telemetry provider thread");

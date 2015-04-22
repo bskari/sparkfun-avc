@@ -34,7 +34,10 @@ impl KmlWaypointGenerator {
         // A KML file is a zip archive containing a single file named "doc.kml"
         // that is an XML file
         let temp_directory = "/tmp/waypoints";
-        remove_dir_all(temp_directory);
+        match remove_dir_all(temp_directory) {
+            Ok(_) => (),
+            Err(e) => panic!("Failed to remove temp directory: {}", e),
+        };
         let zip_io_result = Command::new("unzip")
             .arg(file_name)
             .arg("-d")  // Output directory
@@ -65,12 +68,12 @@ impl KmlWaypointGenerator {
         for line_option in xml_file.lines() {
             match line_option {
                 Ok(line) => {
-                    if line.as_slice().contains("<coordinates>") {
+                    if line.contains("<coordinates>") {
                         coordinates_open_tag = true;
                     } else if coordinates_open_tag {
                         let mut latitude = 0.0f64;
                         let mut longitude = 0.0f64;
-                        for long_lat_alt in line.as_slice().words() {
+                        for long_lat_alt in line.words() {
                             let mut iterator = long_lat_alt.split(',');
                             let mut success = true;
                             match iterator.next() {

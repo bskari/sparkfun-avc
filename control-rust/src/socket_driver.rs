@@ -1,7 +1,6 @@
-use std::num::Float;
-use std::old_io::net::pipe::UnixStream;
-use std::old_path::posix::Path;
-use std::time::Duration;
+use std::io::Write;
+use std::path::Path;
+use unix_socket::UnixStream;
 
 use driver::{Driver, Percentage};
 
@@ -18,7 +17,7 @@ pub struct SocketDriver {
 impl SocketDriver {
     pub fn new(max_throttle: Percentage) -> SocketDriver {
         let server = Path::new("/tmp/driver-socket");
-        let socket = match UnixStream::connect(&server) {
+        let socket = match UnixStream::connect(server) {
             Ok(socket) => socket,
             Err(e) => panic!("Unable to open Unix socket for driver: {}", e),
         };
@@ -35,7 +34,7 @@ impl Driver for SocketDriver {
     fn drive(&mut self, throttle: Percentage, steering: Percentage) {
         self.throttle = self.max_throttle.max(throttle);
         self.steering = steering;
-        match self.socket.write_str(format!("{} {}\n", self.throttle, self.steering).as_slice()) {
+        match self.socket.write(format!("{} {}\n", self.throttle, self.steering).as_bytes()) {
             Ok(_) => (),
             Err(err) => error!("Unable to send drive command: {}", err),
         }
