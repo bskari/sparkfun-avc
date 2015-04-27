@@ -68,7 +68,6 @@ def start_threads(
     command = Command(telemetry, driver, waypoint_generator, logger)
     serial_ = serial.Serial('/dev/ttyAMA0', 115200)
     telemetry_data = TelemetryData(telemetry, serial_, logger)
-    telemetry_data.set_driver(driver)
     first_waypoint = waypoint_generator.get_current_waypoint(0.0, 0.0)
     telemetry_data._x_m = first_waypoint[0] - 100.0
     telemetry_data._y_m = first_waypoint[1] - 100.0

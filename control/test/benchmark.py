@@ -1,19 +1,21 @@
 """Benchmarks the parts of the system."""
 
 import time
-import timeit
 
-from control.chase_waypoint_generator import ChaseWaypointGenerator
 from control.command import Command
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.location_filter import LocationFilter
 from control.telemetry import Telemetry
 from control.test.dummy_driver import DummyDriver
 from control.test.dummy_logger import DummyLogger
-from control.test.dummy_telemetry_data import DummyTelemetryData
+
+# pylint: disable=invalid-name
+# pylint: disable=protected-access
+# pylint: disable=line-too-long
 
 
 def benchmark_location_filter_update_gps():
+    """Benchmark the location filter GPS update."""
     location_filter = LocationFilter(0.0, 0.0, 0.0)
     iterations = 100
     start = time.time()
@@ -29,6 +31,7 @@ def benchmark_location_filter_update_gps():
 
 
 def benchmark_location_filter_update_compass():
+    """Benchmark the location filter compass update."""
     location_filter = LocationFilter(0.0, 0.0, 0.0)
     iterations = 100
     start = time.time()
@@ -37,13 +40,14 @@ def benchmark_location_filter_update_compass():
     end = time.time()
     print(
         '{} iterations of LocationFilter.update_compass, each took {:.5}'.format(
-            iterations,
+            iterations
             (end - start) / float(iterations)
         )
     )
 
 
 def benchmark_location_filter_update_dead_reckoning():
+    """Benchmark the location filter with dead reckoning and no other input."""
     location_filter = LocationFilter(0.0, 0.0, 0.0)
     iterations = 1000
     start = time.time()
@@ -59,6 +63,7 @@ def benchmark_location_filter_update_dead_reckoning():
 
 
 def benchmark_command_run_course_iterator():
+    """Benchmark the logic for driving the car."""
     logger = DummyLogger()
     telemetry = Telemetry(logger)
     waypoint_generator = KmlWaypointGenerator(
@@ -71,8 +76,10 @@ def benchmark_command_run_course_iterator():
     iterations = 250
     start = time.time()
     iterator = command._run_course_iterator()
+    step = None
     for step in zip(range(iterations), iterator):
         pass
+    assert step is not None
     assert step[0] == iterations - 1
 
     end = time.time()
@@ -85,6 +92,7 @@ def benchmark_command_run_course_iterator():
 
 
 def main():
+    """Runs all the benchmarks."""
     benchmark_location_filter_update_gps()
     benchmark_location_filter_update_compass()
     benchmark_location_filter_update_dead_reckoning()
