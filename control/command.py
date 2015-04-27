@@ -39,6 +39,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self._last_command = None
         self._sleep_time = None
         self._wake_time = None
+        self._telemetry_data = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -63,6 +64,10 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 self.calibrate_compass(message['seconds'])
             else:
                 self.calibrate_compass(10)
+
+    def set_telemetry_data(self, telemetry_data):
+        """Sets the telemetry data. Needed for compass calibration."""
+        self._telemetry_data = telemetry_data
 
     def _wait(self):
         """We just define this function separately so that it's easy to patch
@@ -261,10 +266,17 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         """Calibrates the compass."""
         # Don't calibrate while driving
         if self._run_course:
+            self._logger.warn("Can't configure compass while running")
+            return
+        if self._telemetry_data is None:
+            self._logger.error(
+                'Unable to configure compass: telemetry_data is None'
+            )
             return
 
         start = time.time()
         self._driver.drive(0.5, 1.0)
+        self._telemetry_data.calibrate_compass(seconds)
         try:
             while (
                     self._run

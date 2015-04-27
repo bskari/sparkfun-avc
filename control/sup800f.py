@@ -83,6 +83,12 @@ def parse_binary(binary_message):
     """Parses a binary message (temperature, accelerometer, magnetometer, and
     pressure) from the SUP800F module.
     """
+    # TODO: I guess the SUP800F also returns navigation data messages? Ignore
+    # them for now, but this shouldn't be called
+    if binary_message[4] == 0xA8:
+        return None
+    if binary_message[4] != 0xCF:
+        raise ValueError('Invalid id while parsing binary message')
     return BinaryMessage(*struct.unpack(BINARY_FORMAT, binary_message))
 
 
@@ -103,7 +109,7 @@ def _change_mode(ser, mode):
     mode_message = struct.pack(MODE_FORMAT, 9, mode, 0)
     ser.write(format_message(mode_message))
     ser.flush()
-    if not check_response(ser, limit=3):
+    if not check_response(ser, limit=10):
         raise RuntimeError('Mode change denied')
 
 

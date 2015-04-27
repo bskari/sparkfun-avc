@@ -41,7 +41,7 @@ class TelemetryData(threading.Thread):
         self._logger = logger
         self._run = True
         self._iterations = 0
-        self._compass_offsets = None
+        self._compass_offsets = (52.64, 56.4)  # From observation
 
         self._driver = None
         self._calibrate_compass_end_time = None
@@ -132,18 +132,33 @@ class TelemetryData(threading.Thread):
 
     def _calibrate_compass(self):
         """Calibrates the compass."""
+        self._logger.info('Calibrating compass; setting to binary mode')
         switch_to_binary_mode(self._serial)
+        for _ in range(10):
+            self._serial.readline()
+        self._logger.info('Doing stuff')
+
         maxes = [-1000000.0] * 3
         mins = [1000000.0] * 3
         total_magnitudes = []
         # We should be driving for this long
-        while time.time() < self._calibrate_compass_end_time():
+        while time.time() < self._calibrate_compass_end_time:
             data = get_message(self._serial)
-            binary = parse_binary(data)
+            try:
+                binary = parse_binary(data)
+            except ValueError as ve:
+                self._logger.info(
+                    'Unable to parse binary message {}'.format(
+                        data
+                    )
+                )
+                continue
+            # TODO: This should never be None, see comment in sup800f.py
+            if binary is None:
+                continue
             values = (
                 binary.magnetic_flux_ut_x,
                 binary.magnetic_flux_ut_y,
-                binary.magnetic_flux_ut_z
             )
             maxes = [max(a, b) for a, b in zip(maxes, values)]
             mins = [min(a, b) for a, b in zip(mins, values)]
@@ -152,7 +167,7 @@ class TelemetryData(threading.Thread):
         self._compass_offsets = [max_ - min_ for max_, min_ in zip(maxes, mins)]
         self._logger.info(
             'Compass calibrated, offsets are {}'.format(
-                (round(i, 2) for i in self._compass_offsets)
+                [round(i, 2) for i in self._compass_offsets]
             )
         )
         total_magnitudes = numpy.array(total_magnitudes)

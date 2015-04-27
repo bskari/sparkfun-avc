@@ -11,6 +11,7 @@ import sys
 from control.button import Button
 from control.command import Command
 from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.sup800f import switch_to_nmea_mode
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
 from control.driver import Driver
@@ -66,9 +67,28 @@ def start_threads(
     driver.set_max_throttle(max_throttle)
 
     command = Command(telemetry, driver, waypoint_generator, logger)
+
+    logger.info('Setting SUP800F to NMEA mode')
     serial_ = serial.Serial('/dev/ttyAMA0', 115200)
+    for _ in range(10):
+        serial_.readline()
+    try:
+        switch_to_nmea_mode(serial_)
+    except:
+        logger.error('Unable to set mode')
+    for _ in range(10):
+        serial_.readline()
+    logger.info('Done')
+
     telemetry_data = TelemetryData(telemetry, serial_, logger)
     telemetry_data.set_driver(driver)
+
+    # This is used for compass calibration
+    # TODO: I really don't like having cross dependencies between command and
+    # driver; this should be factored out so that there is a single class that
+    # waits for messages and them forwards them on.
+    command.set_telemetry_data(telemetry_data)
+
     first_waypoint = waypoint_generator.get_current_waypoint(0.0, 0.0)
     telemetry_data._x_m = first_waypoint[0] - 100.0
     telemetry_data._y_m = first_waypoint[1] - 100.0
