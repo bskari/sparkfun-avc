@@ -36,7 +36,7 @@ then
 fi
 
 apt-get update
-apt-get install -y libparted0debian1 parted lua5.1 triggerhappy
+apt-get install -y libparted0debian1 parted lua5.1 triggerhappy whiptail libnewt0.52
 if [ ! -f 'raspi-config_20140902-1_all.deb' ];
 then
     wget http://archive.raspberrypi.org/debian/pool/main/r/raspi-config/raspi-config_20140902-1_all.deb
@@ -46,7 +46,9 @@ echo 'Get ready to expand the root FS and enable the camera (press enter)'
 read
 raspi-config  # Expand the root FS, enable the camera
 
+set +e
 adduser --disabled-password --gecos '' pi
+set -e
 echo -n 'Password for user pi? '
 read password
 echo "pi:${password}" | chpasswd
@@ -56,6 +58,17 @@ echo "${wpa_passphrase}" > '/tmp/wpa-passphrase.txt'
 echo 'SSID name? '
 read ssid_name
 echo "${ssid_name}" > '/tmp/ssid-name.txt'
+echo 'Cloning SparkFun AVC repo'
+pushd ~pi
+    if [ -e sparkfun-avc ];
+    then
+        pushd sparkfun-avc
+            git pull
+        popd
+    else
+        git clone git@www.skari.org:sparkfun-avc
+    fi
+popd
 
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
@@ -77,5 +90,17 @@ apt-get install -y \
     tmux \
     vim \
 
+echo 'Setting up rooter'
+pushd ~pi
+    chown -R pi:pi sparkfun-avc
+    pushd sparkfun-avc/setup
+        gcc rooter.c -o rooter
+        chown root:root rooter
+        chmod +s rooter
+    popd
+popd
+
 # Hell with bash, let's do the rest of this in Python
-python3 setup.py
+tmux new -d -s sparkfun
+tmux send-keys -t sparkfun 'python3 setup.py' c-m
+tmux attach -t sparkfun

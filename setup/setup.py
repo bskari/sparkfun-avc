@@ -129,7 +129,7 @@ def main():
         ),
         (
             'configure sudoers',
-            newer('sudoers', '/etc/sudoers'),
+            not exists('/etc/sudoers') or newer('sudoers', '/etc/sudoers'),
             (
                 'cp sudoers /etc/sudoers',
             )
