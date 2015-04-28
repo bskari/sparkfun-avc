@@ -40,7 +40,7 @@ def benchmark_location_filter_update_compass():
     end = time.time()
     print(
         '{} iterations of LocationFilter.update_compass, each took {:.5}'.format(
-            iterations
+            iterations,
             (end - start) / float(iterations)
         )
     )
