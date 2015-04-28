@@ -10,6 +10,7 @@ accelerometer_m_s_s, and magnetometer.
 """
 
 import numpy
+import math
 import threading
 import time
 
@@ -17,6 +18,7 @@ from control.sup800f import get_message
 from control.sup800f import parse_binary
 from control.sup800f import switch_to_binary_mode
 from control.sup800f import switch_to_nmea_mode
+from control.telemetry import Telemetry
 
 
 # Below this speed, the GPS module uses the compass to compute heading, if the
@@ -41,30 +43,70 @@ class TelemetryData(threading.Thread):
         self._logger = logger
         self._run = True
         self._iterations = 0
-        self._compass_offsets = (52.64, 56.4)  # From observation
+        # These initial measurements are from a calibration observation
+        self._compass_offsets = (-4.43, -0.43)
+        self._magnitude_mean = 353.310
+        self._magnitude_std_dev = 117.918
 
         self._driver = None
         self._calibrate_compass_end_time = None
+        self._mode = 'n'
 
     def run(self):
         """Run in a thread, hands raw telemetry readings to telemetry
         instance.
         """
+        binary_count = 0
         while self._run:
             if self._calibrate_compass_end_time is not None:
                 self._calibrate_compass()
 
             # This blocks until a new message is received
             try:
-                line = self._serial.readline().decode('utf-8')
+                if self._mode == 'n':
+                    line = self._serial.readline().decode('utf-8')
+                else:
+                    data = get_message(self._serial, 10000)
             except Exception as exc:  # pylint: disable=broad-except
                 self._logger.warn(
-                    'Unable to decode GPS message: {}'.format(exc)
+                    'Unable to read message: {}'.format(exc)
                 )
                 continue
 
-            if line.startswith('$GPRMC'):
-                self._handle_gprmc(line)
+            # NMEA mode
+            if self._mode == 'n':
+                if line.startswith('$GPRMC'):
+                    self._handle_gprmc(line)
+                    try:
+                        switch_to_binary_mode(self._serial)
+                    except RuntimeError as rte:
+                        self._logger.error(
+                            'Unable to switch to binary mode: {}'.format(
+                                rte
+                            )
+                        )
+                    self._mode = 'b'
+            # Binary/compass mode
+            elif self._mode == 'b':
+                parsed = parse_binary(data)
+                if parsed is None:
+                    continue
+                self._handle_binary(parsed)
+                binary_count += 1
+                if binary_count >= 3:
+                    try:
+                        switch_to_nmea_mode(self._serial)
+                    except RuntimeError as rte:
+                        self._logger.error(
+                            'Unable to switch to NMEA mode: {}'.format(
+                                rte
+                            )
+                        )
+                    self._mode = 'n'
+                    binary_count = 0
+            else:
+                self._logger.error('Unknown mode: {}',format(self._mode))
+
 
     def _handle_gprmc(self, gprmc_message):
         """Handles GPRMC (recommended minimum specific GNSS data) messages."""
@@ -116,6 +158,36 @@ class TelemetryData(threading.Thread):
             'speed_m_s': speed_m_s,
         })
 
+    def _handle_binary(self, message):
+        if message is None:
+            return
+        flux_x = float(message.magnetic_flux_ut_x - self._compass_offsets[0])
+        flux_y = float(message.magnetic_flux_ut_y - self._compass_offsets[1])
+        if flux_x == 0.0:
+            # TODO: Figure out what to do here
+            return
+        degrees = Telemetry.wrap_degrees(
+            270.0 - math.degrees(
+                math.atan2(flux_y, flux_x)
+            )
+        )
+        self._logger.info(
+            'x:{} y:{} heading:{} std devs:{}'.format(
+                round(flux_x, 3),
+                round(flux_y, 3),
+                round(degrees, 3),
+                round(
+                    abs(
+                        (
+                            message.magnetic_flux_ut_x ** 2
+                            + message.magnetic_flux_ut_y ** 2
+                        ) - self._magnitude_mean
+                    ) / self._magnitude_std_dev,
+                    3
+                )
+            )
+        )
+
     def kill(self):
         """Stops any data collection."""
         self._run = False
@@ -134,13 +206,13 @@ class TelemetryData(threading.Thread):
         """Calibrates the compass."""
         self._logger.info('Calibrating compass; setting to binary mode')
         switch_to_binary_mode(self._serial)
+        self._mode = 'b'
         for _ in range(10):
             self._serial.readline()
-        self._logger.info('Doing stuff')
 
         maxes = [-1000000.0] * 3
         mins = [1000000.0] * 3
-        total_magnitudes = []
+        readings = []
         # We should be driving for this long
         while time.time() < self._calibrate_compass_end_time:
             data = get_message(self._serial)
@@ -162,20 +234,32 @@ class TelemetryData(threading.Thread):
             )
             maxes = [max(a, b) for a, b in zip(maxes, values)]
             mins = [min(a, b) for a, b in zip(mins, values)]
-            total_magnitudes.append(sum((v ** 2 for v in values)))
+            readings.append((
+                binary.magnetic_flux_ut_x,
+                binary.magnetic_flux_ut_y,
+            ))
 
-        self._compass_offsets = [max_ - min_ for max_, min_ in zip(maxes, mins)]
+        self._compass_offsets = [
+            (max_ + min_) * 0.5 for max_, min_ in zip(maxes, mins)
+        ]
         self._logger.info(
             'Compass calibrated, offsets are {}'.format(
                 [round(i, 2) for i in self._compass_offsets]
             )
         )
-        total_magnitudes = numpy.array(total_magnitudes)
+        total_magnitudes = numpy.array([
+            (x - self._compass_offsets[0]) ** 2 +
+            (y - self._compass_offsets[1]) ** 2
+            for x, y in readings
+        ])
+        self._magnitude_mean = total_magnitudes.mean()
+        self._magnitude_std_dev = total_magnitudes.std()
         self._logger.info(
             'Magnitudes mean: {}, standard deviation {}'.format(
-                total_magnitudes.mean(),
-                total_magnitudes.std()
+                round(self._magnitude_mean, 3),
+                round(self._magnitude_std_dev, 3)
             )
         )
         self._calibrate_compass_end_time = None
         switch_to_nmea_mode(self._serial)
+        self._mode = 'n'

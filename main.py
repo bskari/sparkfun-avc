@@ -70,6 +70,7 @@ def start_threads(
 
     logger.info('Setting SUP800F to NMEA mode')
     serial_ = serial.Serial('/dev/ttyAMA0', 115200)
+    serial_.setTimeout(1.0)
     for _ in range(10):
         serial_.readline()
     try:

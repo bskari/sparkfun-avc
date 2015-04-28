@@ -61,19 +61,33 @@ def format_message(payload):
     )
 
 
-def get_message(ser):
+def get_message(ser, timeout_bytes=None):
     """Returns a single message."""
     # Keep consuming bytes until we see the header message
+    if timeout_bytes is None:
+        timeout_bytes = 10000000
+    skipped_bytes = 0
     while True:
+        if skipped_bytes > timeout_bytes:
+            raise ValueError('No binary header found')
+
         part = ser.read(1)
+        skipped_bytes += 1
         if part != b'\xA0':
             continue
+
         part = ser.read(1)
+        skipped_bytes += 1
         if part != b'\xA1':
             continue
+
         part = ser.read(2)
+        skipped_bytes += 2
+
         payload_length = struct.unpack('!H', part)[0]
         rest = ser.read(payload_length + 3)
+        skipped_bytes += payload_length + 3
+
         if rest[-2:] != b'\r\n':
             print(r"Message didn't end in \r\n")
         return b'\xA0\xA1' + struct.pack('!H', payload_length) + rest
