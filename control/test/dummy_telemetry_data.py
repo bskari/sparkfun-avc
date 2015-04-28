@@ -10,7 +10,6 @@ accelerometer_m_s_s, and magnetometer.
 """
 
 import math
-import random
 import threading
 import time
 
@@ -25,10 +24,11 @@ class DummyTelemetryData(threading.Thread):
     SIGMA_M_S = 0.5
 
     def __init__(
-        self,
-        telemetry,
-        logger,
-        sleep_time_milliseconds=None
+            self,
+            telemetry,
+            logger,
+            random,
+            sleep_time_milliseconds=None
     ):
         """Create the TelemetryData thread."""
         super(DummyTelemetryData, self).__init__()
@@ -37,6 +37,7 @@ class DummyTelemetryData(threading.Thread):
         self._logger = logger
         self._run = True
         self._iterations = 0
+        self._random = random
 
         if sleep_time_milliseconds is None:
             self._sleep_time_s = 0.2
@@ -81,20 +82,26 @@ class DummyTelemetryData(threading.Thread):
             self._iterations += 1
             if self._iterations % 5 == 0:
                 gps_d = Telemetry.wrap_degrees(
-                    random.normalvariate(self._heading_d, self.SIGMA_GPS_D)
+                    self._random.normalvariate(
+                        self._heading_d,
+                        self.SIGMA_GPS_D
+                    )
                 )
                 self._telemetry.handle_message({
-                    'x_m': random.normalvariate(self._x_m, self.SIGMA_M),
-                    'y_m': random.normalvariate(self._y_m, self.SIGMA_M),
+                    'x_m': self._random.normalvariate(self._x_m, self.SIGMA_M),
+                    'y_m': self._random.normalvariate(self._y_m, self.SIGMA_M),
                     'x_accuracy_m': self.SIGMA_M,
                     'y_accuracy_m': self.SIGMA_M,
-                    'speed_m_s': random.normalvariate(speed_m_s, self.SIGMA_M_S),
+                    'speed_m_s': self._random.normalvariate(
+                        speed_m_s,
+                        self.SIGMA_M_S
+                    ),
                     'gps_d': gps_d,
                     'accelerometer_m_s_s': (0.0, 0.0, 9.8),
                 })
             else:
                 compass_d = Telemetry.wrap_degrees(
-                    random.normalvariate(
+                    self._random.normalvariate(
                         self._heading_d,
                         self.SIGMA_COMPASS_D
                     )
@@ -107,9 +114,3 @@ class DummyTelemetryData(threading.Thread):
     def kill(self):
         """Stops any data collection."""
         self._run = False
-
-    def set_driver(self, driver):
-        """Allow accessing a driver method so that we can do simulation of
-        driving events, e.g. turning on throttle causes the car to move.
-        """
-        self._driver = driver

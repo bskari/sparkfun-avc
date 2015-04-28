@@ -82,7 +82,6 @@ def start_threads(
     logger.info('Done')
 
     telemetry_data = TelemetryData(telemetry, serial_, logger)
-    telemetry_data.set_driver(driver)
 
     # This is used for compass calibration
     # TODO: I really don't like having cross dependencies between command and

@@ -48,7 +48,6 @@ class TelemetryData(threading.Thread):
         self._magnitude_mean = 353.310
         self._magnitude_std_dev = 117.918
 
-        self._driver = None
         self._calibrate_compass_end_time = None
         self._mode = 'n'
 
@@ -191,12 +190,6 @@ class TelemetryData(threading.Thread):
     def kill(self):
         """Stops any data collection."""
         self._run = False
-
-    def set_driver(self, driver):
-        """Allow accessing a driver method so that we can do simulation of
-        driving events, e.g. turning on throttle causes the car to move.
-        """
-        self._driver = driver
 
     def calibrate_compass(self, seconds):
         """Requests that the car calibrate the compasss."""
