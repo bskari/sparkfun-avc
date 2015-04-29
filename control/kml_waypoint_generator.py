@@ -30,6 +30,7 @@ class KmlWaypointGenerator(object):
                     length=len(self._waypoints)
                 )
             )
+        self._last_distance_m = 1000000.0
 
     def get_current_waypoint(self, x_m, y_m):  # pylint: disable=unused-argument
         """Returns the current waypoint."""
@@ -45,10 +46,23 @@ class KmlWaypointGenerator(object):
 
     def reached(self, x_m, y_m):
         """Returns True if the current waypoint has been reached."""
-        return math.sqrt(
+        # I was having problems with the car driving in circles looking for the
+        # waypoint, so instead of having a hard cutoff of 1.5 m, count the
+        # waypoint as reached if the distance is < 3m and either the distance
+        # starts increasing, or the car gets within 1m
+        distance_m = math.sqrt(
             (x_m - self._waypoints[0][0]) ** 2
             + (y_m - self._waypoints[0][1]) ** 2
-        ) < 1.5
+        )
+        if distance_m < 1.0:
+            return True
+        if self._last_distance_m < 3.0 and distance_m > self._last_distance_m:
+            # This will get overwritten next time
+            self._last_distance_m = 1000000.0
+            return True
+
+        self._last_distance_m = distance_m
+        return False
 
     def next(self):
         """Goes to the next waypoint."""
@@ -62,7 +76,7 @@ class KmlWaypointGenerator(object):
 
     @staticmethod
     def _load_waypoints(kml_string):
-        """Loads and returns the waypoints from a KML path file."""
+        """Loads and returns the waypoints from a KML string."""
 
         def get_child(element, tag_name):
             """Returns the child element with the given tag name."""
