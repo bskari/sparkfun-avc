@@ -200,12 +200,12 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             else:
                 speed = 0.5
 
-            degrees = Telemetry.relative_degrees(
+            degrees = Telemetry.wrap_degrees(180.0 + Telemetry.relative_degrees(
                 telemetry['x_m'],
                 telemetry['y_m'],
                 current_waypoint[0],
                 current_waypoint[1]
-            )
+            ))
 
             heading_d = telemetry['heading_d']
 

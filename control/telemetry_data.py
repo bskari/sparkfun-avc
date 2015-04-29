@@ -49,63 +49,83 @@ class TelemetryData(threading.Thread):
         self._magnitude_std_dev = 117.918
 
         self._calibrate_compass_end_time = None
-        self._mode = 'n'
+        self._nmea_mode = True
+        self._last_compass_heading_d = 0.0
 
     def run(self):
         """Run in a thread, hands raw telemetry readings to telemetry
         instance.
         """
+        while self._run:
+            try:
+                self._run_inner()
+            except EnvironmentError as env:
+                self._logger.debug('Failed to switch mode: {}'.format(env))
+                # Maybe resetting the module mode will help
+                try:
+                    if self._nmea_mode:
+                        switch_to_nmea_mode(self._serial)
+                    else:
+                        switch_to_binary_mode(self._serial)
+                except:
+                    pass
+            except Exception as exc:  # pylint: disable=broad-except
+                self._logger.warn(
+                    'Telemetry data caught exception: {}'.format(
+                        exc
+                    )
+                )
+
+    def _run_inner(self):
+        """Inner part of run."""
         binary_count = 0
         while self._run:
             if self._calibrate_compass_end_time is not None:
                 self._calibrate_compass()
 
-            # This blocks until a new message is received
-            try:
-                if self._mode == 'n':
-                    line = self._serial.readline().decode('utf-8')
-                else:
-                    data = get_message(self._serial, 10000)
-            except Exception as exc:  # pylint: disable=broad-except
-                self._logger.warn(
-                    'Unable to read message: {}'.format(exc)
-                )
-                continue
-
             # NMEA mode
-            if self._mode == 'n':
-                if line.startswith('$GPRMC'):
-                    self._handle_gprmc(line)
-                    try:
-                        switch_to_binary_mode(self._serial)
-                    except RuntimeError as rte:
-                        self._logger.error(
-                            'Unable to switch to binary mode: {}'.format(
-                                rte
-                            )
-                        )
-                    self._mode = 'b'
-            # Binary/compass mode
-            elif self._mode == 'b':
-                parsed = parse_binary(data)
-                if parsed is None:
-                    continue
-                self._handle_binary(parsed)
-                binary_count += 1
-                if binary_count >= 3:
-                    try:
-                        switch_to_nmea_mode(self._serial)
-                    except RuntimeError as rte:
-                        self._logger.error(
-                            'Unable to switch to NMEA mode: {}'.format(
-                                rte
-                            )
-                        )
-                    self._mode = 'n'
-                    binary_count = 0
+            if self._nmea_mode:
+                if self._get_gprc():
+                    switch_to_binary_mode(self._serial)
+                    self._nmea_mode = False
             else:
-                self._logger.error('Unknown mode: {}',format(self._mode))
+                if self._get_binary():
+                    binary_count += 1
+                    if binary_count >= 3:
+                        switch_to_nmea_mode(self._serial)
+                        self._nmea_mode = True
+                        binary_count = 0
 
+    def _get_gprc(self):
+        """Gets and processes a single GPRC message."""
+        # This blocks until a new message is received
+        line = self._serial.readline()
+        try:
+            line = line.decode('utf-8')
+        except:
+            raise EnvironmentError('Not a UTF-8 message')
+
+        # TODO: Configure the module so that it only puts out GPRMC messages
+        if line.startswith('$GPRMC'):
+            self._handle_gprmc(line)
+            return True
+        return False
+
+    def _get_binary(self):
+        """Gets and processes a single binary message."""
+        try:
+            message = get_message(self._serial, 1000)
+        except ValueError:
+            self._logger.error('No binary message received')
+            return False
+
+        parsed = parse_binary(message)
+        if parsed is None:
+            if message[0] == '$':
+                throw
+            return False
+        self._handle_binary(parsed)
+        return True
 
     def _handle_gprmc(self, gprmc_message):
         """Handles GPRMC (recommended minimum specific GNSS data) messages."""
@@ -131,12 +151,10 @@ class TelemetryData(threading.Thread):
         speed_knots = float(parts[7])
         speed_m_s = speed_knots * 0.514444444
         course = float(parts[8])
-        # I mounted the GPS module 90 degrees off, because it was easier and
-        # more secure. Below a certain speed, the module uses the compass to
-        # determine course, so we need to compensate. Above that speed, it
-        # interpolates between GPS points and no rotation is necessary.
+        # Below a certain speed, the module uses the compass to determine
+        # course, which is not calibrated, so we need to use our own value.
         if speed_m_s < COMPASS_SPEED_CUTOFF_M_S:
-            course = Telemetry.wrap_degrees(course - 90.0)
+            course = self._last_compass_heading_d
 
         self._logger.debug(
             'lat: {}, long: {}, speed: {}, course: {}'.format(
@@ -165,27 +183,16 @@ class TelemetryData(threading.Thread):
         if flux_x == 0.0:
             # TODO: Figure out what to do here
             return
-        degrees = Telemetry.wrap_degrees(
+        self._last_compass_heading_d = Telemetry.wrap_degrees(
             270.0 - math.degrees(
                 math.atan2(flux_y, flux_x)
-            )
+            ) - 8.666  # Boulder declination
         )
-        self._logger.info(
-            'x:{} y:{} heading:{} std devs:{}'.format(
-                round(flux_x, 3),
-                round(flux_y, 3),
-                round(degrees, 3),
-                round(
-                    abs(
-                        (
-                            message.magnetic_flux_ut_x ** 2
-                            + message.magnetic_flux_ut_y ** 2
-                        ) - self._magnitude_mean
-                    ) / self._magnitude_std_dev,
-                    3
-                )
-            )
-        )
+        # TODO: Drop messages that are several standard deviations off
+        self._telemetry.handle_message({
+            # TODO: We need to tell the system how confident we are
+            'compass_d': self._last_compass_heading_d
+        })
 
     def kill(self):
         """Stops any data collection."""
@@ -199,7 +206,7 @@ class TelemetryData(threading.Thread):
         """Calibrates the compass."""
         self._logger.info('Calibrating compass; setting to binary mode')
         switch_to_binary_mode(self._serial)
-        self._mode = 'b'
+        self._nmea_mode = False
         for _ in range(10):
             self._serial.readline()
 
@@ -255,4 +262,4 @@ class TelemetryData(threading.Thread):
         )
         self._calibrate_compass_end_time = None
         switch_to_nmea_mode(self._serial)
-        self._mode = 'n'
+        self._nmea_mode = True

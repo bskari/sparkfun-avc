@@ -102,7 +102,7 @@ def parse_binary(binary_message):
     if binary_message[4] == 0xA8:
         return None
     if binary_message[4] != 0xCF:
-        raise ValueError('Invalid id while parsing binary message')
+        raise EnvironmentError('Invalid id while parsing binary message')
     return BinaryMessage(*struct.unpack(BINARY_FORMAT, binary_message))
 
 
@@ -120,11 +120,14 @@ def _change_mode(ser, mode):
     """Change reporting mode between NMEA messages or binary (temperature,
     accelerometer and magnetometer) mode.
     """
-    mode_message = struct.pack(MODE_FORMAT, 9, mode, 0)
-    ser.write(format_message(mode_message))
-    ser.flush()
-    if not check_response(ser, limit=10):
-        raise RuntimeError('Mode change denied')
+    for _ in range(3):
+        mode_message = struct.pack(MODE_FORMAT, 9, mode, 0)
+        ser.write(format_message(mode_message))
+        ser.flush()
+        if check_response(ser, limit=10):
+            return
+        self._logger.warn('No response to mode change seen, trying again')
+    raise EnvironmentError('Mode change to {} denied'.format(mode))
 
 
 def check_response(ser, limit=None):
@@ -145,8 +148,6 @@ def check_response(ser, limit=None):
         else:
             nonlocal count
             count += 1
-            if count > limit:
-                print('No response received')
             return count <= limit
 
     while check():
@@ -163,4 +164,4 @@ def check_response(ser, limit=None):
             return True
         else:
             return False
-    raise RuntimeError('No response messages seen')
+    raise EnvironmentError('No response messages seen')
