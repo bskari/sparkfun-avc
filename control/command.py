@@ -252,6 +252,10 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             else:
                 turn = 0.25
 
+            # Turning while going fast causes the car to roll over
+            if telemetry['speed_m_s'] > 7.0:
+                turn = max(turn, 0.5)
+
             if Telemetry.is_turn_left(heading_d, degrees):
                 turn = -turn
             self._driver.drive(speed, turn)
