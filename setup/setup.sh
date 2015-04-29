@@ -35,7 +35,7 @@ then
     exit 0
 fi
 
-apt-get update
+apt-get update -y
 apt-get install -y libparted0debian1 parted lua5.1 triggerhappy whiptail libnewt0.52
 if [ ! -f 'raspi-config_20140902-1_all.deb' ];
 then
@@ -87,6 +87,7 @@ apt-get install -y \
     python3 \
     python3-dev \
     python3-pip \
+    sudo \
     tmux \
     vim \
 
