@@ -91,7 +91,7 @@ class Driver(object):
         # Purposely limit the reverse in case we try to go back while still
         # rolling - prevent damage to the gear box
         if not (-0.25 <= percentage <= 1.0):
-            raise ValueError('Bad throttle')
+            raise ValueError('Bad throttle: {}'.format(percentage))
         return int(THROTTLE_NEUTRAL_US + THROTTLE_DIFF * percentage) // 10 * 10
 
     @staticmethod

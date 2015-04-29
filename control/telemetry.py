@@ -16,9 +16,12 @@ from control.synchronized import synchronized
 CENTRAL_LATITUDE = 40.091244
 CENTRAL_LONGITUDE = -105.185276
 
-# Vales for Tamiya Grasshopper, from observation
+# Values for Tamiya Grasshopper, from observation
+BASE_MAX_TURN_RATE_D_S = 100.0
+# We overestimate this because the compass takes a little while to update, and
+# it keeps causing the car to oversteer. This should compensate.
+MAX_TURN_RATE_D_S = BASE_MAX_TURN_RATE_D_S * 1.3
 # The turn rate when steering is -1.0 or 1.0
-MAX_TURN_RATE_D_S = 100.0
 # Time it takes to turn from steering -1.0 to 1.0
 FULL_TURN_TIME_S = 1.0
 STEERING_CHANGE_PER_S = 1.0 / FULL_TURN_TIME_S
@@ -332,13 +335,17 @@ class Telemetry(object):
     def latitude_to_m_offset(latitude_d):
         """Returns the offset in meters for a given coordinate."""
         y_m = Telemetry.distance_m(latitude_d, 0.0, CENTRAL_LATITUDE, 0.0)
-        return y_m
+        if latitude_d > CENTRAL_LATITUDE:
+            return y_m
+        return -y_m
 
     @staticmethod
     def longitude_to_m_offset(longitude_d):
         """Returns the offset in meters for a given coordinate."""
         x_m = Telemetry.distance_m(0.0, longitude_d, 0.0, CENTRAL_LONGITUDE)
-        return x_m
+        if longitude_d > CENTRAL_LONGITUDE:
+            return x_m
+        return -x_m
 
     @staticmethod
     def distance_to_waypoint(heading_d_1, heading_d_2, distance_travelled):

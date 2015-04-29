@@ -81,6 +81,7 @@ class LocationFilter(object):
         ])
 
         self._last_observation_s = time.time()
+        self._estimated_turn_rate_d_s = 0.0
 
     def update_gps(
             self,
@@ -154,7 +155,7 @@ class LocationFilter(object):
 
     def manual_steering(self, turn_d_s):
         """Update the estimated turn rate based on steering input."""
-        self._estimated_turn_rate = turn_d_s
+        self._estimated_turn_rate_d_s = turn_d_s
 
     def _update(
             self,
@@ -247,7 +248,16 @@ class LocationFilter(object):
             [0.0, 0.0, 1.0, 0.0],
             [0.0, 0.0, 0.0, 1.0]
         ])
-        # TODO: Add acceleration and turn values
+
+        # Update heading estimate based on steering
+        new_heading = Telemetry.wrap_degrees(
+            self.estimated_heading()
+            + self._estimated_turn_rate_d_s * time_diff_s
+        )
+        self._estimates.itemset(2, new_heading)
+
+        # TODO: Add acceleration values
+
         self._estimates = transition * self._estimates
         return transition
 
