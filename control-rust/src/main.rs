@@ -4,11 +4,13 @@
 #![feature(libc)]
 #![feature(path_ext)]  // For is_file, etc.
 #![feature(std_misc)]
-#![feature(str_words)]
 #[macro_use]
 
-extern crate log;
-extern crate getopts; // This needs to be declared after log, otherwise you get compilation errors
+extern crate log;  // This needs to be declared first, otherwise you get compilation errors
+#[macro_use] extern crate enum_primitive;
+extern crate core;
+extern crate getopts;
+extern crate num;
 extern crate time;
 extern crate unix_socket;
 use getopts::{Matches, Options};
@@ -174,7 +176,7 @@ fn spawn_control(
     telemetry_rx: Receiver<TelemetryState>,
     command_rx: Receiver<CommandMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     let waypoint_generator = Box::new(KmlWaypointGenerator::new(&path_file_name));
     spawn(move || {
         let driver = Box::new(SocketDriver::new(max_throttle));
@@ -192,7 +194,7 @@ fn spawn_control(
 fn spawn_telemetry_provider(
     telemetry_message_tx: Sender<TelemetryMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     spawn(move || {
         let mut provider = TelemetryProvider::new(telemetry_message_tx);
         provider.run(quit_rx);
@@ -205,7 +207,7 @@ fn spawn_telemetry(
     telemetry_tx: Sender<TelemetryState>,
     telemetry_message_rx: Receiver<TelemetryMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     spawn(move || {
         let mut telemetry = FilteredTelemetry::new();
         telemetry.run(request_telemetry_rx, telemetry_tx, telemetry_message_rx, quit_rx);
@@ -216,7 +218,7 @@ fn spawn_telemetry(
 fn spawn_command_message_listener(
     command_tx: Sender<CommandMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     spawn(move || {
         // Keep listening for start and stop messages on a Unix socket
         let server = Path::new("/tmp/command-socket");

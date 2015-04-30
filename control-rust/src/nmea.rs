@@ -2,9 +2,9 @@
  * Reads NMEA messages from the GPS.
  */
 
+use core::num::ParseFloatError;
 use std::error::Error;
 use std::mem::transmute;
-use std::num::{Int, ParseFloatError};
 
 use telemetry::Degrees;
 use telemetry::MetersPerSecond;

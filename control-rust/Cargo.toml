@@ -5,7 +5,9 @@ version = "0.0.1"
 authors = ["Brandon Skari <brandon@skari.org>"]
 
 [dependencies]
+enum_primitive = "0.0.*"
 getopts = "0.2.*"
 log = "0.3.*"
+num = "0.1.*"
 time = "0.1.*"
 unix_socket = "0.3.*"

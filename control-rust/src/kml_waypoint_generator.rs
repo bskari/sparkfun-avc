@@ -73,7 +73,7 @@ impl KmlWaypointGenerator {
                     } else if coordinates_open_tag {
                         let mut latitude = 0.0f64;
                         let mut longitude = 0.0f64;
-                        for long_lat_alt in line.words() {
+                        for long_lat_alt in line.split_whitespace() {
                             let mut iterator = long_lat_alt.split(',');
                             let mut success = true;
                             match iterator.next() {
