@@ -7,9 +7,10 @@
 #[macro_use]
 
 extern crate log;  // This needs to be declared first, otherwise you get compilation errors
-#[macro_use] extern crate enum_primitive;
 extern crate core;
+#[macro_use] extern crate enum_primitive;
 extern crate getopts;
+extern crate libc;
 extern crate num;
 extern crate time;
 extern crate unix_socket;

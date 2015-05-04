@@ -152,7 +152,11 @@ impl Control {
                 return;
             }
         }
-        let waypoint = self.waypoint_generator.get_current_raw_waypoint(&state.location);
+        let waypoint_option = self.waypoint_generator.get_current_raw_waypoint(&state.location);
+        let waypoint = match waypoint_option {
+            Some(point) => point,
+            None => return,
+        };
         let distance_m = distance(&state.location, &waypoint);
         let throttle: f32 = if distance_m > 5.0 {
                 1.0
@@ -262,8 +266,8 @@ mod tests {
         done: bool,
     }
     impl WaypointGenerator for DummyWaypointGenerator {
-        fn get_current_waypoint(&self, point: &Point) -> Point { Point {x: 100.0, y: 100.0 } }
-        fn get_current_raw_waypoint(&self, point: &Point) -> Point { Point { x: 100.0, y: 100.0 } }
+        fn get_current_waypoint(&self, point: &Point) -> Option<Point> { Some(Point {x: 100.0, y: 100.0 }) }
+        fn get_current_raw_waypoint(&self, point: &Point) -> Option<Point> { Some(Point { x: 100.0, y: 100.0 }) }
         fn next(&mut self) { self.done = true; }
         fn reached(&self, point: &Point) -> bool { false }
         fn done(&self) -> bool { self.done }

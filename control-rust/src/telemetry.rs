@@ -10,6 +10,7 @@ pub type Degrees = f32;
 pub type MetersPerSecond = f32;
 #[derive(Clone)]
 #[derive(Copy)]
+#[derive(PartialEq)]
 pub struct Point {
     pub x: Meter,
     pub y: Meter,
@@ -297,7 +298,7 @@ mod tests {
         wrap_degrees,
     };
 
-    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) { assert!(approx_eq(value_1, value_2));
+    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) {
         assert!(approx_eq(value_1, value_2));
     }
     fn approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) -> bool {

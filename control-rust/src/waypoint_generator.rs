@@ -9,12 +9,12 @@ pub trait WaypointGenerator {
      * Returns the current waypoint. We take in the current position so that we
      * can do fancy algorithms, like chase algorithms.
      */
-    fn get_current_waypoint(&self, point: &Point) -> Point;
+    fn get_current_waypoint(&self, point: &Point) -> Option<Point>;
 
     /**
      * Returns the absolute position of the current waypoint.
      */
-    fn get_current_raw_waypoint(&self, point: &Point) -> Point;
+    fn get_current_raw_waypoint(&self, point: &Point) -> Option<Point>;
 
     /**
      * Moves to the next waypoint.
