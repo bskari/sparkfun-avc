@@ -151,17 +151,7 @@ pub fn relative_degrees(point_1: &Point, point_2: &Point) -> Degrees {
  */
 #[allow(dead_code)]
 pub fn wrap_degrees(degrees: Degrees) -> Degrees {
-    // TODO: floor doesn't appear to actually return the floor of a value, so
-    // uh, we need to do this weird thing instead
-    let dividend = (degrees / 360.0) as i32;
-    let mut return_value = degrees - dividend as f32 * 360.0;
-    while return_value < 0.0 {
-        return_value += 360.0;
-    }
-    while return_value >= 360.0 {
-        return_value -= 360.0;
-    }
-    return return_value;
+    return degrees - (degrees / 360.0).floor() * 360.0;
 }
 
 
