@@ -407,23 +407,24 @@ mod tests {
     use super::{LocationFilter, add, identity, invert, multiply44x44};
     use telemetry::{Point, rotate_degrees_clockwise};
 
-    fn assert_equal(a: &[[f32; 4]; 4], b: &[[f32; 4]; 4]) {
-        for row in (0..a.len()) {
-            for column in (0..a[0].len()) {
-                let diff = (a[row][column] - b[row][column]).abs();
-                assert!(diff < 0.00001f32);
+    macro_rules! assert_equal {
+        ($arr_1:expr, $arr_2:expr) => {
+            for row in (0..$arr_1.len()) {
+                for column in (0..$arr_1[0].len()) {
+                    let diff = ($arr_1[row][column] - $arr_2[row][column]).abs();
+                    assert!(diff < 0.00001f32);
+                }
             }
         }
     }
+    macro_rules! assert_approx_eq {
+        ($value_1:expr, $value_2:expr) => {
+            // Yeah, I know this is bad, see
+            // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
 
-    fn assert_approx_eq(value_1:f32, value_2:f32) -> () {
-        // Yeah, I know this is bad, see
-        // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
-
-        // This is the best we can do with f32
-        let tolerance: f32 = 0.0001;
-        let diff = (value_1 - value_2).abs();
-        assert!(diff < tolerance, "{} < {} failed", diff, tolerance);
+            // This is the best we can do with f32
+            assert!(($value_1 - $value_2).abs() < 0.00001f32);
+        }
     }
 
     #[test]
@@ -432,7 +433,7 @@ mod tests {
         let identity_ = identity();
 
         multiply44x44(&identity_, &identity_, &mut out);
-        assert_equal(&out, &identity_);
+        assert_equal!(&out, &identity_);
 
         let array = [
             [1.0f32; 4],
@@ -441,9 +442,9 @@ mod tests {
             [4.0f32; 4],
         ];
         multiply44x44(&identity_, &array, &mut out);
-        assert_equal(&out, &array);
+        assert_equal!(&out, &array);
         multiply44x44(&array, &identity_, &mut out);
-        assert_equal(&out, &array);
+        assert_equal!(&out, &array);
 
         multiply44x44(&array, &array, &mut out);
         assert!(out[0][0] == 10.0);
@@ -476,7 +477,7 @@ mod tests {
         let identity_ = identity();
 
         invert(&identity_, &mut out);
-        assert_equal(&out, &identity_);
+        assert_equal!(&out, &identity_);
 
         let mut array = identity();
         for row in (0..out.len()) {
@@ -488,7 +489,7 @@ mod tests {
         invert(&array, &mut out);
         let copy = out;
         multiply44x44(&array, &copy, &mut out);
-        assert_equal(&out, &identity_);
+        assert_equal!(&out, &identity_);
     }
 
     /**
@@ -536,7 +537,7 @@ mod tests {
 
         let (predicted_x, predicted_y) = location_filter.estimated_location_m();
         println!("px {} nx {}, py {} ny {}", predicted_x, new_x, predicted_y, new_y);
-        assert_approx_eq(predicted_x, new_x);
-        assert_approx_eq(predicted_y, new_y);
+        assert_approx_eq!(predicted_x, new_x);
+        assert_approx_eq!(predicted_y, new_y);
     }
 }

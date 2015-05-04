@@ -217,18 +217,6 @@ mod tests {
     use telemetry::Point;
     use waypoint_generator::WaypointGenerator;
 
-    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) {
-        assert!(approx_eq(value_1, value_2));
-    }
-    fn approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) -> bool {
-        // Yeah, I know this is bad, see
-        // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
-
-        let diff = (value_1 - value_2).abs();
-        // This is the best we can do with f32
-        diff < FromPrimitive::from_f32(0.00001f32).unwrap()
-    }
-
     #[test]
     fn test_get_current_waypoint() {
         let first = Point { x: 1.0, y: 1.0 };

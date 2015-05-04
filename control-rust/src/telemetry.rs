@@ -298,8 +298,10 @@ mod tests {
         wrap_degrees,
     };
 
-    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) {
-        assert!(approx_eq(value_1, value_2));
+    macro_rules! assert_approx_eq {
+        ( $value_1:expr, $value_2:expr) => {
+            assert!(approx_eq($value_1, $value_2));
+        }
     }
     fn approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) -> bool {
         // Yeah, I know this is bad, see
@@ -312,8 +314,8 @@ mod tests {
 
     fn test_rotate(point: &Point, degrees: Degrees, expected_point: &Point) {
         let new_point = rotate_degrees_clockwise(point, degrees);
-        assert_approx_eq(new_point.x, expected_point.x);
-        assert_approx_eq(new_point.y, expected_point.y);
+        assert_approx_eq!(new_point.x, expected_point.x);
+        assert_approx_eq!(new_point.y, expected_point.y);
     }
 
     #[test]
@@ -364,13 +366,13 @@ mod tests {
     #[test]
     fn test_latitude_d_to_m_per_longitude_d_spherical() {
         // Assume Earth is a sphere
-        assert_approx_eq(
+        assert_approx_eq!(
             equatorial_radius_m() * f64::consts::PI_2 / 360.0,
             latitude_d_to_m_per_longitude_d(0.0));
 
         // Should be symmetrical
         for degrees in (0i32..85) {
-            assert_approx_eq(
+            assert_approx_eq!(
                 latitude_d_to_m_per_longitude_d(degrees as f64),
                 latitude_d_to_m_per_longitude_d(-degrees as f64));
         }
@@ -385,7 +387,7 @@ mod tests {
     fn test_latitude_d_to_m_per_longitude_d_oblong() {
         // Known values, from http://www.csgnetwork.com/degreelenllavcalc.html
         // M_PER_D_LATITUDE = 111319.458,
-        assert_approx_eq(
+        assert_approx_eq!(
             // Boulder
             latitude_d_to_m_per_longitude_d(40.08),
             85294.08886768305);
@@ -410,87 +412,87 @@ mod tests {
 
     #[test]
     fn test_relative_degrees() {
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 1.0, y: 1.0}), 45.0);
-        assert_approx_eq(relative_degrees(&Point {x: 1.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 225.0);
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 2.0, y: 2.0}), 45.0);
-        assert_approx_eq(relative_degrees(&Point {x: 2.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 225.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 1.0, y: 1.0}), 45.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 1.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 225.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 2.0, y: 2.0}), 45.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 2.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 225.0);
 
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: -1.0, y: 1.0}), 315.0);
-        assert_approx_eq(relative_degrees(&Point {x: -1.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 135.0);
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: -2.0, y: 2.0}), 315.0);
-        assert_approx_eq(relative_degrees(&Point {x: -2.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 135.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: -1.0, y: 1.0}), 315.0);
+        assert_approx_eq!(relative_degrees(&Point {x: -1.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 135.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: -2.0, y: 2.0}), 315.0);
+        assert_approx_eq!(relative_degrees(&Point {x: -2.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 135.0);
 
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 0.0, y: 1.0}), 0.0);
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 180.0);
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 0.0, y: 2.0}), 0.0);
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 180.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 0.0, y: 1.0}), 0.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 1.0}, &Point {x: 0.0, y: 0.0}), 180.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 0.0, y: 2.0}), 0.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 2.0}, &Point {x: 0.0, y: 0.0}), 180.0);
 
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 1.0, y: 0.0}), 90.0);
-        assert_approx_eq(relative_degrees(&Point {x: 1.0, y: 0.0}, &Point {x: 0.0, y: 0.0}), 270.0);
-        assert_approx_eq(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 2.0, y: 0.0}), 90.0);
-        assert_approx_eq(relative_degrees(&Point {x: 2.0, y: 0.0}, &Point {x: 0.0, y: 0.0}), 270.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 1.0, y: 0.0}), 90.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 1.0, y: 0.0}, &Point {x: 0.0, y: 0.0}), 270.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 0.0, y: 0.0}, &Point {x: 2.0, y: 0.0}), 90.0);
+        assert_approx_eq!(relative_degrees(&Point {x: 2.0, y: 0.0}, &Point {x: 0.0, y: 0.0}), 270.0);
     }
 
     #[test]
     fn test_wrap_degrees() {
         for d in (0i32..360) {
-            assert_approx_eq(d as f32, wrap_degrees(d as f32));
+            assert_approx_eq!(d as f32, wrap_degrees(d as f32));
         }
 
-        assert_approx_eq(0.0, wrap_degrees(0.0));
-        assert_approx_eq(0.0, wrap_degrees(360.0));
-        assert_approx_eq(359.0, wrap_degrees(-1.0));
-        assert_approx_eq(359.0, wrap_degrees(-361.0));
-        assert_approx_eq(1.0, wrap_degrees(361.0));
-        assert_approx_eq(1.0, wrap_degrees(721.0));
-        assert_approx_eq(0.1, wrap_degrees(360.1));
-        assert_approx_eq(0.1, wrap_degrees(0.1));
-        assert_approx_eq(359.9, wrap_degrees(-0.1));
-        assert_approx_eq(0.0, wrap_degrees(360.0));
+        assert_approx_eq!(0.0, wrap_degrees(0.0));
+        assert_approx_eq!(0.0, wrap_degrees(360.0));
+        assert_approx_eq!(359.0, wrap_degrees(-1.0));
+        assert_approx_eq!(359.0, wrap_degrees(-361.0));
+        assert_approx_eq!(1.0, wrap_degrees(361.0));
+        assert_approx_eq!(1.0, wrap_degrees(721.0));
+        assert_approx_eq!(0.1, wrap_degrees(360.1));
+        assert_approx_eq!(0.1, wrap_degrees(0.1));
+        assert_approx_eq!(359.9, wrap_degrees(-0.1));
+        assert_approx_eq!(0.0, wrap_degrees(360.0));
     }
 
     #[test]
     fn test_difference_d() {
-        assert_approx_eq(difference_d(359.0, 0.0), 1.0);
-        assert_approx_eq(difference_d(0.0, 1.0), 1.0);
-        assert_approx_eq(difference_d(359.0, 1.0), 2.0);
-        assert_approx_eq(difference_d(360.0, 365.0), 5.0);
-        assert_approx_eq(difference_d(-355.0, 365.0), 0.0);
-        assert_approx_eq(difference_d(360.0, 0.0), 0.0);
-        assert_approx_eq(difference_d(0.0, 360.0), 0.0);
-        assert_approx_eq(difference_d(361.0, 1.0), 0.0);
-        assert_approx_eq(difference_d(1.0, 361.0), 0.0);
-        assert_approx_eq(difference_d(90.0 - 360.0, 90.0 + 360.0), 0.0);
+        assert_approx_eq!(difference_d(359.0, 0.0), 1.0);
+        assert_approx_eq!(difference_d(0.0, 1.0), 1.0);
+        assert_approx_eq!(difference_d(359.0, 1.0), 2.0);
+        assert_approx_eq!(difference_d(360.0, 365.0), 5.0);
+        assert_approx_eq!(difference_d(-355.0, 365.0), 0.0);
+        assert_approx_eq!(difference_d(360.0, 0.0), 0.0);
+        assert_approx_eq!(difference_d(0.0, 360.0), 0.0);
+        assert_approx_eq!(difference_d(361.0, 1.0), 0.0);
+        assert_approx_eq!(difference_d(1.0, 361.0), 0.0);
+        assert_approx_eq!(difference_d(90.0 - 360.0, 90.0 + 360.0), 0.0);
     }
 
     #[test]
     fn test_distance() {
         println!("1");
-        assert_approx_eq(
+        assert_approx_eq!(
             distance(
                 &Point { x: 0.0, y: 0.0 },
                 &Point { x: 0.0, y: 0.0 }),
             0.0);
         println!("2");
-        assert_approx_eq(
+        assert_approx_eq!(
             distance(
                 &Point { x: 0.0, y: 0.0 },
                 &Point { x: 3.0, y: 4.0 }),
             5.0);
         println!("3");
-        assert_approx_eq(
+        assert_approx_eq!(
             distance(
                 &Point { x: 0.0, y: 0.0 },
                 &Point { x: 4.0, y: 3.0 }),
             5.0);
         println!("4");
-        assert_approx_eq(
+        assert_approx_eq!(
             distance(
                 &Point { x: -1.0, y: -3.0 },
                 &Point { x: 2.0, y: 1.0 }),
             5.0);
         println!("5");
-        assert_approx_eq(
+        assert_approx_eq!(
             distance(
                 &Point { x: 2.0, y: 1.0 },
                 &Point { x: -1.0, y: -3.0 }),
