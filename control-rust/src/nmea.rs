@@ -645,9 +645,8 @@ mod tests {
     use std::fs::File;
     use std::io::{BufRead, BufReader, Read};
     use std::mem::transmute;
-    use std::num::{Int, Float};
-    use std::old_io::Timer;
     use std::path::Path;
+    use std::thread::sleep_ms;
     use std::time::Duration;
     use super::{
         BinaryMessage,
@@ -891,14 +890,13 @@ mod tests {
         tty.set_speed(Speed::B1152000);
         tty.drop_input_output();
         let mut message = String::new();
-        let mut timer = Timer::new().unwrap();
         let mut buffer_ready = false;
         for _ in (0..20) {
             if tty.input_buffer_count().unwrap() > 0 {
                 buffer_ready = true;
                 break;
             } else {
-                timer.sleep(Duration::milliseconds(50));
+                sleep_ms(50);
             }
         }
         assert!({

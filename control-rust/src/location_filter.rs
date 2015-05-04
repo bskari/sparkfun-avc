@@ -404,7 +404,6 @@ fn transpose(
 
 #[cfg(test)]
 mod tests {
-    use std::num::Float;
     use super::{LocationFilter, add, identity, invert, multiply44x44};
     use telemetry::{Point, rotate_degrees_clockwise};
 

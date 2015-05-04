@@ -1,7 +1,7 @@
 extern crate log;
 extern crate time;
 use std::sync::mpsc::{Sender, Receiver};
-use std::thread;
+use std::thread::sleep_ms;
 
 use driver::{Driver, Percentage};
 use telemetry::{Degrees, TelemetryState, difference_d, distance, is_turn_left, relative_degrees};
@@ -82,7 +82,7 @@ impl Control {
             if !self.run_incremental() {
                 return;
             }
-            thread::sleep_ms(50);
+            sleep_ms(50);
         }
     }
 
@@ -250,7 +250,7 @@ impl ToMilliseconds for time::Tm {
 mod tests {
     extern crate time;
     use std::sync::mpsc::{channel, Sender, Receiver};
-    use std::thread::Thread;
+    use std::thread::spawn;
 
     use driver::{Driver, Percentage};
     use super::{Control, ControlState, MilliSeconds};
@@ -293,7 +293,7 @@ mod tests {
         let (telemetry_2_tx, telemetry_2_rx) = channel();
 
         // Fake telemetry end point returns test data
-        Thread::spawn(move || {
+        spawn(move || {
             telemetry_rx.recv();
             telemetry_2_tx.send(
                 TelemetryState {

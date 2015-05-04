@@ -282,8 +282,8 @@ fn test_cosine_d() {
 
 #[cfg(test)]
 mod tests {
+    use num::traits::{Float, FromPrimitive};
     use std::f64;
-    use std::num::{Float, FromPrimitive};
     use super::{
         Point,
         Degrees,
@@ -297,7 +297,7 @@ mod tests {
         wrap_degrees,
     };
 
-    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) {
+    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) { assert!(approx_eq(value_1, value_2));
         assert!(approx_eq(value_1, value_2));
     }
     fn approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) -> bool {
@@ -308,7 +308,6 @@ mod tests {
         // This is the best we can do with f32
         diff < FromPrimitive::from_f32(0.00001f32).unwrap()
     }
-
 
     fn test_rotate(point: &Point, degrees: Degrees, expected_point: &Point) {
         let new_point = rotate_degrees_clockwise(point, degrees);
