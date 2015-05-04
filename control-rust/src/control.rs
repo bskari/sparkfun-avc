@@ -222,9 +222,11 @@ impl Control {
     }
 
     fn calibrate_compass(&mut self, now_ms: MilliSeconds) {
-        // Drive around in circles for 5 seconds
-        if now_ms < self.calibrate_time_ms + 5000 {
-            self.drive(0.25f32, 1.0f32);
+        // TODO: While we do have the car drive in circles part down, the telemetry_provider is not
+        // updated with the readings!
+        // Drive around in circles for 20 seconds
+        if now_ms < self.calibrate_time_ms + 20000 {
+            self.drive(0.5f32, 1.0f32);
         } else {
             self.state = ControlState::WaitingForStart;
             self.run = false;

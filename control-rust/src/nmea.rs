@@ -80,10 +80,10 @@ pub struct GsaMessage {
 #[derive(PartialEq)]
 #[derive(Debug)]
 pub struct SatelliteInformation {
-    id: i32,
-    elevation: Degrees,
-    azimuth: Degrees,
-    snr_db: i32,
+    pub id: i32,
+    pub elevation: Degrees,
+    pub azimuth: Degrees,
+    pub snr_db: i32,
 }
 #[derive(PartialEq)]
 #[derive(Debug)]
@@ -110,11 +110,11 @@ pub struct GllMessage {
  */
 #[derive(PartialEq)]
 pub struct StiMessage {
-    pitch: Degrees,
-    roll: Degrees,
-    yaw: Degrees,
-    pressure: Pascal,
-    temperature: Celsius,
+    pub pitch: Degrees,
+    pub roll: Degrees,
+    pub yaw: Degrees,
+    pub pressure: Pascal,
+    pub temperature: Celsius,
 }
 
 
@@ -123,14 +123,14 @@ pub struct StiMessage {
  */
 #[derive(PartialEq)]
 pub struct BinaryMessage {
-    x_gravity: Gravity,
-    y_gravity: Gravity,
-    z_gravity: Gravity,
-    x_magnetic_field: MicroTesla,
-    y_magnetic_field: MicroTesla,
-    z_magnetic_field: MicroTesla,
-    pressure: Pascal,
-    temperature: Celsius,
+    pub x_gravity: Gravity,
+    pub y_gravity: Gravity,
+    pub z_gravity: Gravity,
+    pub x_magnetic_field: MicroTesla,
+    pub y_magnetic_field: MicroTesla,
+    pub z_magnetic_field: MicroTesla,
+    pub pressure: Pascal,
+    pub temperature: Celsius,
 }
 
 
@@ -219,7 +219,26 @@ impl NmeaMessage {
                 Err(e) => Err(e),
             }
         } else {
-            Err("Unknown NMEA message type".to_string())
+            if message.len() != 34 {
+                return Err("Unknown NMEA message type".to_string());
+            }
+            let mut bytes = message.bytes();
+            match bytes.next() {
+                Some(byte) => if byte != 0xCF {
+                    return Err("Unknown NMEA message type".to_string());
+                },
+                None => return Err("NMEA message too short (0)".to_string()),
+            };
+            match bytes.next() {
+                Some(byte) => if byte != 0x01 {
+                    return Err("Unknown NMEA message type".to_string());
+                },
+                None => return Err("NMEA message too short (1)".to_string()),
+            };
+            match NmeaMessage::parse_binary(message.as_bytes()) {
+                Ok(binary) => Ok(NmeaMessage::Binary(binary)),
+                Err(e) => Err(e),
+            }
         }
     }
 
@@ -593,7 +612,7 @@ impl NmeaMessage {
         )
     }
 
-    fn parse_binary(message: &[u8; 34]) -> Result<NmeaMessage, String> {
+    fn parse_binary(message: &[u8]) -> Result<BinaryMessage, String> {
         // The payload length from the GPS is always 34 bytes
         unsafe {
             let acceleration_x: Gravity = array_to_type![f32, message[2..6]];
@@ -605,18 +624,16 @@ impl NmeaMessage {
             let pressure: Pascal = array_to_type![u32, message[26..30]];
             let temperature: Celsius = array_to_type![f32, message[30..34]];
             Ok(
-                NmeaMessage::Binary (
-                    BinaryMessage {
-                        x_gravity: acceleration_x,
-                        y_gravity: acceleration_y,
-                        z_gravity: acceleration_z,
-                        x_magnetic_field: magnetic_x,
-                        y_magnetic_field: magnetic_y,
-                        z_magnetic_field: magnetic_z,
-                        pressure: pressure,
-                        temperature: temperature,
-                    }
-                )
+                BinaryMessage {
+                    x_gravity: acceleration_x,
+                    y_gravity: acceleration_y,
+                    z_gravity: acceleration_z,
+                    x_magnetic_field: magnetic_x,
+                    y_magnetic_field: magnetic_y,
+                    z_magnetic_field: magnetic_z,
+                    pressure: pressure,
+                    temperature: temperature,
+                }
             )
         }
     }
@@ -936,8 +953,8 @@ mod tests {
             pressure: pressure,
             temperature: temperature,
         };
-        match NmeaMessage::parse_binary(&message).unwrap() {
-            Binary(binary) => assert!(binary == expected),
+        match NmeaMessage::parse_binary(&message) {
+            Ok(binary) => assert!(binary == expected),
             _ => assert!(false)
         }
     }

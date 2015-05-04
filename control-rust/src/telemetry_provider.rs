@@ -6,7 +6,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
 use telemetry::{Degrees, MetersPerSecond, Point, hdop_to_std_dev, latitude_longitude_to_point};
-use telemetry_message::{GpsMessage, TelemetryMessage};
+use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
 use termios::{Speed, Termio};
 use nmea::NmeaMessage;
 
@@ -14,9 +14,11 @@ use nmea::NmeaMessage;
 pub struct TelemetryProvider {
     speed: MetersPerSecond,
     heading: Degrees,
+    magnetometer_std_dev: f32,
     point: Point,
     hdop: f32,
     telemetry_message_tx: Sender<TelemetryMessage>,
+    magnetometer_offsets: [f32; 2],
 }
 
 
@@ -25,9 +27,11 @@ impl TelemetryProvider {
         TelemetryProvider {
             speed: 0.0,
             heading: 315.0,  // Starting line of the Sparkfun AVC
+            magnetometer_std_dev: 0.0,
             point: latitude_longitude_to_point(40.090583, -105.185664),
             hdop: 2.0,
             telemetry_message_tx: telemetry_message_tx,
+            magnetometer_offsets: [-4.43, -0.43],  // From observation
         }
     }
 
@@ -88,7 +92,16 @@ impl TelemetryProvider {
 
             match NmeaMessage::parse(&message) {
                 Ok(nmea) => match nmea {
-                    NmeaMessage::Binary(_) => (),  // TODO Translate to compass
+                    NmeaMessage::Binary(binary) => {
+                        let adjusted_x = binary.x_magnetic_field - self.magnetometer_offsets[0];
+                        let adjusted_y = binary.y_magnetic_field - self.magnetometer_offsets[1];
+                        self.heading = adjusted_x.atan2(adjusted_y);
+                        // TODO: Compute this
+                        self.magnetometer_std_dev = 1.0;
+                        if !self.send_compass() {
+                            break;
+                        }
+                    },
                     NmeaMessage::Gga(gga) => {
                         self.point = latitude_longitude_to_point(
                            gga.latitude_degrees,
@@ -138,6 +151,18 @@ impl TelemetryProvider {
                     speed: self.speed,
                     std_dev_x: hdop_to_std_dev(self.hdop),
                     std_dev_y: hdop_to_std_dev(self.hdop),}));
+        match status {
+            Ok(_) => true,
+            Err(_) => false,
+        }
+    }
+
+    fn send_compass(&self) -> bool {
+        let status = self.telemetry_message_tx.send(
+            TelemetryMessage::Compass(
+                CompassMessage {
+                    heading: self.heading,
+                    std_dev: self.magnetometer_std_dev,}));
         match status {
             Ok(_) => true,
             Err(_) => false,

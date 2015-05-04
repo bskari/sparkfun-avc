@@ -77,7 +77,6 @@ impl KmlWaypointGenerator {
             Err(e) => panic!("Failed to unzip file: {}", e),
         };
 
-        let mut waypoints = Vec::<Point>::new();
         let file_path = Path::new("/tmp/waypoints/doc.kml");
         let file = match File::open(&file_path) {
             Ok(f) => f,
