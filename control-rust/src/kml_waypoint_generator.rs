@@ -1,6 +1,9 @@
 use libc::consts::os::posix88::ENOENT;
+use std::cell::Cell;
+use std::f32;
 use std::fs::{File, PathExt, remove_dir_all};
 use std::io::{BufRead, BufReader};
+use std::mem::transmute;
 use std::path::Path;
 use std::process::Command;
 
@@ -15,6 +18,9 @@ use waypoint_generator::WaypointGenerator;
 pub struct KmlWaypointGenerator {
     waypoints: Vec<Point>,
     current_waypoint: usize,
+    last_distance: Cell<Meter>,
+    reach_distance: Meter,
+    close_distance: Meter,
 }
 
 
@@ -23,19 +29,37 @@ impl KmlWaypointGenerator {
      * Loads waypoints from a KML path file.
      */
     pub fn new(kml_file_name: &str) -> KmlWaypointGenerator {
+        KmlWaypointGenerator::new_options(kml_file_name, 1.0, 3.0)
+    }
+
+    /**
+     * Loads waypoints from a KML path file. Allows for use of optional values.
+     */
+    pub fn new_options(
+        kml_file_name: &str,
+        reach_distance: Meter,
+        close_distance: Meter
+    ) -> KmlWaypointGenerator {
         let xml_file = KmlWaypointGenerator::extract_doc_kml(kml_file_name);
         let waypoints_line = KmlWaypointGenerator::extract_waypoints_line(xml_file);
         let points = KmlWaypointGenerator::parse_waypoints_line(&waypoints_line[..]);
-        KmlWaypointGenerator::new_from_waypoints(points)
+        KmlWaypointGenerator::new_from_waypoints(points, reach_distance, close_distance)
     }
 
     /**
      * For testing.
      */
-    fn new_from_waypoints(waypoints: Vec<Point>) -> KmlWaypointGenerator {
+    fn new_from_waypoints(
+        waypoints: Vec<Point>,
+        reach_distance: Meter,
+        close_distance: Meter
+    ) -> KmlWaypointGenerator {
         KmlWaypointGenerator {
             waypoints: waypoints,
             current_waypoint: 0,
+            last_distance: Cell::new(f32::MAX),
+            reach_distance: reach_distance,
+            close_distance: close_distance,
         }
     }
 
@@ -180,29 +204,32 @@ impl WaypointGenerator for KmlWaypointGenerator {
 
     #[allow(unused_variables)]
     fn reached(&self, point: &Point) -> bool {
-        // TODO: Change this so that it returns true if we're within a certain distance (e.g. 1m)
-        // or if we are within a certain distance (e.g. 3m) and we start getting farther away
         let current_option = self.get_current_waypoint(point);
         let current = match current_option {
             Some(point) => point,
             None => return false,
         };
-        if distance(&current, point) < 1.0 {
+        let distance = distance(&current, point);
+        if distance < self.reach_distance {
             return true;
         }
-        return false;
+        let last = self.last_distance.get();
+        self.last_distance.set(distance);
+        if distance < self.close_distance && last < distance {
+            return true;
+        }
+        false
     }
 
     fn done(&self) -> bool {
         if self.current_waypoint >= self.waypoints.len() {
             return true;
         }
-        return false;
+        false
     }
 
-    #[allow(unused_variables)]
     fn reach_distance(&self) -> Meter {
-        1.0
+        self.reach_distance
     }
 }
 
@@ -221,7 +248,9 @@ mod tests {
         let first = Point { x: 1.0, y: 1.0 };
         let other = Point { x: 200.0, y: 200.0 };
         let waypoint_generator = KmlWaypointGenerator::new_from_waypoints(
-            vec![first, other]
+            vec![first, other],
+            1.0,
+            3.0
         );
         let current_option = waypoint_generator.get_current_waypoint(&other);
         let current = match current_option {
@@ -241,7 +270,9 @@ mod tests {
         let first = Point { x: 1.0, y: 1.0 };
         let other = Point { x: 200.0, y: 200.0 };
         let waypoint_generator = KmlWaypointGenerator::new_from_waypoints(
-            vec![first, other]
+            vec![first, other],
+            1.0,
+            3.0
         );
         let current_option = waypoint_generator.get_current_waypoint(&other);
         let current = match current_option {
@@ -261,7 +292,9 @@ mod tests {
         let second = Point { x: 2.0, y: 2.0 };
         let other = Point { x: 200.0, y: 200.0 };
         let mut waypoint_generator = KmlWaypointGenerator::new_from_waypoints(
-            vec![first, second]
+            vec![first, second],
+            1.0,
+            3.0
         );
 
         let current_option = waypoint_generator.get_current_waypoint(&other);
@@ -303,8 +336,10 @@ mod tests {
     fn test_reached() {
         let first = Point { x: 1.0, y: 1.0 };
         let other = Point { x: 200.0, y: 200.0 };
-        let waypoint_generator = KmlWaypointGenerator::new_from_waypoints(
-            vec![first, other]
+        let mut waypoint_generator = KmlWaypointGenerator::new_from_waypoints(
+            vec![first, other],
+            1.0,
+            3.0
         );
         let current_option = waypoint_generator.get_current_waypoint(&other);
         let current = match current_option {
@@ -327,6 +362,19 @@ mod tests {
         current.y += waypoint_generator.reach_distance() * 0.999;
         assert!(waypoint_generator.reached(&current));
 
+        // Getting close, then pulling away
+        current = first;
+        current.x -= 3.5.sqrt();
+        current.y += 3.5.sqrt();
+        for _ in 0..10 {
+            assert!(!waypoint_generator.reached(&current));
+            current.x += 0.1;
+            current.y -= 0.1;
+        }
+        current.x -= 0.2;
+        current.y += 0.2;
+        assert!(waypoint_generator.reached(&current));
+
         // Outside
         current.x += waypoint_generator.reach_distance() * 0.999;
         assert!(!waypoint_generator.reached(&current));
@@ -341,7 +389,10 @@ mod tests {
     #[test]
     fn test_done() {
         let first = Point { x: 1.0, y: 1.0 };
-        let mut waypoint_generator = KmlWaypointGenerator::new_from_waypoints(vec![first]);
+        let mut waypoint_generator = KmlWaypointGenerator::new_from_waypoints(
+            vec![first],
+            1.0,
+            3.0);
         assert!(!waypoint_generator.done());
         for _ in 0..3 {
             waypoint_generator.next();
