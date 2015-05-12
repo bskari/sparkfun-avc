@@ -1,4 +1,5 @@
 // Silence warnings about use of unstable features
+#![feature(collections)]
 #![feature(convert)]
 #![feature(core)]
 #![feature(libc)]
@@ -40,6 +41,7 @@ mod kml_waypoint_generator;
 mod location_filter;
 mod nmea;
 mod socket_driver;
+mod sup800f;
 mod telemetry;
 mod telemetry_message;
 mod telemetry_provider;
