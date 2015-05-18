@@ -132,10 +132,10 @@ mod tests {
             let length = formatted.len();
             assert!(formatted[length - 1] == '\n' as u8);
             assert!(formatted[length - 2] == '\r' as u8);
-            // The payload ends in length, checksum, \n, \r
-            let slice: [u8; 2] = [formatted[length - 5], formatted[length - 3]];
-            let payload_length: u16 = unsafe { transmute(slice) };
-            println!("{} == {}", payload_length, message.len());
+            // The payload is header, length, message, checksum, \n, \r
+            let slice: [u8; 2] = [formatted[2], formatted[3]];
+            let payload_length_native: u16 = unsafe { transmute(slice) };
+            let payload_length: u16 = payload_length_native.to_be();
             assert!(payload_length == message.len() as u16);
             // Checksum
             assert!(formatted[length - 3] == byte);
