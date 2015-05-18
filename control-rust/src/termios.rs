@@ -1,8 +1,6 @@
-/**
- * FFI bindings for the Termios library. There is a Termios crate but I had trouble getting it to
- * work. I couldn't get the example code to work and I'm not sure how you would call the different
- * functions anyway.
- */
+/// FFI bindings for the Termios library. There is a Termios crate but I had trouble getting it to
+/// work. I couldn't get the example code to work and I'm not sure how you would call the different
+/// functions anyway.
 
 extern crate libc;
 extern crate num;

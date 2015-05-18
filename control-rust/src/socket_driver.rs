@@ -4,9 +4,7 @@ use unix_socket::UnixStream;
 
 use driver::{Driver, Percentage};
 
-/**
- * Sends drive commands to a Unix domain socket.
- */
+/// Sends drive commands to a Unix domain socket.
 pub struct SocketDriver {
     throttle: Percentage,
     steering: Percentage,

@@ -26,45 +26,29 @@ pub struct TelemetryState {
 }
 
 
-/**
- * Provides Telemetry data, possibly filtered to be more accurate.
- */
+/// Provides Telemetry data, possibly filtered to be more accurate.
 pub trait Telemetry {
-    /**
-     * Returns the raw sensor readings.
-     */
+    /// Returns the raw sensor readings.
     fn get_raw_gps(&self) -> &GpsMessage;
 
-    /**
-     * Returns the raw sensor readings.
-     */
+    /// Returns the raw sensor readings.
     fn get_raw_compass(&self) -> &CompassMessage;
 
-    /**
-     * Returns the (possibly filtered) telemetry data.
-     */
+    /// Returns the (possibly filtered) telemetry data.
     fn get_data(&self) -> &TelemetryState;
 
-    /**
-     * End point for processing commands executed by the Command module.
-     */
+    /// End point for processing commands executed by the Command module.
     fn process_drive_command(&mut self, throttle:f32, steering:f32);
 
-    /**
-     * Processes a telemetry message.
-     */
+    /// Processes a telemetry message.
     fn handle_message(&mut self, message:&TelemetryMessage);
 
-    /**
-     * Returns true if the car is stopped.
-     */
+    /// Returns true if the car is stopped.
     fn is_stopped(&self) -> bool;
 }
 
 
-/**
- * Rotates a point a number of degrees clockwise around the origin.
- */
+/// Rotates a point a number of degrees clockwise around the origin.
 #[allow(dead_code)]
 pub fn rotate_degrees_clockwise(point: &Point, degrees: Degrees) -> Point {
     let sine = degrees.sine_d();
@@ -76,27 +60,21 @@ pub fn rotate_degrees_clockwise(point: &Point, degrees: Degrees) -> Point {
 }
 
 
-/**
- * Returns the equatorial radius of the Earth in meters. I don't know how to
- * define constants in Rust.
- */
+/// Returns the equatorial radius of the Earth in meters. I don't know how to
+/// define constants in Rust.
 fn equatorial_radius_m() -> f64 {
     6378.1370 * 1000.0
 }
 
 
-/**
- * Returns the number of meters per degree of latitude. I don't know how to
- * define constants in Rust.
- */
+/// Returns the number of meters per degree of latitude. I don't know how to
+/// define constants in Rust.
 pub fn m_per_latitude_d() -> f64 {
     equatorial_radius_m() * f64::consts::PI_2 / 360.0
 }
 
 
-/**
- * Returns the number of meters per degree longitude at a given latitude.
- */
+/// Returns the number of meters per degree longitude at a given latitude.
 pub fn latitude_d_to_m_per_longitude_d(latitude: f64) -> f64 {
     let radius_m: f64 = latitude.cosine_d() * equatorial_radius_m();
     let circumference_m: f64 = f64::consts::PI_2 * radius_m;
@@ -104,10 +82,8 @@ pub fn latitude_d_to_m_per_longitude_d(latitude: f64) -> f64 {
 }
 
 
-/**
- * Determines if the vehicle facing a heading in degrees needs to turn left to
- * left to reach a goal heading in degrees.
- */
+/// Determines if the vehicle facing a heading in degrees needs to turn left to
+/// left to reach a goal heading in degrees.
 #[allow(dead_code)]
 pub fn is_turn_left(heading_d: Degrees, goal_heading_d: Degrees) -> bool {
     let point_1 = rotate_degrees_clockwise(&Point { x: 0.0, y: 1.0 }, heading_d);
@@ -122,10 +98,8 @@ pub fn is_turn_left(heading_d: Degrees, goal_heading_d: Degrees) -> bool {
 }
 
 
-/**
- * Computes the relative degrees from the first waypoint to the second, where
- * north is 0.
- */
+/// Computes the relative degrees from the first waypoint to the second, where
+/// north is 0.
 #[allow(dead_code)]
 pub fn relative_degrees(point_1: &Point, point_2: &Point) -> Degrees {
     let relative_x_m = point_2.x - point_1.x;
@@ -146,18 +120,14 @@ pub fn relative_degrees(point_1: &Point, point_2: &Point) -> Degrees {
 }
 
 
-/**
- * Wraps degrees to be in [0..360).
- */
+/// Wraps degrees to be in [0..360).
 #[allow(dead_code)]
 pub fn wrap_degrees(degrees: Degrees) -> Degrees {
     return degrees - (degrees / 360.0).floor() * 360.0;
 }
 
 
-/**
- * Calculates the absolute difference in degrees between two headings.
- */
+/// Calculates the absolute difference in degrees between two headings.
 #[allow(dead_code)]
 pub fn difference_d(heading_1: Degrees, heading_2: Degrees) -> Degrees {
     let wrap_1_d = wrap_degrees(heading_1);
@@ -170,9 +140,7 @@ pub fn difference_d(heading_1: Degrees, heading_2: Degrees) -> Degrees {
 }
 
 
-/**
- * Distance between 2 points.
- */
+/// Distance between 2 points.
 pub fn distance(point_1: &Point, point_2: &Point) -> Meter {
     let diff_x = (point_1.x - point_2.x).abs();
     let diff_y = (point_1.y - point_2.y).abs();
@@ -180,13 +148,11 @@ pub fn distance(point_1: &Point, point_2: &Point) -> Meter {
 }
 
 
-/**
- * Latitude and longitude to meters from an arbitrary central location. The Pi only single
- * precision hardware float capability which affords 6~9 digits of precision. If we only used
- * latitude and longitude, we would need double prevision everywhere, which would run slowly on the
- * Pi. As long as we're within a kilometer of the central point, we should have at least centimeter
- * precision, which should work fine.
- */
+/// Latitude and longitude to meters from an arbitrary central location. The Pi only single
+/// precision hardware float capability which affords 6~9 digits of precision. If we only used
+/// latitude and longitude, we would need double prevision everywhere, which would run slowly on the
+/// Pi. As long as we're within a kilometer of the central point, we should have at least centimeter
+/// precision, which should work fine.
 pub fn latitude_longitude_to_point(latitude: f64, longitude: f64) -> Point {
     let central_latitude = 40.0941804f64;
     let central_longitude = -105.1872092f64;
@@ -200,18 +166,14 @@ pub fn latitude_longitude_to_point(latitude: f64, longitude: f64) -> Point {
 }
 
 
-/**
- * Estimation of converting HDOP to standard deviation. This is a complete guess.
- */
+/// Estimation of converting HDOP to standard deviation. This is a complete guess.
 pub fn hdop_to_std_dev(hdop: f32) -> Meter {
     hdop * 2.0
 }
 
 
-/**
- * Sine, cosine, and powi appear to be broken for this build of Rust 0.12 on
- * Raspberry Pi, so I wrote my own! Taylor series expansion.
- */
+/// Sine, cosine, and powi appear to be broken for this build of Rust 0.12 on
+/// Raspberry Pi, so I wrote my own! Taylor series expansion.
 trait MyTrig {
     fn sine_d(&self) -> Self;
     fn cosine_d(&self) -> Self;

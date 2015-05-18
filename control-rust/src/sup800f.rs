@@ -1,13 +1,9 @@
-/**
- * Functions for communicating with the SUP800F GPS module.
- */
+/// Functions for communicating with the SUP800F GPS module.
 use std::io::{BufRead, Error, ErrorKind, Result, Write};
 use std::mem::transmute;
 
 
-/**
- * Returns a single message.
- */
+/// Returns a single message.
 fn get_message(serial: &mut BufRead) -> Result<Vec<u8>> {
     let mut byte = [0u8; 1];
     let mut length_buffer = [0u8; 2];
@@ -68,26 +64,20 @@ fn get_message(serial: &mut BufRead) -> Result<Vec<u8>> {
 }
 
 
-/**
- * Switches to the NMEA message mode.
- */
+/// Switches to the NMEA message mode.
 fn switch_to_nmea_mode(serial: &mut Write) -> Result<()> {
     _change_mode(serial, 1)
 }
 
 
-/**
- * Switches to the binary message mode.
- */
+/// Switches to the binary message mode.
 fn switch_to_binary_mode(serial: &mut Write) -> Result<()> {
     _change_mode(serial, 2)
 }
 
 
-/**
- * Change reporting mode between NMEA messages or binary (temperature, accelerometer and
- * magnetometer) mode.
- */
+/// Change reporting mode between NMEA messages or binary (temperature, accelerometer and
+/// magnetometer) mode.
 fn _change_mode(serial: &mut Write, mode: u8) -> Result<()> {
     // message id, 9 = configure message type
     let payload: Vec<u8> = vec![9, mode, 0];
@@ -101,9 +91,7 @@ fn _change_mode(serial: &mut Write, mode: u8) -> Result<()> {
 }
 
 
-/**
- * Formats a message for the SUP800F, including adding a length designator and a checksum.
- */
+/// Formats a message for the SUP800F, including adding a length designator and a checksum.
 fn _format_message(payload: &Vec<u8>) -> Vec<u8> {
     let checksum = payload.iter().fold(0u8, |part, byte| part ^ byte);
     let mut vector: Vec<u8> = vec![0xA0, 0xA1];

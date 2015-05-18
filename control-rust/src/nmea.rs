@@ -1,6 +1,4 @@
-/**
- * Reads NMEA messages from the GPS.
- */
+/// Reads NMEA messages from the GPS.
 
 use core::num::ParseFloatError;
 use std::error::Error;
@@ -15,9 +13,7 @@ pub type Pascal = u32;
 pub type Celsius = f32;
 
 
-/**
- * GGA: Global positioning system fix data.
- */
+/// GGA: Global positioning system fix data.
 #[derive(PartialEq)]
 pub struct GgaMessage {
     pub latitude_degrees: f64,
@@ -26,9 +22,7 @@ pub struct GgaMessage {
 }
 
 
-/**
- * VTG: Course over ground and ground speed.
- */
+/// VTG: Course over ground and ground speed.
 #[derive(PartialEq)]
 pub struct VtgMessage {
     pub course: Degrees,
@@ -36,9 +30,7 @@ pub struct VtgMessage {
 }
 
 
-/**
- * RMC: Recommended minimum specific GNSS data.
- */
+/// RMC: Recommended minimum specific GNSS data.
 #[derive(PartialEq)]
 pub struct RmcMessage {
     pub latitude_degrees: f64,
@@ -49,9 +41,7 @@ pub struct RmcMessage {
 }
 
 
-/**
- * GSA: GNSS DOP and active satellites.
- */
+/// GSA: GNSS DOP and active satellites.
 #[derive(PartialEq)]
 pub enum FixMode {
     Manual,
@@ -74,9 +64,7 @@ pub struct GsaMessage {
 }
 
 
-/**
- * GSV: GNSS satellites in view.
- */
+/// GSV: GNSS satellites in view.
 #[derive(PartialEq)]
 #[derive(Debug)]
 pub struct SatelliteInformation {
@@ -95,9 +83,7 @@ pub struct GsvMessage {
 }
 
 
-/**
- * GLL: Latitude/longitude.
- */
+/// GLL: Latitude/longitude.
 #[derive(PartialEq)]
 pub struct GllMessage {
     pub latitude_degrees: f64,
@@ -105,9 +91,7 @@ pub struct GllMessage {
 }
 
 
-/**
- * STI: Pitch, roll, yaw, pressure, temperature.
- */
+/// STI: Pitch, roll, yaw, pressure, temperature.
 #[derive(PartialEq)]
 pub struct StiMessage {
     pub pitch: Degrees,
@@ -118,9 +102,7 @@ pub struct StiMessage {
 }
 
 
-/**
- * Magnetometer, accelerometer, pressure and temperature.
- */
+/// Magnetometer, accelerometer, pressure and temperature.
 #[derive(PartialEq)]
 pub struct BinaryMessage {
     pub x_gravity: Gravity,
@@ -242,9 +224,7 @@ impl NmeaMessage {
         }
     }
 
-    /**
-     * Time, position and fix related data for a GPS receiver.
-     */
+    /// Time, position and fix related data for a GPS receiver.
     fn parse_gga(message: &str) -> Result<GgaMessage, String> {
         // $GPGGA,hhmmss.sss,ddmm.mmmm,a,dddmm.mmmm,a,x,xx,x.x,x.x,M,,,,xxxx*hh<CR><LF>
         let mut iterator = message.split(',');
@@ -289,9 +269,7 @@ impl NmeaMessage {
         )
     }
 
-    /**
-     * The actual course and speed relative to the ground.
-     */
+    /// The actual course and speed relative to the ground.
     fn parse_vtg(message: &str) -> Result<VtgMessage, String> {
         // $GPVTG,x.x,T,x.x,M,x.x,N,x.x,K,a*hh<CR><LF>
         let mut iterator = message.split(',');
@@ -325,9 +303,7 @@ impl NmeaMessage {
         )
     }
 
-    /**
-     * Time, date, position, course and speed data.
-     */
+    /// Time, date, position, course and speed data.
     fn parse_rmc(message: &str) -> Result<RmcMessage, String> {
         // $GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12<CR><LF>
         let mut iterator = message.split(',');
@@ -390,10 +366,8 @@ impl NmeaMessage {
         )
     }
 
-    /**
-     * GSA: GPS receiver operating mode, satellites used in the navigation solution reported by the
-     * GGA or GNS sentence and DOP values.
-     */
+    /// GSA: GPS receiver operating mode, satellites used in the navigation solution reported by the
+    /// GGA or GNS sentence and DOP values.
     fn parse_gsa(message: &str) -> Result<GsaMessage, String> {
         // $GPGSA,A,x,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,x.x,x.x,x.x*hh<CR><LF>
         let mut iterator = message.split(',');
@@ -452,9 +426,7 @@ impl NmeaMessage {
         )
     }
 
-    /**
-     * GSV: Number of satellites in view, IDs, elevation, azimuth and SNR.
-     */
+    /// GSV: Number of satellites in view, IDs, elevation, azimuth and SNR.
     fn parse_gsv(message: &str) -> Result<GsvMessage, String> {
         // $GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72<CR><LF>
         let mut iterator = message.split(',');
@@ -518,9 +490,7 @@ impl NmeaMessage {
         )
     }
 
-    /**
-     * GLL: Latitude/longitude.
-     */
+    /// GLL: Latitude/longitude.
     fn parse_gll(message: &str) -> Result<GllMessage, String> {
         // $GPGLL,ddmm.mmmm,a,dddmm.mmmm,a,hhmmss.sss,A,a*hh<CR><LF>
         let mut iterator = message.split(',');
@@ -565,9 +535,7 @@ impl NmeaMessage {
         )
     }
 
-    /**
-     * STI: Pitch, roll, yaw, pressure, temperature.
-     */
+    /// STI: Pitch, roll, yaw, pressure, temperature.
     fn parse_sti(message: &str) -> Result<StiMessage, String> {
         // $PSTI,004,001,1,34.7,121.6,-48.2,99912,29.4*08<CR><LF>
         let mut iterator = message.split(',');

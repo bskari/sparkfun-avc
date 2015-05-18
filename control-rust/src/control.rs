@@ -49,9 +49,7 @@ impl Control {
             driver: driver,}
     }
 
-    /**
-     * Drives the car around. Should be run in a thread.
-     */
+    /// Drives the car around. Should be run in a thread.
     pub fn run(&mut self, command_rx: Receiver<CommandMessage>, quit_rx: Receiver<()>) {
         loop {
             match quit_rx.try_recv() {
@@ -86,9 +84,7 @@ impl Control {
         }
     }
 
-    /**
-     * Decides what to do and commands the vehicle for this time slice.
-     */
+    /// Decides what to do and commands the vehicle for this time slice.
     fn run_incremental(&mut self) -> bool {
         // Request the lastest telemetry information
         let state;

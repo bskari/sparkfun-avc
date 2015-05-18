@@ -93,9 +93,7 @@ impl LocationFilter {
         return lf;
     }
 
-    /**
-     * Runs the Kalman update using the provided measurements.
-     */
+    /// Runs the Kalman update using the provided measurements.
     #[allow(dead_code)]
     pub fn update(
         &mut self,
@@ -492,10 +490,8 @@ mod tests {
         assert_equal!(&out, &identity_);
     }
 
-    /**
-     * Tests that the estimating of the locations via dead reckoning at a
-     * constant speed is sane.
-     */
+    /// Tests that the estimating of the locations via dead reckoning at a
+    /// constant speed is sane.
     #[test]
     fn test_update_constant_speed() {
         // I'm not sure how to independently validate these tests for accuracy.

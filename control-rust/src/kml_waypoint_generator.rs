@@ -11,9 +11,7 @@ use telemetry::{Meter, Point, distance, latitude_longitude_to_point};
 use waypoint_generator::WaypointGenerator;
 
 
-/**
- * Loads and returns waypoints from a KML file.
- */
+/// Loads and returns waypoints from a KML file.
 #[allow(dead_code)]
 pub struct KmlWaypointGenerator {
     waypoints: Vec<Point>,
@@ -25,16 +23,12 @@ pub struct KmlWaypointGenerator {
 
 
 impl KmlWaypointGenerator {
-    /**
-     * Loads waypoints from a KML path file.
-     */
+    /// Loads waypoints from a KML path file.
     pub fn new(kml_file_name: &str) -> KmlWaypointGenerator {
         KmlWaypointGenerator::new_options(kml_file_name, 1.0, 3.0)
     }
 
-    /**
-     * Loads waypoints from a KML path file. Allows for use of optional values.
-     */
+    /// Loads waypoints from a KML path file. Allows for use of optional values.
     pub fn new_options(
         kml_file_name: &str,
         reach_distance: Meter,
@@ -46,9 +40,7 @@ impl KmlWaypointGenerator {
         KmlWaypointGenerator::new_from_waypoints(points, reach_distance, close_distance)
     }
 
-    /**
-     * For testing.
-     */
+    /// For testing.
     fn new_from_waypoints(
         waypoints: Vec<Point>,
         reach_distance: Meter,
@@ -63,9 +55,7 @@ impl KmlWaypointGenerator {
         }
     }
 
-    /**
-     * Returns a file handle to the doc.kml file from a kml file (in zip format).
-     */
+    /// Returns a file handle to the doc.kml file from a kml file (in zip format).
     fn extract_doc_kml(kml_file_name: &str) -> BufReader<File> {
         let path = Path::new(kml_file_name);
         if !path.exists() || !path.is_file() {
@@ -109,10 +99,8 @@ impl KmlWaypointGenerator {
         BufReader::new(file)
     }
 
-    /**
-     * Returns the waypoints line (e.g. "40.9,-105.3,0 41.1,-105.2,0") from the doc.kml file
-     * extracted from a kml file.
-     */
+    /// Returns the waypoints line (e.g. "40.9,-105.3,0 41.1,-105.2,0") from the doc.kml file
+    /// extracted from a kml file.
     fn extract_waypoints_line<T: BufRead>(xml_file: T) -> String {
         let mut coordinates_open_tag = false;
         // We should use a real XML parser here, but Google Earth saves the
@@ -134,9 +122,7 @@ impl KmlWaypointGenerator {
         panic!("No waypoints line found");
     }
 
-    /**
-     * Returns the waypoints from a waypoint formatted line, e.g. "40.9,-105.3,0 41.1,-105.2,0".
-     */
+    /// Returns the waypoints from a waypoint formatted line, e.g. "40.9,-105.3,0 41.1,-105.2,0".
     fn parse_waypoints_line(line: &str) -> Vec<Point> {
         let mut waypoints: Vec<Point> = vec![];
         let mut latitude = 0.0f64;
