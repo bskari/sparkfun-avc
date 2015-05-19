@@ -136,6 +136,7 @@ impl TelemetryProvider {
                         }
                     },
                     NmeaMessage::Sti(_) => (),  // I don't think there's anything useful here
+                    NmeaMessage::Ack(_) => (),  // TODO
                 },
                 Err(_) => (),
             }

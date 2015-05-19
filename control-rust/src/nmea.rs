@@ -116,6 +116,13 @@ pub struct BinaryMessage {
 }
 
 
+/// Acknowledgement of request message
+#[derive(PartialEq)]
+pub struct AcknowledgeRequestMessage {
+    pub success: bool,
+}
+
+
 #[derive(PartialEq)]
 pub enum NmeaMessage {
     Binary(BinaryMessage),
@@ -126,6 +133,7 @@ pub enum NmeaMessage {
     Vtg(VtgMessage),
     Rmc(RmcMessage),
     Sti(StiMessage),
+    Ack(AcknowledgeRequestMessage),
 }
 
 
@@ -200,27 +208,18 @@ impl NmeaMessage {
                 Ok(gll) => Ok(NmeaMessage::Gll(gll)),
                 Err(e) => Err(e),
             }
-        } else {
-            if message.len() != 34 {
-                return Err("Unknown NMEA message type".to_string());
-            }
-            let mut bytes = message.bytes();
-            match bytes.next() {
-                Some(byte) => if byte != 0xCF {
-                    return Err("Unknown NMEA message type".to_string());
-                },
-                None => return Err("NMEA message too short (0)".to_string()),
-            };
-            match bytes.next() {
-                Some(byte) => if byte != 0x01 {
-                    return Err("Unknown NMEA message type".to_string());
-                },
-                None => return Err("NMEA message too short (1)".to_string()),
-            };
+        } else if message.len() == 34 {
             match NmeaMessage::parse_binary(message.as_bytes()) {
                 Ok(binary) => Ok(NmeaMessage::Binary(binary)),
                 Err(e) => Err(e),
             }
+        } else if message.len() == 2 {
+            match NmeaMessage::parse_acknowledge_message(message.as_bytes()) {
+                Ok(ack) => Ok(NmeaMessage::Ack(ack)),
+                Err(e) => Err(e),
+            }
+        } else {
+            Err("Unknown NMEA nessage".to_string())
         }
     }
 
@@ -581,6 +580,15 @@ impl NmeaMessage {
     }
 
     fn parse_binary(message: &[u8]) -> Result<BinaryMessage, String> {
+        if message.len() != 34 {
+            return Err(format!("Binary message wrong length: {}, expected 34", message.len()));
+        }
+        if message[0] != 0xCF {
+            return Err("Unknown NMEA message type".to_string());
+        };
+        if message[1] != 0x01 {
+            return Err("Unknown NMEA message type".to_string());
+        };
         // The payload length from the GPS is always 34 bytes
         unsafe {
             let acceleration_x: Gravity = array_to_type![f32, message[2..6]];
@@ -604,6 +612,17 @@ impl NmeaMessage {
                 }
             )
         }
+    }
+
+    fn parse_acknowledge_message(message: &[u8]) -> Result<AcknowledgeRequestMessage, String> {
+        if message.len() != 2 {
+            return Err(format!("Acknowledge message wrong length: {}, expected 2", message.len()));
+        }
+        let id = message[0];
+        if id != 0x83 && id != 0x84 {
+            return Err("Invalid ack message".to_string());
+        }
+        Ok( AcknowledgeRequestMessage { success: id == 0x83 } )
     }
 
     fn parse_degrees_minutes(degrees_minutes: &str) -> Result<f64, ParseFloatError> {
@@ -634,6 +653,7 @@ mod tests {
     use std::thread::sleep_ms;
     use std::time::Duration;
     use super::{
+        AcknowledgeRequestMessage,
         BinaryMessage,
         FixMode,
         FixType,
@@ -924,6 +944,26 @@ mod tests {
         match NmeaMessage::parse_binary(&message) {
             Ok(binary) => assert!(binary == expected),
             _ => assert!(false)
+        }
+    }
+
+    #[test]
+    fn test_parse_acknowledge_message() {
+        {
+            let message: [u8; 2] = [0x83, 0x02];
+            let expected = AcknowledgeRequestMessage { success: true };
+            match NmeaMessage::parse_acknowledge_message(&message) {
+                Ok(ack) => assert!(ack== expected),
+                _ => assert!(false)
+            }
+        }
+        {
+            let message: [u8; 2] = [0x84, 0x01];
+            let expected = AcknowledgeRequestMessage { success: false };
+            match NmeaMessage::parse_acknowledge_message(&message) {
+                Ok(ack) => assert!(ack== expected),
+                _ => assert!(false)
+            }
         }
     }
 
