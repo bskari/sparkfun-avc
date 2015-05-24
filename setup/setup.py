@@ -126,6 +126,13 @@ def main():
                 'bash setup-gps.sh',
             )
         ),
+        (
+            'set up Pi Blaster',
+            not exists('/dev/pi-blaster'),
+            (
+                'bash setup-pi-blaster.sh',
+            )
+        ),
     )
 
     for section, test, commands in section_test_command_tuples:
