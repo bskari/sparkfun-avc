@@ -7,6 +7,7 @@ import serial
 import signal
 import subprocess
 import sys
+import time
 
 from control.button import Button
 from control.command import Command
@@ -14,7 +15,7 @@ from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.sup800f import switch_to_nmea_mode
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
-from control.driver import Driver
+from control.driver import Driver, STEERING_GPIO_PIN, THROTTLE_GPIO_PIN
 from control.telemetry_data import TelemetryData
 from monitor.http_server import HttpServer
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
@@ -25,6 +26,7 @@ from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
 THREADS = []
 POPEN = None
+DRIVER = None
 
 
 def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
@@ -40,6 +42,13 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
             POPEN.kill()
         except OSError:
             pass
+
+    DRIVER.drive(0.0, 0.0)
+    time.sleep(0.2)
+    with open('/dev/pi-blaster', 'w') as blaster:
+        # And disable PWM
+        blaster.write('release {pin}\n'.format(pin=THROTTLE_GPIO_PIN))
+        blaster.write('release {pin}\n'.format(pin=STEERING_GPIO_PIN))
 
     for thread in THREADS:
         thread.kill()
@@ -63,10 +72,11 @@ def start_threads(
     """Runs everything."""
     # TODO: Get latitude longitude central coordinate from the GPS
     telemetry = Telemetry(logger)  # Sparkfun HQ
-    driver = Driver(telemetry, logger)
-    driver.set_max_throttle(max_throttle)
+    global DRIVER
+    DRIVER = Driver(telemetry, logger)
+    DRIVER.set_max_throttle(max_throttle)
 
-    command = Command(telemetry, driver, waypoint_generator, logger)
+    command = Command(telemetry, DRIVER, waypoint_generator, logger)
 
     logger.info('Setting SUP800F to NMEA mode')
     serial_ = serial.Serial('/dev/ttyAMA0', 115200)

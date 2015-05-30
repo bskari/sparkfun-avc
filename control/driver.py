@@ -1,6 +1,4 @@
 """Drives the Tamiya Grasshopper."""
-from RPIO import PWM
-
 
 THROTTLE_GPIO_PIN = 18
 THROTTLE_NEUTRAL_US = 1500
@@ -21,20 +19,23 @@ class Driver(object):
     def __init__(self, telemetry, logger):
         self._telemetry = telemetry
         self._logger = logger
-        PWM.set_loglevel(PWM.LOG_LEVEL_ERRORS)
-        self._servo = PWM.Servo(subcycle_time_us=(1000000 // 50))
         self._throttle = 0.0
         self._steering = 0.0
-
-        self._servo.set_servo(
-            THROTTLE_GPIO_PIN,
-            self._get_throttle(0.0)
-        )
-        self._servo.set_servo(
-            STEERING_GPIO_PIN,
-            self._get_steering(0.0)
-        )
         self._max_throttle = 1.0
+
+        with open('/dev/pi-blaster', 'w') as blaster:
+            blaster.write(
+                '{pin}={throttle}\n'.format(
+                    pin=THROTTLE_GPIO_PIN,
+                    throttle=self._get_throttle(0.0)
+                )
+            )
+            blaster.write(
+                '{pin}={steering}\n'.format(
+                    pin=STEERING_GPIO_PIN,
+                    steering=self._get_steering(0.0)
+                )
+            )
 
     def drive(self, throttle_percentage, steering_percentage):
         """Sends a command to the RC car. Throttle should be a float between
@@ -68,14 +69,19 @@ class Driver(object):
         else:
             throttle = max(-self._max_throttle, throttle_percentage)
 
-        self._servo.set_servo(
-            THROTTLE_GPIO_PIN,
-            self._get_throttle(throttle)
-        )
-        self._servo.set_servo(
-            STEERING_GPIO_PIN,
-            self._get_steering(steering_percentage)
-        )
+        with open('/dev/pi-blaster', 'w') as blaster:
+            blaster.write(
+                '{pin}={throttle}\n'.format(
+                    pin=THROTTLE_GPIO_PIN,
+                    throttle=self._get_throttle(throttle)
+                )
+            )
+            blaster.write(
+                '{pin}={steering}\n'.format(
+                    pin=STEERING_GPIO_PIN,
+                    steering=self._get_steering(steering_percentage)
+                )
+            )
 
     def get_throttle(self):
         """Returns the current throttle."""
@@ -92,14 +98,14 @@ class Driver(object):
         # rolling - prevent damage to the gear box
         if not (-0.25 <= percentage <= 1.0):
             raise ValueError('Bad throttle: {}'.format(percentage))
-        return int(THROTTLE_NEUTRAL_US + THROTTLE_DIFF * percentage) // 10 * 10
+        return round((THROTTLE_NEUTRAL_US + THROTTLE_DIFF * percentage) * 0.0001, 3)
 
     @staticmethod
     def _get_steering(percentage):
         """Returns the steering value."""
         if not (-1.0 <= percentage <= 1.0):
             raise ValueError('Bad steering')
-        return int(STEERING_NEUTRAL_US + STEERING_DIFF * percentage) // 10 * 10
+        return round((STEERING_NEUTRAL_US + STEERING_DIFF * percentage) * 0.0001, 3)
 
     def set_max_throttle(self, max_throttle):
         """Sets the maximum throttle."""

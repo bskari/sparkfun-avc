@@ -1,6 +1,6 @@
 """Handles physical button presses."""
 
-import RPIO
+#import RPIO
 import threading
 import time
 
@@ -21,21 +21,22 @@ class Button(threading.Thread):  # pylint: disable=too-few-public-methods
         self._button_press_time = None
         self._run = True
 
-        RPIO.add_interrupt_callback(
-            BUTTON_GPIO_PIN,
-            self.gpio_callback,
-            debounce_timeout_ms=50
-        )
+        #RPIO.add_interrupt_callback(
+        #    BUTTON_GPIO_PIN,
+        #    self.gpio_callback,
+        #    debounce_timeout_ms=50
+        #)
 
     def run(self):
         """Run in a thread, waits for button presses."""
         while self._run:
-            RPIO.wait_for_interrupts()
+            #RPIO.wait_for_interrupts()
+            time.sleep(1)
 
     def kill(self):
         """Stops the thread."""
         self._run = False
-        RPIO.stop_waiting_for_interrupts()
+        #RPIO.stop_waiting_for_interrupts()
 
     def gpio_callback(self, gpio_id, value):
         """Called when the button is pressed."""
