@@ -5,10 +5,16 @@ use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
-use telemetry::{Degrees, MetersPerSecond, Point, hdop_to_std_dev, latitude_longitude_to_point};
+use telemetry::{
+    Degrees,
+    MetersPerSecond,
+    Point,
+    hdop_to_std_dev,
+    latitude_longitude_to_point,
+    wrap_degrees};
 use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
 use termios::{Speed, Termio};
-use nmea::NmeaMessage;
+use nmea::{MicroTesla, NmeaMessage};
 
 
 pub struct TelemetryProvider {
@@ -167,6 +173,117 @@ impl TelemetryProvider {
         match status {
             Ok(_) => true,
             Err(_) => false,
+        }
+    }
+}
+
+
+fn tilt_compensated_compass(
+    magnetic_x: MicroTesla,
+    magnetic_y: MicroTesla,
+    magnetic_z: MicroTesla
+) -> Degrees {
+    // TODO: Get readings for these
+    let acceleration_x: MetersPerSecond = 0.0;
+    let acceleration_y: MetersPerSecond = 0.0;
+    let acceleration_z: MetersPerSecond = 1.0;
+    arbitrary_tilt_compensated_compass(
+        acceleration_x,
+        acceleration_y,
+        acceleration_z,
+        magnetic_x,
+        magnetic_y,
+        magnetic_z)
+}
+
+fn arbitrary_tilt_compensated_compass(
+    acceleration_x: MetersPerSecond,
+    acceleration_y: MetersPerSecond,
+    acceleration_z: MetersPerSecond,
+    magnetic_x: MicroTesla,
+    magnetic_y: MicroTesla,
+    magnetic_z: MicroTesla
+) -> Degrees {
+    // TODO: Get readings for these
+    let magnetic_x_bias: MicroTesla = 0.0;
+    let magnetic_y_bias: MicroTesla = 0.0;
+    let magnetic_z_bias: MicroTesla = 0.0;
+
+    let norm = 1.0;
+    assert!(norm == (
+        acceleration_x * acceleration_x
+        + acceleration_y * acceleration_y
+        + acceleration_z * acceleration_z
+    ).sqrt());
+
+    let mag_x = (magnetic_x - magnetic_x_bias) / norm;
+    let mag_y = (magnetic_y - magnetic_y_bias) / norm;
+    let mag_z = (magnetic_z - magnetic_z_bias) / norm;
+    let roll = acceleration_y.atan2(
+        (acceleration_x * acceleration_x + acceleration_z * acceleration_z).sqrt()
+    );
+    let pitch = acceleration_x.atan2(
+        (acceleration_y * acceleration_y + acceleration_z * acceleration_z).sqrt()
+    );
+    let yaw = wrap_degrees(
+        (-mag_y * roll.cos() + mag_z * roll.sin()).atan2(
+            mag_x * pitch.cos()
+            + mag_z * pitch.sin() * roll.sin()
+            + mag_z * pitch.sin() * roll.cos()
+        ).to_degrees()
+    );
+    yaw
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::arbitrary_tilt_compensated_compass;
+
+    #[test]
+    fn test_arbitrary_tilt_compensated_compass() {
+        let accel_values = vec![
+            // Level
+            (0.0f32, 0.0, 1.0),
+            (0.0, 0.0, 1.0),
+            (0.0, 0.0, 1.0),
+            (0.0, 0.0, 1.0),
+            (0.0, 0.0, 1.0),
+            // Sideways
+            (0.0f32, 1.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 1.0, 0.0),
+        ];
+        let mag_values = vec![
+            (1.0f32, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (-1.0, 0.0, 0.0),
+            (0.0, -1.0, 0.0),
+            (1.0, 1.0, 0.0),
+
+            (1.0f32, 0.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (-1.0, 0.0, 0.0),
+            (0.0, 0.0, -1.0),
+        ];
+        let expected_headings = vec![
+            0.0f32, 270.0, 180.0, 90.0, 315.0,
+            0.0, 90.0, 180.0, 270.0,
+        ];
+        for ((accels, mags), expected) in accel_values.iter().zip(mag_values).zip(expected_headings) {
+            let (accel_x, accel_y, accel_z) = *accels;
+            let (mag_x, mag_y, mag_z) = mags;
+            let compass = arbitrary_tilt_compensated_compass(accel_x, accel_y, accel_z, mag_x, mag_y, mag_z);
+            if compass != expected {
+                println!(
+                    "For accel {:?} mag {:?}, computed {}, expected {}",
+                    accels,
+                    mags,
+                    compass,
+                    expected);
+            }
+            assert!(compass == expected);
         }
     }
 }
