@@ -1,13 +1,13 @@
-use telemetry::{rotate_degrees_clockwise, wrap_degrees, Point};
+use time::now;
+
+use nmea::MicroTesla;
+use telemetry::{rotate_degrees_clockwise, wrap_degrees, Degrees, Point};
 
 
-#[allow(dead_code)]
-struct LocationFilter {
+pub struct LocationFilter {
     gps_observer_matrix: [[f32; 4]; 4],  // H
-    compass_observer_matrix: [[f32; 4]; 4],  // H
     dead_reckoning_observer_matrix: [[f32; 4]; 4], // H
     gps_measurement_noise: [[f32; 4]; 4],  // R
-    compass_measurement_noise: [[f32; 4]; 4],  // R
     dead_reckoning_measurement_noise: [[f32; 4]; 4], // R
 
     // x m, y m, heading d, speed m/s
@@ -16,8 +16,8 @@ struct LocationFilter {
     process_noise: [[f32; 4]; 4],  // Q
     last_observation_time_s: f32,
 
-    // These paremeters are just scratch space for the
-    // computations in update so that we can avoid reallocations
+    // These parameters are just scratch space for the computations in update so that we can avoid
+    // reallocations
     out: [[f32; 4]; 4],
     out2: [[f32; 4]; 4],
     out3: [[f32; 4]; 4],
@@ -28,16 +28,9 @@ struct LocationFilter {
 
 
 impl LocationFilter {
-    #[allow(dead_code)]
     pub fn new(x_m: f32, y_m: f32, heading_d: f32) -> LocationFilter {
         let lf = LocationFilter {
             gps_observer_matrix: identity(),
-            compass_observer_matrix: [
-                [0f32, 0f32, 0f32, 0f32],
-                [0f32, 0f32, 0f32, 0f32],
-                [0f32, 0f32, 1f32, 0f32],
-                [0f32, 0f32, 0f32, 0f32]
-            ],
             dead_reckoning_observer_matrix: [
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
@@ -49,16 +42,6 @@ impl LocationFilter {
                 [0f32, 0f32, 0f32, 0f32],  // y_m will be filled in by the GPS accuracy
                 [0f32, 0f32, 5f32, 0f32],  // This degrees value is a guess
                 [0f32, 0f32, 0f32, 1f32]  // This speed value is a guess
-            ],
-            compass_measurement_noise: [
-                [0f32, 0f32, 0f32, 0f32],
-                [0f32, 0f32, 0f32, 0f32],
-                // This degrees value is a guess. It's kept artificially high
-                // because I've observed a lot of local interference as I drove
-                // around before. TODO: Ignore magnetometer readings with bad
-                // magnitudes that are obviously invalid and tune this down.
-                [0f32, 0f32, 45f32, 0f32],
-                [0f32, 0f32, 0f32, 0f32]
             ],
             dead_reckoning_measurement_noise: [
                 [0f32, 0f32, 0f32, 0f32],
@@ -94,8 +77,7 @@ impl LocationFilter {
     }
 
     /// Runs the Kalman update using the provided measurements.
-    #[allow(dead_code)]
-    pub fn update(
+    fn update(
         &mut self,
         measurements_: &[f32; 4],
         observer_matrix: &[[f32; 4]; 4],
@@ -184,18 +166,46 @@ impl LocationFilter {
         //print44("7. P=", &self.covariance);
     }
 
+    pub fn update_compass(&mut self, compass: Degrees, std_dev: Degrees) {
+        if std_dev > 2.0 {
+            return;
+        }
 
-    #[allow(dead_code)]
+        let now_tm = now();
+        let seconds = now_tm.tm_sec as f32 + now_tm.tm_nsec as f32 / 1000000000.0;
+        let time_diff_s = seconds - self.last_observation_time_s;
+        self.last_observation_time_s = seconds;
+
+        let compass_observer_matrix = [
+            [0f32, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ];
+
+        let compass_measurement_noise = [
+            [0f32, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            // This value is just a guess
+            [0.0, 0.0, 30.0 * std_dev, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ];
+
+        self.update(
+            &[0.0, 0.0, compass, 0.0],
+            &compass_observer_matrix,
+            &compass_measurement_noise,
+            time_diff_s);
+    }
+
     pub fn estimated_location_m(&self) -> (f32, f32) {
         (self.estimates[0][0], self.estimates[1][0])
     }
-
 
     pub fn estimated_heading_d(&self) -> f32 {
         self.estimates[2][0]
     }
 
-    #[allow(dead_code)]
     pub fn estimated_speed_m_s(&self) -> f32 {
         self.estimates[3][0]
     }
@@ -403,7 +413,7 @@ fn transpose(
 #[cfg(test)]
 mod tests {
     use super::{LocationFilter, add, identity, invert, multiply44x44};
-    use telemetry::{Point, rotate_degrees_clockwise};
+    use telemetry::{Degrees, Point, rotate_degrees_clockwise};
 
     macro_rules! assert_equal {
         ($arr_1:expr, $arr_2:expr) => {
@@ -468,7 +478,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_invert() {
         let mut out = [[0.0f32; 4]; 4];
@@ -515,8 +524,18 @@ mod tests {
         let measurements: [f32; 4] = [0.0, 0.0, heading_d, 0.0];
 
         let seconds = 5u32;
-        let compass_observer_matrix = location_filter.compass_observer_matrix;
-        let compass_measurement_noise = location_filter.compass_measurement_noise;
+        let compass_observer_matrix = [
+            [0f32, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ];
+        let compass_measurement_noise = [
+            [0f32, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 45.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ];
         for _ in (0..seconds) {
             location_filter.update(
                 &measurements,
@@ -535,5 +554,43 @@ mod tests {
         println!("px {} nx {}, py {} ny {}", predicted_x, new_x, predicted_y, new_y);
         assert_approx_eq!(predicted_x, new_x);
         assert_approx_eq!(predicted_y, new_y);
+    }
+
+    #[test]
+    fn test_update_compass() {
+        let start_coordinates_m = (100.0f32, 200.0f32);
+        let (start_x, start_y) = start_coordinates_m;
+        let mut location_filter = LocationFilter::new(start_x, start_y, 32.0);
+
+        // Center on a value
+        for heading_d in [100.0f32, 20.0, 350.0].iter() {
+            for _ in 0..20 {
+                location_filter.update_compass(*heading_d, 0.5);
+            }
+            assert!(location_filter.estimated_heading_d() > heading_d - 5.0);
+            assert!(location_filter.estimated_heading_d() < heading_d + 5.0);
+            // Shouldn't change the speed or coordinates
+            assert!(location_filter.estimated_speed_m_s() == 0.0);
+            assert!(location_filter.estimated_location_m() == (start_x, start_y));
+        }
+
+        // Values should be able to roll over
+        for _ in 0..20 {
+            location_filter.update_compass(350.0, 0.5);
+        }
+        for _ in 0..10 {
+            location_filter.update_compass(10.0, 0.5);
+            assert!(
+                location_filter.estimated_heading_d() > 350.0
+                || location_filter.estimated_heading_d() < 10.0);
+        }
+
+        // Should ignore values with really high standard deviations
+        let current_heading_d = location_filter.estimated_heading_d();
+        let bad_reading_d = 200.0;
+        for std_dev in 5..20 {
+            location_filter.update_compass(bad_reading_d, std_dev as Degrees);
+        }
+        assert!(location_filter.estimated_heading_d() == current_heading_d);
     }
 }

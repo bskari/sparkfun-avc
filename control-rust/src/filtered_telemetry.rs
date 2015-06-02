@@ -2,6 +2,7 @@ extern crate log;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
+use location_filter::LocationFilter;
 use telemetry::{Telemetry, Point, TelemetryState};
 use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
 
@@ -13,6 +14,7 @@ pub struct FilteredTelemetry {
     gps_message: Box<GpsMessage>,
     compass_message: Box<CompassMessage>,
     state: TelemetryState,
+    filter: LocationFilter,
 }
 
 
@@ -34,6 +36,9 @@ impl FilteredTelemetry {
                 heading: 0.0,
                 speed: 0.0,
                 stopped: true},
+            // TODO: Fill in the starting values of the Sparkfun AVC. These placeholders aren't a
+            // huge deal because the filter should zero in quickly affter a few readings.
+            filter: LocationFilter::new(50.0, 50.0, 315.0),
         }
     }
 
