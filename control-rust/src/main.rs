@@ -2,6 +2,7 @@
 #![feature(collections)]
 #![feature(convert)]
 #![feature(core)]
+#![feature(duration)]
 #![feature(libc)]
 #![feature(path_ext)]  // For is_file, etc.
 #![feature(std_misc)]

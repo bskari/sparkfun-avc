@@ -5,62 +5,73 @@ use std::mem::transmute;
 
 /// Returns a single message.
 fn get_message(serial: &mut BufRead) -> Result<Vec<u8>> {
-    let mut byte = [0u8; 1];
-    let mut length_buffer = [0u8; 2];
     // Keep consuming bytes until we see the header message
     loop {
-        let mut result = serial.read(&mut byte);
-        match result {
+        let mut byte = [0u8; 1];
+        match serial.read(&mut byte) {
             Ok(_) => (),
             Err(err) => return Err(err),
         }
         if byte[0] != 0xA0 {
             continue;
         }
-        result = serial.read(&mut byte);
-        match result {
+        match serial.read(&mut byte) {
             Ok(_) => (),
             Err(err) => return Err(err),
         }
         if byte[0] != 0xA1 {
             continue;
         }
-        result = serial.read(&mut length_buffer);
-        match result {
-            Ok(_) => (),
-            Err(err) => return Err(err),
-        }
-        let payload_length: u16 = u16::from_le( unsafe { transmute(length_buffer) } );
-        // Sanity check
-        if payload_length > 1024 || payload_length < 4 {
+        break;
+    }
+
+    let mut length_buffer = [0u8; 2];
+    match serial.read(&mut length_buffer) {
+        Ok(_) => (),
+        Err(err) => return Err(err),
+    }
+
+    let payload_length: u16 = u16::from_be( unsafe { transmute(length_buffer) } );
+    // Sanity check
+    if payload_length > 1024 || payload_length < 4 {
+        return Err(
+            Error::new(
+                ErrorKind::Other,
+                format!(
+                    "Invalid payload length: {}",
+                    payload_length).to_string()));
+    }
+    let mut message: Vec<u8> = Vec::with_capacity(payload_length as usize);
+    unsafe { message.set_len(payload_length as usize) };
+    match serial.read(&mut message.as_mut_slice()) {
+        Ok(bytes_read) => if bytes_read != payload_length as usize {
             return Err(
                 Error::new(
                     ErrorKind::Other,
                     format!(
-                        "Invalid payload length: {}",
+                        "Wrong number of bytes read: {}, expected {}",
+                        bytes_read,
                         payload_length).to_string()));
-        }
-        let total_length: usize = (payload_length + 4) as usize;
-        let mut message: Vec<u8> = Vec::with_capacity(total_length);
-        unsafe { message.set_len(total_length) };
-        match serial.read(&mut message.as_mut_slice()[4..]) {
-            Ok(bytes_read) => if bytes_read != payload_length as usize {
-                return Err(
-                    Error::new(
-                        ErrorKind::Other,
-                        format!(
-                            "Wrong number of bytes read: {}, expected {}",
-                            bytes_read,
-                            payload_length).to_string()));
-            },
-            Err(err) => return Err(err),
-        }
-        message[0] = 0x0A;
-        message[1] = 0x0A;
-        message[2] = length_buffer[0];
-        message[3] = length_buffer[1];
-        return Ok(message);
+        },
+        Err(err) => return Err(err),
     }
+    // The last 3 bytes are checksum + EOM, so consume them
+    let mut tail = [0u8; 3];
+    match serial.read(&mut tail) {
+        Ok(bytes_read) => if bytes_read != tail.len() {
+            return Err(Error::new(ErrorKind::Other, "Not enough checksum bytes"));
+        },
+        Err(err) => {
+            return Err(
+                Error::new(
+                    ErrorKind::Other,
+                        format!(
+                            "Error reading checksum bytes: {}",
+                            err).to_string()));
+        }
+    }
+
+    Ok(message)
 }
 
 
@@ -156,8 +167,9 @@ mod tests {
 
         let first_message = match get_message(&mut Cursor::new(buffer)) {
             Ok(message) => message,
-            Err(err) => panic!("No message extracted"),
+            Err(err) => panic!("No message extracted: {}", err),
         };
-        assert!(first_message.len() == length);
+        // - 7 because we don't want the header, length, checksum, or footer
+        assert!(first_message.len() == length - 7);
     }
 }
