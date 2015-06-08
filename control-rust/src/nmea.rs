@@ -171,51 +171,56 @@ macro_rules! array_to_type {
 // convert! needs unsafe in tests, but not in regular code
 #[allow(unused_unsafe)]
 impl NmeaMessage {
-    pub fn parse(message: &str) -> Result<NmeaMessage, String> {
+    pub fn parse(vec_message: &Vec<u8>) -> Result<NmeaMessage, String> {
         // These if statements are sorted in the rough likelihood of appearance
+        if vec_message.len() == 34 {
+            return match NmeaMessage::parse_binary(vec_message.as_slice()) {
+                Ok(binary) => Ok(NmeaMessage::Binary(binary)),
+                Err(e) => Err(e),
+            };
+        } else if vec_message.len() == 2 {
+            return match NmeaMessage::parse_acknowledge_message(vec_message) {
+                Ok(ack) => Ok(NmeaMessage::Ack(ack)),
+                Err(e) => Err(e),
+            };
+        }
+        let message = match String::from_utf8(vec_message.to_owned()) {
+            Ok(utf8) => utf8,
+            Err(utf8_error) => return Err("Invalid UTF8".to_string()),
+        };
         if message.starts_with("$GPGGA") {
-            match NmeaMessage::parse_gga(message) {
+            match NmeaMessage::parse_gga(&message) {
                 Ok(gga) => Ok(NmeaMessage::Gga(gga)),
                 Err(e) => Err(e)
             }
         } else if message.starts_with("$GPVTG") {
-            match NmeaMessage::parse_vtg(message) {
+            match NmeaMessage::parse_vtg(&message) {
                 Ok(vtg) => Ok(NmeaMessage::Vtg(vtg)),
                 Err(e) => Err(e)
             }
         } else if message.starts_with("$PSTI") {
-            match NmeaMessage::parse_sti(message) {
+            match NmeaMessage::parse_sti(&message) {
                 Ok(sti) => Ok(NmeaMessage::Sti(sti)),
                 Err(e) => Err(e)
             }
         } else if message.starts_with("$GPRMC") {
-            match NmeaMessage::parse_rmc(message) {
+            match NmeaMessage::parse_rmc(&message) {
                 Ok(rmc) => Ok(NmeaMessage::Rmc(rmc)),
                 Err(e) => Err(e)
             }
         } else if message.starts_with("$GPGSA") {
-            match NmeaMessage::parse_gsa(message) {
+            match NmeaMessage::parse_gsa(&message) {
                 Ok(gsa) => Ok(NmeaMessage::Gsa(gsa)),
                 Err(e) => Err(e)
             }
         } else if message.starts_with("$GPGSV") {
-            match NmeaMessage::parse_gsv(message) {
+            match NmeaMessage::parse_gsv(&message) {
                 Ok(gsv) => Ok(NmeaMessage::Gsv(gsv)),
                 Err(e) => Err(e),
             }
         } else if message.starts_with("$GPGLL") {
-            match NmeaMessage::parse_gll(message) {
+            match NmeaMessage::parse_gll(&message) {
                 Ok(gll) => Ok(NmeaMessage::Gll(gll)),
-                Err(e) => Err(e),
-            }
-        } else if message.len() == 34 {
-            match NmeaMessage::parse_binary(message.as_bytes()) {
-                Ok(binary) => Ok(NmeaMessage::Binary(binary)),
-                Err(e) => Err(e),
-            }
-        } else if message.len() == 2 {
-            match NmeaMessage::parse_acknowledge_message(message.as_bytes()) {
-                Ok(ack) => Ok(NmeaMessage::Ack(ack)),
                 Err(e) => Err(e),
             }
         } else {
@@ -843,39 +848,39 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        let gga = "$GPGGA,033403.456,0102.3456,N,0102.3456,W,1,11,0.8,108.2,M,,,,0000*01\r\n";
-        let vtg = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n";
-        let rmc = "$GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12\r\n";
-        let gsa = "$GPGSA,A,3,05,12,21,22,30,09,18,06,14,01,31,,1.2,0.8,0.6*36\r\n";
-        let gsv = "$GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72\r\n";
-        let gll = "$GPGLL,2447.0944,N,12100.5213,E,112609.932,A,A*57\r\n";
-        let sti = "$PSTI,004,001,1,34.7,121.6,-48.2,99912,29.4*08\r\n";
+        let gga = "$GPGGA,033403.456,0102.3456,N,0102.3456,W,1,11,0.8,108.2,M,,,,0000*01\r\n".as_bytes().to_owned();
+        let vtg = "$GPVTG,123.4,T,356.1,M,000.0,N,0036.0,K,A*32\r\n".as_bytes().to_owned();
+        let rmc = "$GPRMC,111636.932,A,2447.0949,N,12100.5223,E,000.0,000.0,030407,003.9,W,A*12\r\n".as_bytes().to_owned();
+        let gsa = "$GPGSA,A,3,05,12,21,22,30,09,18,06,14,01,31,,1.2,0.8,0.6*36\r\n".as_bytes().to_owned();
+        let gsv = "$GPGSV,3,1,12,05,54,069,45,12,44,061,44,21,07,184,46,22,78,289,47*72\r\n".as_bytes().to_owned();
+        let gll = "$GPGLL,2447.0944,N,12100.5213,E,112609.932,A,A*57\r\n".as_bytes().to_owned();
+        let sti = "$PSTI,004,001,1,34.7,121.6,-48.2,99912,29.4*08\r\n".as_bytes().to_owned();
 
-        match NmeaMessage::parse(gga).unwrap() {
+        match NmeaMessage::parse(&gga).unwrap() {
             NmeaMessage::Gga(gga) => (),
             _ => assert!(false)
         };
-        match NmeaMessage::parse(vtg).unwrap() {
+        match NmeaMessage::parse(&vtg).unwrap() {
             NmeaMessage::Vtg(vtg) => (),
             _ => assert!(false)
         };
-        match NmeaMessage::parse(rmc).unwrap() {
+        match NmeaMessage::parse(&rmc).unwrap() {
             NmeaMessage::Rmc(rmc) => (),
             _ => assert!(false)
         };
-        match NmeaMessage::parse(gsa).unwrap() {
+        match NmeaMessage::parse(&gsa).unwrap() {
             NmeaMessage::Gsa(gsa) => (),
             _ => assert!(false)
         };
-        match NmeaMessage::parse(gsv).unwrap() {
+        match NmeaMessage::parse(&gsv).unwrap() {
             NmeaMessage::Gsv(gsv) => (),
             _ => assert!(false)
         };
-        match NmeaMessage::parse(gll).unwrap() {
+        match NmeaMessage::parse(&gll).unwrap() {
             NmeaMessage::Gll(gll) => (),
             _ => assert!(false)
         };
-        match NmeaMessage::parse(sti).unwrap() {
+        match NmeaMessage::parse(&sti).unwrap() {
             NmeaMessage::Sti(sti) => (),
             _ => assert!(false)
         };
@@ -910,9 +915,9 @@ mod tests {
         });
         let mut reader = BufReader::new(tty);
         reader.read_line(&mut message);
-        match NmeaMessage::parse(&message) {
+        match NmeaMessage::parse(&message.into_bytes()) {
             Ok(m) => (),
-            Err(e) => panic!(format!("Unable to parse NmeaMessage\n{}\nbecause {}", message, e))
+            Err(e) => panic!(format!("Unable to parse NmeaMessage because {}", e))
         }
     }
 

@@ -1,10 +1,10 @@
 /// Functions for communicating with the SUP800F GPS module.
-use std::io::{BufRead, Error, ErrorKind, Result, Write};
+use std::io::{Read, Error, ErrorKind, Result, Write};
 use std::mem::transmute;
 
 
 /// Returns a single message.
-fn get_message(serial: &mut BufRead) -> Result<Vec<u8>> {
+pub fn get_message(serial: &mut Read) -> Result<Vec<u8>> {
     // Keep consuming bytes until we see the header message
     loop {
         let mut byte = [0u8; 1];
@@ -76,13 +76,13 @@ fn get_message(serial: &mut BufRead) -> Result<Vec<u8>> {
 
 
 /// Switches to the NMEA message mode.
-fn switch_to_nmea_mode(serial: &mut Write) -> Result<()> {
+pub fn switch_to_nmea_mode(serial: &mut Write) -> Result<()> {
     _change_mode(serial, 1)
 }
 
 
 /// Switches to the binary message mode.
-fn switch_to_binary_mode(serial: &mut Write) -> Result<()> {
+pub fn switch_to_binary_mode(serial: &mut Write) -> Result<()> {
     _change_mode(serial, 2)
 }
 

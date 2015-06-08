@@ -1,6 +1,8 @@
+/// Reads messages from the SUP800F module and forwards the data.
+use sup800f::{get_message, switch_to_binary_mode, switch_to_nmea_mode};
+
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -41,8 +43,9 @@ impl TelemetryProvider {
         }
     }
 
+    /// Processes and forwards messages from the SUP800F module
     pub fn run(&mut self, quit_rx: Receiver<()>) {
-        let tty = match File::open(&Path::new("/dev/ttyAMA0")) {
+        let mut tty = match File::open(&Path::new("/dev/ttyAMA0")) {
             Ok(f) => f,
             Err(m) => panic!("Unable to open /dev/ttyAMA0: {}", m.description())
         };
@@ -77,7 +80,7 @@ impl TelemetryProvider {
         }
 
         let mut message = String::new();
-        let mut reader = BufReader::new(tty);
+        let mut binary_message_count = 0;
         loop {
             match quit_rx.try_recv() {
                 Ok(_) => {
@@ -88,13 +91,13 @@ impl TelemetryProvider {
             };
 
             // Blocking read
-            match reader.read_line(&mut message) {
-                Ok(_) => (),
+            let message = match get_message(&mut tty) {
+                Ok(message) => message,
                 Err(e) => {
                     error!("Unable to read line from GPS: {}", e);
                     break;
                 }
-            }
+            };
 
             match NmeaMessage::parse(&message) {
                 Ok(nmea) => match nmea {
@@ -107,6 +110,7 @@ impl TelemetryProvider {
                         if !self.send_compass() {
                             break;
                         }
+                        binary_message_count += 1;
                     },
                     NmeaMessage::Gga(gga) => {
                         self.point = latitude_longitude_to_point(
@@ -116,6 +120,7 @@ impl TelemetryProvider {
                         if !self.send_gps() {
                             break;
                         }
+                        binary_message_count = -1;
                     },
                     NmeaMessage::Gll(gll) => {
                         self.point = latitude_longitude_to_point(
@@ -124,6 +129,7 @@ impl TelemetryProvider {
                         if !self.send_gps() {
                             break;
                         }
+                        binary_message_count = -1;
                     },
                     NmeaMessage::Gsa(gsa) => self.hdop = gsa.hdop,
                     NmeaMessage::Gsv(_) => (),  // TODO Gsv is satellites in view?
@@ -140,11 +146,19 @@ impl TelemetryProvider {
                         if !self.send_gps() {
                             break;
                         }
+                        binary_message_count = -1;
                     },
                     NmeaMessage::Sti(_) => (),  // I don't think there's anything useful here
                     NmeaMessage::Ack(_) => (),  // TODO
                 },
                 Err(_) => (),
+            }
+
+            // I don't expect binary_message_count to unexpectedly get above 3, but just in case
+            if binary_message_count >= 3 {
+                switch_to_nmea_mode(&mut tty);
+            } else if binary_message_count == -1 {
+                switch_to_binary_mode(&mut tty);
             }
         }
     }
@@ -195,6 +209,7 @@ fn tilt_compensated_compass(
         magnetic_y,
         magnetic_z)
 }
+
 
 fn arbitrary_tilt_compensated_compass(
     acceleration_x: MetersPerSecond,
