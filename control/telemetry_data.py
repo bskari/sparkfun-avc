@@ -44,7 +44,7 @@ class TelemetryData(threading.Thread):
         self._run = True
         self._iterations = 0
         # These initial measurements are from a calibration observation
-        self._compass_offsets = (-4.43, -0.43)
+        self._compass_offsets = (-11.87, -5.97)
         self._magnitude_mean = 353.310
         self._magnitude_std_dev = 117.918
 
@@ -186,7 +186,7 @@ class TelemetryData(threading.Thread):
         self._last_compass_heading_d = Telemetry.wrap_degrees(
             270.0 - math.degrees(
                 math.atan2(flux_y, flux_x)
-            ) - 8.666  # Boulder declination
+            ) + 8.666  # Boulder declination
         )
         # TODO: Drop messages that are several standard deviations off
         self._telemetry.handle_message({
