@@ -30,7 +30,7 @@ use unix_socket::UnixStream;
 use control::Control;
 use filtered_telemetry::FilteredTelemetry;
 use kml_waypoint_generator::KmlWaypointGenerator;
-use socket_driver::SocketDriver;
+use pi_blaster_driver::PiBlasterDriver;
 use telemetry::TelemetryState;
 use telemetry_message::{CommandMessage, TelemetryMessage};
 use telemetry_provider::TelemetryProvider;
@@ -41,7 +41,7 @@ mod filtered_telemetry;
 mod kml_waypoint_generator;
 mod location_filter;
 mod nmea;
-mod socket_driver;
+mod pi_blaster_driver;
 mod sup800f;
 mod telemetry;
 mod telemetry_message;
@@ -183,7 +183,7 @@ fn spawn_control(
 ) -> JoinHandle<()> {
     let waypoint_generator = Box::new(KmlWaypointGenerator::new(&path_file_name));
     spawn(move || {
-        let driver = Box::new(SocketDriver::new(max_throttle));
+        let driver = Box::new(PiBlasterDriver::new_limit_throttle(max_throttle));
         let mut control = Control::new(
             request_telemetry_tx,
             telemetry_rx,
