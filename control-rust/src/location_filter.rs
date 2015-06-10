@@ -7,7 +7,8 @@ use telemetry::{
     Degrees,
     Meters,
     MetersPerSecond,
-    Point};
+    Point,
+    Seconds};
 
 
 pub struct LocationFilter {
@@ -19,6 +20,7 @@ pub struct LocationFilter {
     covariance: [[f32; 4]; 4],  // P
     process_noise: [[f32; 4]; 4],  // Q
     last_observation_time_s: f32,
+    pub estimated_turn_rate_d_s: f32,
 
     // These parameters are just scratch space for the computations in update so that we can avoid
     // reallocations
@@ -56,6 +58,7 @@ impl LocationFilter {
             // TODO: Tune this parameter for maximum performance
             process_noise: identity(),
             last_observation_time_s: 0.0,
+            estimated_turn_rate_d_s: 0.0,
 
             // These paremeters are just scratch space for the
             // computations in update so that we can avoid reallocations
@@ -69,13 +72,96 @@ impl LocationFilter {
         return lf;
     }
 
+    /// Updates the Kalman filter with compass readings.
+    pub fn update_compass(&mut self, compass: Degrees, std_dev: Degrees) {
+        if std_dev > 2.0 {
+            return;
+        }
+
+        let time_diff = self.update_observation_time();
+
+        let compass_observer_matrix = [
+            [0f32, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ];
+
+        let compass_measurement_noise = [
+            [0f32, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+            // This value is just a guess
+            [0.0, 0.0, 30.0 * std_dev, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ];
+
+        self.update(
+            &[0.0, 0.0, compass, 0.0],
+            &compass_observer_matrix,
+            &compass_measurement_noise,
+            time_diff);
+    }
+
+    /// Updates the Kalman filter with GPS readings.
+    pub fn update_gps(
+        &mut self,
+        x: Meters,
+        x_std_dev: Meters,
+        y: Meters,
+        y_std_dev: Meters,
+        heading: Degrees,
+        speed: MetersPerSecond
+    ) {
+        let time_diff = self.update_observation_time();
+
+        let gps_observer_matrix = identity();
+        let gps_measurement_noise = [
+            [x_std_dev, 0f32, 0f32, 0f32],
+            [0f32, y_std_dev, 0f32, 0f32],
+            [0f32, 0f32, 5f32, 0f32],  // This degrees value is a guess
+            [0f32, 0f32, 0f32, 1f32]  // This speed value is a guess
+        ];
+        // This can't be done in a test
+        assert!(
+            self.dead_reckoning_measurement_noise[3][3] >
+            gps_measurement_noise[3][3]
+        );
+
+        self.update(
+            &[x, y, heading, speed],
+            &gps_observer_matrix,
+            &gps_measurement_noise,
+            time_diff);
+    }
+
+    pub fn estimated_location(&self) -> Point {
+         Point { x: self.estimates[0][0], y: self.estimates[1][0] }
+    }
+
+    pub fn estimated_heading(&self) -> Degrees {
+        self.estimates[2][0]
+    }
+
+    pub fn estimated_speed(&self) -> MetersPerSecond {
+        self.estimates[3][0]
+    }
+
+    /// Updates the observation time and returns the difference in seconds since the last update.
+    pub fn update_observation_time(&mut self) -> Seconds {
+        let now_tm = now();
+        let seconds = now_tm.tm_sec as f32 + now_tm.tm_nsec as f32 / 1000000000.0;
+        let time_diff: Seconds = seconds - self.last_observation_time_s;
+        self.last_observation_time_s = seconds;
+        time_diff
+    }
+
     /// Runs the Kalman update using the provided measurements.
     fn update(
         &mut self,
         measurements_: &[f32; 4],
         observer_matrix: &[[f32; 4]; 4],
         measurement_noise: &[[f32; 4]; 4],
-        time_diff_s: f32,
+        time_diff: Seconds,
     ) {
         // For convenience, we let users supply measurements as [f32; 4], but
         // because we're doing matrix stuff, we need to convert them to 4x1
@@ -86,21 +172,9 @@ impl LocationFilter {
             [measurements_[3],],
         ];
         // Prediction step
-        // x = A * x + B
-        let heading_d = self.estimated_heading();
-        let delta = rotate_degrees_clockwise(
-            &Point { x: 0.0, y: time_diff_s },
-            heading_d
-        );
-        let transition = [  // A
-            [1.0f32, 0.0f32, 0.0f32, delta.x],
-            [0.0f32, 1.0f32, 0.0f32, delta.y],
-            [0.0f32, 0.0f32, 1.0f32, 0.0f32],
-            [0.0f32, 0.0f32, 0.0f32, 1.0f32]
-        ];
-        // TODO: Add acceleration and turn values
+        let transition = self.prediction_step(time_diff);
+
         multiply44x41(&transition, &self.estimates, &mut self.out41);
-        self.estimates = self.out41;
         //print44("1. A=", &transition);
         //print44("   P=", &self.covariance);
         //print41("   x=", &self.estimates);
@@ -159,84 +233,32 @@ impl LocationFilter {
         //print44("7. P=", &self.covariance);
     }
 
-    /// Updates the Kalman filter with compass readings.
-    pub fn update_compass(&mut self, compass: Degrees, std_dev: Degrees) {
-        if std_dev > 2.0 {
-            return;
-        }
-
-        let now_tm = now();
-        let seconds = now_tm.tm_sec as f32 + now_tm.tm_nsec as f32 / 1000000000.0;
-        let time_diff_s = seconds - self.last_observation_time_s;
-        self.last_observation_time_s = seconds;
-
-        let compass_observer_matrix = [
-            [0f32, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0]
-        ];
-
-        let compass_measurement_noise = [
-            [0f32, 0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 0.0],
-            // This value is just a guess
-            [0.0, 0.0, 30.0 * std_dev, 0.0],
-            [0.0, 0.0, 0.0, 0.0]
-        ];
-
-        self.update(
-            &[0.0, 0.0, compass, 0.0],
-            &compass_observer_matrix,
-            &compass_measurement_noise,
-            time_diff_s);
-    }
-
-    /// Updates the Kalman filter with GPS readings.
-    pub fn update_gps(
-        &mut self,
-        x: Meters,
-        x_std_dev: Meters,
-        y: Meters,
-        y_std_dev: Meters,
-        heading: Degrees,
-        speed: MetersPerSecond
-    ) {
-        let now_tm = now();
-        let seconds = now_tm.tm_sec as f32 + now_tm.tm_nsec as f32 / 1000000000.0;
-        let time_diff_s = seconds - self.last_observation_time_s;
-        self.last_observation_time_s = seconds;
-
-        let gps_observer_matrix = identity();
-        let gps_measurement_noise = [
-            [x_std_dev, 0f32, 0f32, 0f32],
-            [0f32, y_std_dev, 0f32, 0f32],
-            [0f32, 0f32, 5f32, 0f32],  // This degrees value is a guess
-            [0f32, 0f32, 0f32, 1f32]  // This speed value is a guess
-        ];
-        // This can't be done in a test
-        assert!(
-            self.dead_reckoning_measurement_noise[3][3] >
-            gps_measurement_noise[3][3]
+    /// Runs the prediction step only and returns the transition matrix. Useful when requesting
+    /// position faster than we are getting data.
+    pub fn prediction_step(&mut self, time_diff: Seconds) -> [[f32; 4]; 4] {
+        // x = A * x + B
+        let heading = self.estimated_heading();
+        let delta = rotate_degrees_clockwise(
+            &Point { x: 0.0, y: time_diff },
+            heading
         );
+        let transition = [  // A
+            [1.0f32, 0.0f32, 0.0f32, delta.x],
+            [0.0f32, 1.0f32, 0.0f32, delta.y],
+            [0.0f32, 0.0f32, 1.0f32, 0.0f32],
+            [0.0f32, 0.0f32, 0.0f32, 1.0f32]
+        ];
 
-        self.update(
-            &[x, y, heading, speed],
-            &gps_observer_matrix,
-            &gps_measurement_noise,
-            time_diff_s);
-    }
+        // Update heading estimate based on steering
+        let new_heading = wrap_degrees(
+            self.estimated_heading() + self.estimated_turn_rate_d_s * time_diff
+        );
+        self.estimates[2][0] = new_heading;
+        // TODO: Add acceleration values
 
-    pub fn estimated_location(&self) -> Point {
-         Point { x: self.estimates[0][0], y: self.estimates[1][0] }
-    }
-
-    pub fn estimated_heading(&self) -> Degrees {
-        self.estimates[2][0]
-    }
-
-    pub fn estimated_speed(&self) -> MetersPerSecond {
-        self.estimates[3][0]
+        multiply44x41(&transition, &self.estimates, &mut self.out41);
+        self.estimates = self.out41;
+        transition
     }
 }
 
@@ -442,7 +464,7 @@ fn transpose(
 #[cfg(test)]
 mod tests {
     use super::{LocationFilter, add, identity, invert, multiply44x44};
-    use telemetry::{Degrees, Point, MetersPerSecond, rotate_degrees_clockwise};
+    use telemetry::{Degrees, MetersPerSecond, Point, Seconds, rotate_degrees_clockwise};
 
     macro_rules! assert_equal {
         ($arr_1:expr, $arr_2:expr) => {
@@ -459,8 +481,11 @@ mod tests {
             // Yeah, I know this is bad, see
             // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
 
+            if ($value_1 - $value_2).abs() >= 0.00001f32 {
+                println!("{} !~= {:?}", $value_1, $value_2);
+            }
             // This is the best we can do with f32
-            assert!(($value_1 - $value_2).abs() < 0.00001f32);
+            assert!(($value_1 - $value_2).abs() < 0.0001f32);
         }
     }
 
@@ -666,6 +691,39 @@ mod tests {
             assert!(
                 location_filter.estimated_heading() > 350.0
                 || location_filter.estimated_heading() < 10.0);
+        }
+    }
+
+    #[test]
+    fn test_prediction_step() {
+        let (start_x, start_y) = (100.0f32, 200.0f32);
+        let start_point = Point { x: start_x, y: start_y };
+        let start_heading: Degrees = 32.0;
+
+        // If we're not turning, the prediction step shouldn't change anything
+        { 
+            let mut location_filter = LocationFilter::new(start_x, start_y, start_heading);
+            location_filter.estimated_turn_rate_d_s = 0.0;
+            for _ in 0..5 {
+                location_filter.prediction_step(0.5);
+            }
+            assert_approx_eq!(location_filter.estimated_heading(), start_heading);
+            assert!(location_filter.estimated_location() == start_point);
+        }
+
+        // If we are turning, then things should change
+        for turn_rate in [-5.0f32, -1.0, 2.0, 20.0, 45.0, 70.0, 90.0].iter() {
+            let mut location_filter = LocationFilter::new(start_x, start_y, start_heading);
+            location_filter.estimated_turn_rate_d_s = *turn_rate;
+            let time_diff: Seconds = 0.25;
+            for delta in 1..10 {
+                location_filter.prediction_step(time_diff);
+                assert_approx_eq!(
+                    location_filter.estimated_heading(),
+                    start_heading + (delta as Degrees * turn_rate * time_diff)
+                );
+                assert!(location_filter.estimated_location() == start_point);
+            }
         }
     }
 }

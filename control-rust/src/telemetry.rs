@@ -8,6 +8,7 @@ use telemetry_message::TelemetryMessage;
 pub type Meters = f32;
 pub type Degrees = f32;
 pub type MetersPerSecond = f32;
+pub type Seconds = f32;
 pub type StandardGravities = f32;  // G force, multiples of 9.8 m/s^2
 #[derive(Clone)]
 #[derive(Copy)]
@@ -36,7 +37,7 @@ pub trait Telemetry {
     fn get_raw_compass(&self) -> &CompassMessage;
 
     /// Returns the (possibly filtered) telemetry data.
-    fn get_data(&self) -> &TelemetryState;
+    fn get_data(&mut self) -> &TelemetryState;
 
     /// End point for processing commands executed by the Command module.
     fn process_drive_command(&mut self, throttle:f32, steering:f32);

@@ -37,7 +37,7 @@ impl FilteredTelemetry {
                 location: Point { x: 0.0, y: 0.0 },
                 heading: 0.0,
                 speed: 0.0,
-                stopped: true},
+                stopped: false},
             // TODO: Fill in the starting values of the Sparkfun AVC. These placeholders aren't a
             // huge deal because the filter should zero in quickly after a few readings.
             filter: LocationFilter::new(50.0, 50.0, 315.0),
@@ -96,8 +96,14 @@ impl Telemetry for FilteredTelemetry {
         & *self.compass_message
     }
 
-    fn get_data(&self) -> &TelemetryState {
-        // TODO
+    fn get_data(&mut self) -> &TelemetryState {
+        let time_diff = self.filter.update_observation_time();
+        self.filter.prediction_step(time_diff);
+
+        self.state.location = self.filter.estimated_location();
+        self.state.heading = self.filter.estimated_heading();
+        self.state.speed = self.filter.estimated_speed();
+        self.state.stopped = false;
         &self.state
     }
 
@@ -114,7 +120,8 @@ impl Telemetry for FilteredTelemetry {
         self.throttle = throttle;
         self.steering = steering;
 
-        // TODO: Update the filter?
+        let max_turn_rate_d_s = 90.0f32;  // Estimated from observation
+        self.filter.estimated_turn_rate_d_s = max_turn_rate_d_s * steering;
     }
 
     fn handle_message(&mut self, telemetry_message: &TelemetryMessage) -> () {
