@@ -5,7 +5,7 @@ use telemetry::{
     rotate_degrees_clockwise,
     wrap_degrees,
     Degrees,
-    Meter,
+    Meters,
     MetersPerSecond,
     Point};
 
@@ -195,10 +195,10 @@ impl LocationFilter {
     /// Updates the Kalman filter with GPS readings.
     pub fn update_gps(
         &mut self,
-        x: Meter,
-        x_std_dev: Meter,
-        y: Meter,
-        y_std_dev: Meter,
+        x: Meters,
+        x_std_dev: Meters,
+        y: Meters,
+        y_std_dev: Meters,
         heading: Degrees,
         speed: MetersPerSecond
     ) {

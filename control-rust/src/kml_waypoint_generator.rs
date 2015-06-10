@@ -7,7 +7,7 @@ use std::mem::transmute;
 use std::path::Path;
 use std::process::Command;
 
-use telemetry::{Meter, Point, distance, latitude_longitude_to_point};
+use telemetry::{Meters, Point, distance, latitude_longitude_to_point};
 use waypoint_generator::WaypointGenerator;
 
 
@@ -16,9 +16,9 @@ use waypoint_generator::WaypointGenerator;
 pub struct KmlWaypointGenerator {
     waypoints: Vec<Point>,
     current_waypoint: usize,
-    last_distance: Cell<Meter>,
-    reach_distance: Meter,
-    close_distance: Meter,
+    last_distance: Cell<Meters>,
+    reach_distance: Meters,
+    close_distance: Meters,
 }
 
 
@@ -31,8 +31,8 @@ impl KmlWaypointGenerator {
     /// Loads waypoints from a KML path file. Allows for use of optional values.
     pub fn new_options(
         kml_file_name: &str,
-        reach_distance: Meter,
-        close_distance: Meter
+        reach_distance: Meters,
+        close_distance: Meters
     ) -> KmlWaypointGenerator {
         let xml_file = KmlWaypointGenerator::extract_doc_kml(kml_file_name);
         let waypoints_line = KmlWaypointGenerator::extract_waypoints_line(xml_file);
@@ -43,8 +43,8 @@ impl KmlWaypointGenerator {
     /// For testing.
     fn new_from_waypoints(
         waypoints: Vec<Point>,
-        reach_distance: Meter,
-        close_distance: Meter
+        reach_distance: Meters,
+        close_distance: Meters
     ) -> KmlWaypointGenerator {
         KmlWaypointGenerator {
             waypoints: waypoints,
@@ -214,7 +214,7 @@ impl WaypointGenerator for KmlWaypointGenerator {
         false
     }
 
-    fn reach_distance(&self) -> Meter {
+    fn reach_distance(&self) -> Meters {
         self.reach_distance
     }
 }

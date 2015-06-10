@@ -268,7 +268,7 @@ mod tests {
     use driver::{Driver, Percentage};
     use super::{Control, ControlState, MilliSeconds};
     use super::ToMilliseconds;
-    use telemetry::{Meter, Point, TelemetryState};
+    use telemetry::{Meters, Point, TelemetryState};
     use waypoint_generator::WaypointGenerator;
 
     struct DummyWaypointGenerator {
@@ -280,7 +280,7 @@ mod tests {
         fn next(&mut self) { self.done = true; }
         fn reached(&self, point: &Point) -> bool { false }
         fn done(&self) -> bool { self.done }
-        fn reach_distance(&self) -> Meter { 1.0 }
+        fn reach_distance(&self) -> Meters { 1.0 }
     }
 
     struct DummyDriver {

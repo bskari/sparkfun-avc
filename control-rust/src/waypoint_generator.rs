@@ -1,6 +1,6 @@
 /// Provides waypoint data.
 use telemetry::Point;
-use telemetry::Meter;
+use telemetry::Meters;
 
 pub trait WaypointGenerator {
     /// Returns the current waypoint. We take in the current position so that we
@@ -20,5 +20,5 @@ pub trait WaypointGenerator {
     fn done(&self) -> bool;
 
     /// Returns the distance required to consider a waypoint as reached.
-    fn reach_distance(&self) -> Meter;
+    fn reach_distance(&self) -> Meters;
 }

@@ -5,16 +5,16 @@ use telemetry_message::GpsMessage;
 use telemetry_message::TelemetryMessage;
 
 
-pub type Meter = f32;
+pub type Meters = f32;
 pub type Degrees = f32;
 pub type MetersPerSecond = f32;
-pub type Gravities = f32;  // G force, multiples of 9.8 m/s^2
+pub type StandardGravities = f32;  // G force, multiples of 9.8 m/s^2
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(PartialEq)]
 pub struct Point {
-    pub x: Meter,
-    pub y: Meter,
+    pub x: Meters,
+    pub y: Meters,
 }
 
 #[derive(Clone)]
@@ -142,7 +142,7 @@ pub fn difference_d(heading_1: Degrees, heading_2: Degrees) -> Degrees {
 
 
 /// Distance between 2 points.
-pub fn distance(point_1: &Point, point_2: &Point) -> Meter {
+pub fn distance(point_1: &Point, point_2: &Point) -> Meters {
     let diff_x = (point_1.x - point_2.x).abs();
     let diff_y = (point_1.y - point_2.y).abs();
     (diff_x * diff_x + diff_y * diff_y).sqrt()
@@ -168,7 +168,7 @@ pub fn latitude_longitude_to_point(latitude: f64, longitude: f64) -> Point {
 
 
 /// Estimation of converting HDOP to standard deviation. This is a complete guess.
-pub fn hdop_to_std_dev(hdop: f32) -> Meter {
+pub fn hdop_to_std_dev(hdop: f32) -> Meters {
     hdop * 2.0
 }
 

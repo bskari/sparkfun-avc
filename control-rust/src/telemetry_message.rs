@@ -1,21 +1,21 @@
-use telemetry::{Degrees, Gravities, Meter, MetersPerSecond, Point};
+use telemetry::{Degrees, Meters, MetersPerSecond, Point, StandardGravities};
 
 
 pub struct GpsMessage {
     pub point: Point,
     pub heading: Degrees,
     pub speed: MetersPerSecond,
-    pub std_dev_x: Meter,
-    pub std_dev_y: Meter,
+    pub std_dev_x: Meters,
+    pub std_dev_y: Meters,
 }
 pub struct CompassMessage {
     pub heading: Degrees,
     pub std_dev: Degrees,
 }
 pub struct AccelerometerMessage {
-    pub x: Gravities,
-    pub y: Gravities,
-    pub z: Gravities,
+    pub x: StandardGravities,
+    pub y: StandardGravities,
+    pub z: StandardGravities,
 }
 pub enum CommandMessage {
     CalibrateCompass,
