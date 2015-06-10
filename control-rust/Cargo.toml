@@ -6,6 +6,7 @@ authors = ["Brandon Skari <brandon@skari.org>"]
 
 [dependencies]
 enum_primitive = "0.0.*"
+errno = "0.1.*"
 getopts = "0.2.*"
 log = "0.3.*"
 num = "0.1.*"

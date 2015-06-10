@@ -5,85 +5,85 @@
 extern crate libc;
 extern crate num;
 
+use errno::{Errno, errno};
 use num::traits::FromPrimitive;
 use std::mem::transmute;
 use std::os::unix::prelude::AsRawFd;
 
 
 pub trait Termio {
-    fn set_speed(&self, speed: Speed) -> Result<i32, i32>;
-    fn get_speed(&self) -> Result<Speed, i32>;
-    fn drain(&self) -> Result<i32, i32>;
-    fn drop_input(&self) -> Result<i32, i32>;
-    fn drop_output(&self) -> Result<i32, i32>;
-    fn drop_input_output(&self) -> Result<i32, i32>;
-    fn input_buffer_count(&self) -> Result<i32, i32>;
-    fn errno(&self) -> i32;
+    fn set_speed(&self, speed: Speed) -> Result<i32, Errno>;
+    fn get_speed(&self) -> Result<Speed, Errno>;
+    fn drain(&self) -> Result<i32, Errno>;
+    fn drop_input(&self) -> Result<i32, Errno>;
+    fn drop_output(&self) -> Result<i32, Errno>;
+    fn drop_input_output(&self) -> Result<i32, Errno>;
+    fn input_buffer_count(&self) -> Result<i32, Errno>;
 }
 impl<T> Termio for T where T: AsRawFd {
-    fn set_speed(&self, speed: Speed) -> Result<i32, i32> {
+    fn set_speed(&self, speed: Speed) -> Result<i32, Errno> {
         let fd = self.as_raw_fd();
         let mut config = CTermios::new();
         if unsafe { tcgetattr(fd, &mut config) } < 0 {
-            return Err(self.errno());
+            return Err(errno());
         }
         if unsafe { cfsetspeed(&mut config, speed as u32) } < 0 {
-            return Err(self.errno());
+            return Err(errno());
         }
         if unsafe { tcsetattr(fd, TcSetattrOptions::TCSANOW as i32, &mut config) } < 0 {
-            return Err(self.errno());
+            return Err(errno());
         }
         Ok(0)
     }
 
-    fn get_speed(&self) -> Result<Speed, i32> {
+    fn get_speed(&self) -> Result<Speed, Errno> {
         let fd = self.as_raw_fd();
         let mut config = CTermios::new();
         if unsafe { tcgetattr(fd, transmute(&mut config)) } < 0 {
-            return Err(self.errno());
+            return Err(errno());
         }
         let speed = unsafe { Speed::from_u32(cfgetospeed(&mut config)).unwrap() };
         Ok(speed)
     }
 
-    fn drain(&self) -> Result<i32, i32> {
+    fn drain(&self) -> Result<i32, Errno> {
         let fd = self.as_raw_fd();
         if unsafe { tcdrain(fd) } < 0 {
-            Err(self.errno())
+            Err(errno())
         } else {
             Ok(0)
         }
     }
 
-    fn drop_input(&self) -> Result<i32, i32> {
+    fn drop_input(&self) -> Result<i32, Errno> {
         let fd = self.as_raw_fd();
         if unsafe { tcflush(fd, TcFlushOptions::TCIFLUSH as i32) } < 0 {
-            Err(self.errno())
+            Err(errno())
         } else {
             Ok(0)
         }
     }
 
-    fn drop_output(&self) -> Result<i32, i32> {
+    fn drop_output(&self) -> Result<i32, Errno> {
         let fd = self.as_raw_fd();
         if unsafe { tcflush(fd, TcFlushOptions::TCOFLUSH as i32) } < 0 {
-            Err(self.errno())
+            Err(errno())
         } else {
             Ok(0)
         }
     }
 
-    fn drop_input_output(&self) -> Result<i32, i32> {
+    fn drop_input_output(&self) -> Result<i32, Errno> {
         let fd = self.as_raw_fd();
         if unsafe { tcflush(fd, TcFlushOptions::TCIOFLUSH as i32) } < 0 {
-            Err(self.errno())
+            Err(errno())
         } else {
             Ok(0)
         }
     }
 
     #[allow(unused_mut)]
-    fn input_buffer_count(&self) -> Result<i32, i32> {
+    fn input_buffer_count(&self) -> Result<i32, Errno> {
         let fd = self.as_raw_fd();
         let buffer_size = unsafe {
             // I don't know if this mut annotation is necessary with transmute; will the compiler
@@ -97,15 +97,10 @@ impl<T> Termio for T where T: AsRawFd {
             }
         };
         if buffer_size < 0 {
-            Err(self.errno())
+            Err(errno())
         } else {
             Ok(buffer_size)
         }
-    }
-
-    fn errno(&self) -> i32 {
-        // TODO: Get the errno
-        0
     }
 }
 

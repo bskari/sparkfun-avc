@@ -11,6 +11,7 @@
 extern crate log;  // This needs to be declared first, otherwise you get compilation errors
 extern crate core;
 #[macro_use] extern crate enum_primitive;
+extern crate errno;
 extern crate getopts;
 extern crate libc;
 extern crate num;
