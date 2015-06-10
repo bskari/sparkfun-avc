@@ -1,13 +1,17 @@
 use time::now;
 
 use nmea::MicroTesla;
-use telemetry::{rotate_degrees_clockwise, wrap_degrees, Degrees, Point};
+use telemetry::{
+    rotate_degrees_clockwise,
+    wrap_degrees,
+    Degrees,
+    Meter,
+    MetersPerSecond,
+    Point};
 
 
 pub struct LocationFilter {
-    gps_observer_matrix: [[f32; 4]; 4],  // H
     dead_reckoning_observer_matrix: [[f32; 4]; 4], // H
-    gps_measurement_noise: [[f32; 4]; 4],  // R
     dead_reckoning_measurement_noise: [[f32; 4]; 4], // R
 
     // x m, y m, heading d, speed m/s
@@ -30,18 +34,11 @@ pub struct LocationFilter {
 impl LocationFilter {
     pub fn new(x_m: f32, y_m: f32, heading_d: f32) -> LocationFilter {
         let lf = LocationFilter {
-            gps_observer_matrix: identity(),
             dead_reckoning_observer_matrix: [
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 0f32],
                 [0f32, 0f32, 0f32, 1f32]
-            ],
-            gps_measurement_noise: [
-                [0f32, 0f32, 0f32, 0f32],  // x_m will be filled in by the GPS accuracy
-                [0f32, 0f32, 0f32, 0f32],  // y_m will be filled in by the GPS accuracy
-                [0f32, 0f32, 5f32, 0f32],  // This degrees value is a guess
-                [0f32, 0f32, 0f32, 1f32]  // This speed value is a guess
             ],
             dead_reckoning_measurement_noise: [
                 [0f32, 0f32, 0f32, 0f32],
@@ -69,10 +66,6 @@ impl LocationFilter {
             out41_2: [[0.0f32; 1]; 4],
             kalman_gain: [[0.0f32; 4]; 4],
         };
-        assert!(
-            lf.dead_reckoning_measurement_noise[3][3] >
-            lf.gps_measurement_noise[3][3]
-        );
         return lf;
     }
 
@@ -94,7 +87,7 @@ impl LocationFilter {
         ];
         // Prediction step
         // x = A * x + B
-        let heading_d = self.estimated_heading_d();
+        let heading_d = self.estimated_heading();
         let delta = rotate_degrees_clockwise(
             &Point { x: 0.0, y: time_diff_s },
             heading_d
@@ -166,6 +159,7 @@ impl LocationFilter {
         //print44("7. P=", &self.covariance);
     }
 
+    /// Updates the Kalman filter with compass readings.
     pub fn update_compass(&mut self, compass: Degrees, std_dev: Degrees) {
         if std_dev > 2.0 {
             return;
@@ -198,15 +192,50 @@ impl LocationFilter {
             time_diff_s);
     }
 
-    pub fn estimated_location_m(&self) -> (f32, f32) {
-        (self.estimates[0][0], self.estimates[1][0])
+    /// Updates the Kalman filter with GPS readings.
+    pub fn update_gps(
+        &mut self,
+        x: Meter,
+        x_std_dev: Meter,
+        y: Meter,
+        y_std_dev: Meter,
+        heading: Degrees,
+        speed: MetersPerSecond
+    ) {
+        let now_tm = now();
+        let seconds = now_tm.tm_sec as f32 + now_tm.tm_nsec as f32 / 1000000000.0;
+        let time_diff_s = seconds - self.last_observation_time_s;
+        self.last_observation_time_s = seconds;
+
+        let gps_observer_matrix = identity();
+        let gps_measurement_noise = [
+            [x_std_dev, 0f32, 0f32, 0f32],
+            [0f32, y_std_dev, 0f32, 0f32],
+            [0f32, 0f32, 5f32, 0f32],  // This degrees value is a guess
+            [0f32, 0f32, 0f32, 1f32]  // This speed value is a guess
+        ];
+        // This can't be done in a test
+        assert!(
+            self.dead_reckoning_measurement_noise[3][3] >
+            gps_measurement_noise[3][3]
+        );
+
+        self.update(
+            &[x, y, heading, speed],
+            &gps_observer_matrix,
+            &gps_measurement_noise,
+            time_diff_s);
     }
 
-    pub fn estimated_heading_d(&self) -> f32 {
+    pub fn estimated_location(&self) -> Point {
+         Point { x: self.estimates[0][0], y: self.estimates[1][0] }
+    }
+
+    pub fn estimated_heading(&self) -> Degrees {
         self.estimates[2][0]
     }
 
-    pub fn estimated_speed_m_s(&self) -> f32 {
+    pub fn estimated_speed(&self) -> MetersPerSecond {
         self.estimates[3][0]
     }
 }
@@ -413,7 +442,7 @@ fn transpose(
 #[cfg(test)]
 mod tests {
     use super::{LocationFilter, add, identity, invert, multiply44x44};
-    use telemetry::{Degrees, Point, rotate_degrees_clockwise};
+    use telemetry::{Degrees, Point, MetersPerSecond, rotate_degrees_clockwise};
 
     macro_rules! assert_equal {
         ($arr_1:expr, $arr_2:expr) => {
@@ -499,27 +528,31 @@ mod tests {
         assert_equal!(&out, &identity_);
     }
 
+    #[test]
+    fn test_new() {
+        let lf = LocationFilter::new(0.0, 0.0, 0.0);
+    }
+
     /// Tests that the estimating of the locations via dead reckoning at a
     /// constant speed is sane.
     #[test]
     fn test_update_constant_speed() {
         // I'm not sure how to independently validate these tests for accuracy.
         // The best I can think of is to do some sanity tests.
-        let start_coordinates_m = (100.0f32, 200.0f32);
-        let (start_x, start_y) = start_coordinates_m;
+        let start_coordinates = Point { x: 100.0f32, y: 200.0f32 };
         let heading_d = 32.0f32;
         let mut location_filter = LocationFilter::new(
-            start_x,
-            start_y,
+            start_coordinates.x,
+            start_coordinates.y,
             heading_d
         );
 
-        assert!(location_filter.estimated_location_m() == start_coordinates_m);
+        assert!(location_filter.estimated_location() == start_coordinates);
 
-        let speed_m_s: f32 = 1.8;
+        let speed: MetersPerSecond = 1.8;
         // This would normally naturally get set by running the Kalman filter;
         // we'll just manually set it now
-        location_filter.estimates[3][0] = speed_m_s;
+        location_filter.estimates[3][0] = speed;
 
         let measurements: [f32; 4] = [0.0, 0.0, heading_d, 0.0];
 
@@ -546,32 +579,35 @@ mod tests {
         }
 
         let offset = rotate_degrees_clockwise(
-            &Point { x: 0.0, y: speed_m_s * seconds as f32 },
+            &Point { x: 0.0, y: speed * seconds as f32 },
             heading_d);
-        let (new_x, new_y) = (start_x + offset.x, start_y + offset.y);
+        let new_point = Point {
+            x: start_coordinates.x + offset.x,
+            y: start_coordinates.y + offset.y, };
 
-        let (predicted_x, predicted_y) = location_filter.estimated_location_m();
-        println!("px {} nx {}, py {} ny {}", predicted_x, new_x, predicted_y, new_y);
-        assert_approx_eq!(predicted_x, new_x);
-        assert_approx_eq!(predicted_y, new_y);
+        let predicted = location_filter.estimated_location();
+        assert_approx_eq!(predicted.x, new_point.x);
+        assert_approx_eq!(predicted.y, new_point.y);
     }
 
     #[test]
     fn test_update_compass() {
-        let start_coordinates_m = (100.0f32, 200.0f32);
-        let (start_x, start_y) = start_coordinates_m;
-        let mut location_filter = LocationFilter::new(start_x, start_y, 32.0);
+        let start_coordinates = Point { x: 100.0f32, y: 200.0f32 };
+        let mut location_filter = LocationFilter::new(
+            start_coordinates.x,
+            start_coordinates.y,
+            32.0);
 
         // Center on a value
         for heading_d in [100.0f32, 20.0, 350.0].iter() {
             for _ in 0..20 {
                 location_filter.update_compass(*heading_d, 0.5);
             }
-            assert!(location_filter.estimated_heading_d() > heading_d - 5.0);
-            assert!(location_filter.estimated_heading_d() < heading_d + 5.0);
+            assert!(location_filter.estimated_heading() > heading_d - 5.0);
+            assert!(location_filter.estimated_heading() < heading_d + 5.0);
             // Shouldn't change the speed or coordinates
-            assert!(location_filter.estimated_speed_m_s() == 0.0);
-            assert!(location_filter.estimated_location_m() == (start_x, start_y));
+            assert!(location_filter.estimated_speed() == 0.0);
+            assert!(location_filter.estimated_location() == start_coordinates);
         }
 
         // Values should be able to roll over
@@ -581,16 +617,55 @@ mod tests {
         for _ in 0..10 {
             location_filter.update_compass(10.0, 0.5);
             assert!(
-                location_filter.estimated_heading_d() > 350.0
-                || location_filter.estimated_heading_d() < 10.0);
+                location_filter.estimated_heading() > 350.0
+                || location_filter.estimated_heading() < 10.0);
         }
 
         // Should ignore values with really high standard deviations
-        let current_heading_d = location_filter.estimated_heading_d();
+        let current_heading_d = location_filter.estimated_heading();
         let bad_reading_d = 200.0;
         for std_dev in 5..20 {
             location_filter.update_compass(bad_reading_d, std_dev as Degrees);
         }
-        assert!(location_filter.estimated_heading_d() == current_heading_d);
+        assert!(location_filter.estimated_heading() == current_heading_d);
+    }
+
+    #[test]
+    fn test_update_gps() {
+        let start_coordinates_m = (100.0f32, 200.0f32);
+        let (start_x, start_y) = start_coordinates_m;
+        let mut location_filter = LocationFilter::new(start_x, start_y, 32.0);
+
+        // Center on a value
+        for x in [-10.0f32, 20.0, 350.0].iter() {
+            for y in [-40.0f32, 50.0, 210.0].iter() {
+                for heading in [90.0f32, 180.0, 270.0].iter() {
+                    for speed in [-5.0f32, 0.0f32, 5.0f32].iter() {
+                        for _ in 0..20 {
+                            location_filter.update_gps(*x, 1.0, *y, 1.0, *heading, *speed);
+                        }
+                        assert!(location_filter.estimated_location().x > x - 1.0);
+                        assert!(location_filter.estimated_location().x < x + 1.0);
+                        assert!(location_filter.estimated_location().y > y - 1.0);
+                        assert!(location_filter.estimated_location().y < y + 1.0);
+                        assert!(location_filter.estimated_heading() > heading - 3.0);
+                        assert!(location_filter.estimated_heading() < heading + 3.0);
+                        assert!(location_filter.estimated_speed() > speed - 0.5);
+                        assert!(location_filter.estimated_speed() < speed + 0.5);
+                    }
+                }
+            }
+        }
+
+        // Values should be able to roll over
+        for _ in 0..20 {
+            location_filter.update_gps(0.0, 1.0, 0.0, 1.0, 350.0, 0.0);
+        }
+        for _ in 0..10 {
+            location_filter.update_gps(0.0, 1.0, 0.0, 1.0, 10.0, 0.0);
+            assert!(
+                location_filter.estimated_heading() > 350.0
+                || location_filter.estimated_heading() < 10.0);
+        }
     }
 }

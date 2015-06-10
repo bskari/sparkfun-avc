@@ -4,13 +4,14 @@ use std::thread;
 
 use location_filter::LocationFilter;
 use telemetry::{Telemetry, Point, TelemetryState};
-use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
+use telemetry_message::{AccelerometerMessage, CompassMessage, GpsMessage, TelemetryMessage};
 
 
 #[allow(dead_code)]
 pub struct FilteredTelemetry {
     throttle: f32,
     steering: f32,
+    accelerometer_message: Box<AccelerometerMessage>,
     gps_message: Box<GpsMessage>,
     compass_message: Box<CompassMessage>,
     state: TelemetryState,
@@ -31,13 +32,14 @@ impl FilteredTelemetry {
                 std_dev_y: 2.0,
             }),
             compass_message: Box::new(CompassMessage { heading: 0.0, std_dev: 0.0 }),
+            accelerometer_message: Box::new(AccelerometerMessage { x: 0.0, y: 0.0, z: 0.0 }),
             state: TelemetryState {
                 location: Point { x: 0.0, y: 0.0 },
                 heading: 0.0,
                 speed: 0.0,
                 stopped: true},
             // TODO: Fill in the starting values of the Sparkfun AVC. These placeholders aren't a
-            // huge deal because the filter should zero in quickly affter a few readings.
+            // huge deal because the filter should zero in quickly after a few readings.
             filter: LocationFilter::new(50.0, 50.0, 315.0),
         }
     }
@@ -115,18 +117,26 @@ impl Telemetry for FilteredTelemetry {
         // TODO: Update the filter?
     }
 
-    #[allow(unused_variables)]
     fn handle_message(&mut self, telemetry_message: &TelemetryMessage) -> () {
         match telemetry_message {
+            // TODO
             &TelemetryMessage::Gps(ref gps_message) => {
+                self.filter.update_gps(
+                    gps_message.point.x,
+                    gps_message.std_dev_x,
+                    gps_message.point.y,
+                    gps_message.std_dev_y,
+                    gps_message.heading,
+                    gps_message.speed);
             },
             &TelemetryMessage::Compass(ref compass_message) => {
+            },
+            &TelemetryMessage::Accelerometer(ref accelerometer_message) => {
             },
         }
     }
 
     fn is_stopped(&self) -> bool {
-        // TODO: Implement this
-        false
+        self.state.stopped
     }
 }

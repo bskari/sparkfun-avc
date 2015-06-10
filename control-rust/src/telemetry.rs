@@ -8,6 +8,7 @@ use telemetry_message::TelemetryMessage;
 pub type Meter = f32;
 pub type Degrees = f32;
 pub type MetersPerSecond = f32;
+pub type Gravities = f32;  // G force, multiples of 9.8 m/s^2
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(PartialEq)]
