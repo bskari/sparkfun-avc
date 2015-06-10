@@ -125,6 +125,11 @@ mod tests {
 
     #[test]
     fn test_format_throttle() {
+        // This will fail on everything but the Pi, so let's just ignore it if we're not running on
+        // the Pi.
+        if !cfg!(target_arch = "arm") {
+            return;
+        }
         // Low
         {
             let driver = PiBlasterDriver::new_limit_throttle(0.5);
@@ -147,6 +152,11 @@ mod tests {
 
     #[test]
     fn test_format_steering() {
+        // This will fail on everything but the Pi, so let's just ignore it if we're not running on
+        // the Pi.
+        if !cfg!(target_arch = "arm") {
+            return;
+        }
         {
             let mut driver = PiBlasterDriver::new();
             driver.drive(0.0, 0.0);
