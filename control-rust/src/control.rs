@@ -149,15 +149,15 @@ impl Control {
                 return;
             }
         }
-        let waypoint_option = self.waypoint_generator.get_current_raw_waypoint(&state.location);
+        let waypoint_option = self.waypoint_generator.get_current_waypoint(&state.location);
         let waypoint = match waypoint_option {
             Some(point) => point,
             None => return,
         };
-        let distance_m = distance(&state.location, &waypoint);
-        let throttle: f32 = if distance_m > 5.0 {
+        let distance = distance(&state.location, &waypoint);
+        let mut throttle: f32 = if distance > 5.0 {
                 1.0
-            } else if distance_m > 2.0 {
+            } else if distance > 2.0 {
                 0.75
             } else {
                 0.5
@@ -168,8 +168,7 @@ impl Control {
         // We want to stay in the heading range of the waypoint +- 1/2 of the waypoint reached
         // distance diameter
         let mut range: Degrees = 2.0 * (
-            self.waypoint_generator.reach_distance() /
-            distance_m
+            self.waypoint_generator.reach_distance() / distance
         ).atan().to_degrees();
         // Range should never be > 90.0; otherwise, we would have already reached the waypoint.
         if range < 5.0 {
@@ -185,7 +184,7 @@ impl Control {
                 0.25
             } else if difference < 30.0 {
                 0.5
-            } else if difference < 45.0 || throttle > 0.5 {
+            } else if difference < 45.0 {
                 0.75
             } else {
                 1.0
@@ -196,6 +195,16 @@ impl Control {
             } else {
                 steering_magnitude
             };
+
+        throttle = throttle.min(
+            if steering > 0.50 {
+                0.25
+            } else if steering > 0.25 {
+                0.5
+            } else {
+                1.0
+            }
+        );
 
         self.drive(throttle, steering);
     }
@@ -262,6 +271,7 @@ impl ToMilliseconds for time::Tm {
 #[cfg(test)]
 mod tests {
     extern crate time;
+    use num::traits::{Float, FromPrimitive};
     use std::sync::mpsc::{channel, Sender, Receiver};
     use std::thread::spawn;
 
@@ -271,12 +281,27 @@ mod tests {
     use telemetry::{Meters, Point, TelemetryState};
     use waypoint_generator::WaypointGenerator;
 
+    macro_rules! assert_approx_eq {
+        ( $value_1:expr, $value_2:expr ) => {
+            assert!(approx_eq($value_1, $value_2));
+        }
+    }
+    fn approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) -> bool {
+        // Yeah, I know this is bad, see
+        // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
+
+        let diff = (value_1 - value_2).abs();
+        // This is the best we can do with f32
+        diff < FromPrimitive::from_f32(0.00001f32).unwrap()
+    }
+
     struct DummyWaypointGenerator {
-        done: bool,
+        pub done: bool,
+        pub waypoint: Point,
     }
     impl WaypointGenerator for DummyWaypointGenerator {
-        fn get_current_waypoint(&self, point: &Point) -> Option<Point> { Some(Point {x: 100.0, y: 100.0 }) }
-        fn get_current_raw_waypoint(&self, point: &Point) -> Option<Point> { Some(Point { x: 100.0, y: 100.0 }) }
+        fn get_current_waypoint(&self, point: &Point) -> Option<Point> { Some(self.waypoint) }
+        fn get_current_raw_waypoint(&self, point: &Point) -> Option<Point> { Some(self.waypoint) }
         fn next(&mut self) { self.done = true; }
         fn reached(&self, point: &Point) -> bool { false }
         fn done(&self) -> bool { self.done }
@@ -317,7 +342,8 @@ mod tests {
         });
 
         let waypoint_generator = Box::new(DummyWaypointGenerator {
-            done: false,});
+            done: false,
+            waypoint: Point { x: 100.0, y: 100.0 }});
         let driver = Box::new(DummyDriver {
             throttle: 0.0,
             steering: 0.0,});
@@ -369,5 +395,55 @@ mod tests {
 
         control.collision_recovery(now + 3100);
         assert!(control.state != ControlState::CollisionRecovery);
+    }
+
+    #[test]
+    fn test_running() {
+        for values in [
+            // (position_x, position_y, goal_x, goal_y, heading, throttle, steering)
+            // If the waypoint is behind us, throttle should be low and turn should be high
+            (0.0f32, 0.0, 1.0, -100.0, 0.0, 0.25, 1.0),
+            (0.0, 0.0, 100.0, 101.0, 270.0, 0.25, 1.0),
+            // If the waypoint is straight ahead, throttle should be high and turn should be off
+            (0.0, 0.0, 1.0, 100.0, 0.0, 1.0, 0.0),
+            (0.0, 0.0, -1.0, -100.0, 180.0, 1.0, 0.0),
+            (0.0, 0.0, -50.0, 50.0, 315.0, 1.0, 0.0),
+            // If we are close to the waypoint, slow down
+            (0.0, 0.0, 0.0, 1.0, 0.0, 0.5, 0.0),
+        ].iter() {
+            let (position_x, position_y, goal_x, goal_y, heading, throttle, steering) = *values;
+
+            let (telemetry_tx, telemetry_rx) = channel();
+            let (telemetry_2_tx, telemetry_2_rx) = channel();
+
+            let mut waypoint_generator = Box::new(DummyWaypointGenerator {
+                done: false,
+                waypoint: Point { x: goal_x, y: goal_y}});
+            let driver = Box::new(DummyDriver {
+                throttle: 0.0,
+                steering: 0.0,});
+
+            let state = TelemetryState {
+                location: Point { x: position_x, y: position_y },
+                heading: heading,
+                speed: 0.0f32,
+                stopped: true};
+
+            let mut control = Control::new(
+                telemetry_tx,
+                telemetry_2_rx,
+                waypoint_generator,
+                driver);
+            control.state = ControlState::Running;
+            control.run = true;
+
+            control.running(&state);
+            assert!(control.state == ControlState::Running);
+            println!("throttle {}", control.driver.get_throttle());
+            assert_approx_eq!(control.driver.get_throttle(), throttle);
+            println!("steering {}", control.driver.get_steering());
+            assert_approx_eq!(control.driver.get_steering(), steering);
+            println!("done");
+        }
     }
 }
