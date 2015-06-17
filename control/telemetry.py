@@ -50,10 +50,10 @@ class Telemetry(object):
         # Kalman filter should start reading in values and correct quickly.
         self._location_filter = LocationFilter(0.0, 0.0, 0.0)
         self._estimated_steering = 0.0
-        self._target_steering = 0.0
         self._estimated_throttle = 0.0
+
+        self._target_steering = 0.0
         self._target_throttle = 0.0
-        self._drive_time = None
 
     @synchronized
     def get_raw_data(self):
@@ -96,7 +96,6 @@ class Telemetry(object):
 
         self._target_steering = steering
         self._target_throttle = throttle
-        self._drive_time = time.time()
 
     @synchronized
     def handle_message(self, message):
@@ -145,33 +144,8 @@ class Telemetry(object):
         """Updates the estimations of the drive state, e.g. the current
         throttle and steering.
         """
-        if self._drive_time is None:
-            return
-        now = time.time()
-        diff_s = now - self._drive_time
-
-        def updated(estimate, target, change_per_s):
-            """Returns the updated value."""
-            diff = abs(estimate - target)
-            if diff == 0.0:
-                return target
-            total_change = change_per_s * diff_s
-            if total_change > diff:
-                return target
-            if estimate < target:
-                return estimate + total_change
-            return estimate - total_change
-
-        self._estimated_throttle = updated(
-            self._estimated_throttle,
-            self._target_throttle,
-            THROTTLE_CHANGE_PER_S
-        )
-        self._estimated_steering = updated(
-            self._estimated_steering,
-            self._target_steering,
-            STEERING_CHANGE_PER_S
-        )
+        self._estimated_throttle = self._target_throttle
+        self._estimated_steering = self._target_steering
 
         # Also tell the location filter that we've changed
         if self._estimated_throttle != self._target_throttle:

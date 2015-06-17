@@ -183,7 +183,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
             self._logger.debug(
                 'Distance to goal {waypoint}: {distance}'.format(
-                    waypoint=(round(i, 3) for i in current_waypoint),
+                    waypoint=[round(i, 3) for i in current_waypoint],
                     distance=round(distance_m, 3),
                 )
             )
@@ -193,7 +193,11 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                     telemetry['x_m'],
                     telemetry['y_m']
             ):
-                self._logger.info('Reached {}'.format((round(i, 3) for i in current_waypoint)))
+                self._logger.info(
+                    'Reached {}'.format(
+                        [round(i, 3) for i in current_waypoint]
+                    )
+                )
                 self._waypoint_generator.next()
                 continue
 
@@ -240,7 +244,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                     ):
                         self._logger.info(
                             'Reached {}'.format(
-                                (round(i, 3) for i in current_waypoint)
+                                [round(i, 3) for i in current_waypoint]
                             )
                         )
                         self._waypoint_generator.next()
@@ -312,6 +316,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         if self.is_running_course():
             self._logger.warn('Tried to reset the course while running')
             return
+        self._waypoint_generator.reset()
 
     def kill(self):
         """Kills the thread."""

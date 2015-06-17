@@ -62,8 +62,8 @@ class ChaseWaypointGenerator(object):
                     'No chase waypoint in range: {distance}'
                     ' from {point_1}-{point_2}, using tangent'.format(
                         distance=round(self._distance_m, 3),
-                        point_1=(round(i, 3) for i in previous),
-                        point_2=(round(i, 3) for i in current),
+                        point_1=[round(i, 3) for i in previous],
+                        point_2=[round(i, 3) for i in current],
                     )
                 )
 
