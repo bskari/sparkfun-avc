@@ -2,6 +2,7 @@
 import argparse
 import serial
 import struct
+import sys
 
 from control.sup800f import check_response, format_message
 
@@ -17,6 +18,7 @@ def make_parser():
         dest='baud_rate',
         help='Set the baud rate to transmit data.',
         default=None,
+        type=int,
     )
 
     # Message intervals
@@ -239,13 +241,13 @@ def main():
         kwargs[key] is not None for key in required_intervals
     ))
     if interval_changed:
-        any_not_set = any((
-            kwargs[key] is None for key in required_intervals
-        ))
-        if any_not_set:
+        not_set = [key for key in required_intervals if kwargs[key] is None]
+        if len(not_set) > 0:
             print('You must set values for all {}'.format(required_intervals))
             example = ' '.join(('--{} 1'.format(k)) for k in required_intervals)
             print('Example: {}'.format(example))
+            print('You are missing: {}'.format(' '.join(not_set)))
+            sys.exit(1)
         else:
             set_nmea_intervals(ser, args, args.test)
             check_response(ser)
