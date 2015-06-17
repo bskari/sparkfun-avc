@@ -7,6 +7,7 @@ file. All WaypointGenerator implementations should have two methods:
 This implements the "rabbit chase" algorithm.
 """
 
+import copy
 import math
 
 from control.telemetry import Telemetry
@@ -23,7 +24,8 @@ class ChaseWaypointGenerator(object):
         else:
             self._distance_m = distance_m
 
-        self._waypoints = waypoints
+        self._initial_waypoints = copy.deepcopy(waypoints)
+        self._waypoints = copy.deepcopy(waypoints)
         self._current_waypoint = 0
 
         self._last_x_m = None
@@ -149,6 +151,10 @@ class ChaseWaypointGenerator(object):
         waypoints.
         """
         return self._current_waypoint == len(self._waypoints)
+
+    def reset(self):
+        """Resets the waypoints."""
+        self._waypoints = copy.deepcopy(self._initial_waypoints)
 
     @staticmethod
     def _tangent_distance_m(point, line_point_1, line_point_2):

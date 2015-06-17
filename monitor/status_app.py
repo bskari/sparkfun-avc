@@ -128,6 +128,15 @@ class StatusApp(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
+    def reset(self):
+        """Resets the waypoints."""
+        self._check_post()
+        self._command.handle_message({'command': 'reset'})
+        self._logger.info('Received reset command from web')
+        return {'success': True}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
     def calibrate_compass(self):  # pylint: disable=no-self-use
         """Calibrates the compass."""
         self._check_post()

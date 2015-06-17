@@ -5,6 +5,7 @@ file. All WaypointGenerator implementations should have two methods:
     reached(self, x_m y_m) -> bool
     next(self)
     done(self) -> bool
+    reset(self)
 Note that implementers don't necessarily need to return the same current
 waypoint per call; this should allow interfaces to implement other algorithms,
 such as the "rabbit chase" method.
@@ -12,6 +13,7 @@ such as the "rabbit chase" method.
 
 from xml.etree import ElementTree
 import collections
+import copy
 import math
 import zipfile
 
@@ -24,7 +26,8 @@ class KmlWaypointGenerator(object):
     def __init__(self, logger, kml_file_name):
         with zipfile.ZipFile(kml_file_name) as archive:
             kml_string = archive.open('doc.kml').read()
-            self._waypoints = self._load_waypoints(kml_string)
+            self._initial_waypoints = self._load_waypoints(kml_string)
+            self._waypoints = copy.deepcopy(self._initial_waypoints)
             logger.info(
                 'Loaded {length} waypoints'.format(
                     length=len(self._waypoints)
@@ -73,6 +76,10 @@ class KmlWaypointGenerator(object):
         waypoints.
         """
         return len(self._waypoints) == 0
+
+    def reset(self):
+        """Resets the waypoints."""
+        self._waypoints = copy.deepcopy(self._initial_waypoints)
 
     @staticmethod
     def _load_waypoints(kml_string):

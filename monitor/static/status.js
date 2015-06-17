@@ -8,6 +8,7 @@ sparkfun.status = sparkfun.status || {};
  *  stop: Object,
  *  follow: Object,
  *  calibrateCompass: Object,
+ *  reset: Object
  *  line: Object,
  *  count: Object
  * } buttons
@@ -44,6 +45,7 @@ sparkfun.status.init = function(
     'use strict';
     buttons.run.click(sparkfun.status.run);
     buttons.stop.click(sparkfun.status.stop);
+    buttons.reset.click(sparkfun.status.reset);
     buttons.follow.click(sparkfun.status.follow);
     buttons.calibrateCompass.click(sparkfun.status.calibrateCompass);
     buttons.lineUp.click(sparkfun.status.lineUp);
@@ -170,6 +172,12 @@ sparkfun.status.stop = function () {
         clearInterval(sparkfun.status.followInterval);
     }
     sparkfun.status._poke('/stop');
+};
+
+
+sparkfun.status.reset = function () {
+    'use strict';
+    sparkfun.status._poke('/reset');
 };
 
 

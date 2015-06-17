@@ -178,5 +178,5 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         logger = DummyLogger()
         return KmlWaypointGenerator(
             logger,
-            '../paths/rally-1-loop.kmz'
+            '../paths/solid-state-depot.kmz'
         )
