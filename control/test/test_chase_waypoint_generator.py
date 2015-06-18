@@ -146,15 +146,15 @@ class TestChaseWaypointGenerator(unittest.TestCase):
         logger = DummyLogger()
 
         points = ((20, 20),)
-        generator = ChaseWaypointGenerator(logger, points)
+        generator = ChaseWaypointGenerator(points, logger)
         self.assertEqual(points[0], generator.get_current_waypoint(19, 19))
 
         points = ((20, 20), (21, 21))
-        generator = ChaseWaypointGenerator(logger, points)
+        generator = ChaseWaypointGenerator(points, logger)
         self.assertEqual(points[0], generator.get_current_waypoint(19, 19))
 
         points = ((0, 0), (0, 1), (0, 2), (0, 3))
-        generator = ChaseWaypointGenerator(logger, points)
+        generator = ChaseWaypointGenerator(points, logger)
         generator._current_waypoint = len(points) // 2
         waypoint = generator.get_current_waypoint(-1, 0.5)
         self.assertEqual(waypoint[0], 0)

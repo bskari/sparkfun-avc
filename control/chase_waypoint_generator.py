@@ -16,7 +16,7 @@ from control.telemetry import Telemetry
 class ChaseWaypointGenerator(object):
     """Generates waypoints using the 'rabbit chase' algorithm."""
 
-    def __init__(self, logger, waypoints, distance_m=None):
+    def __init__(self, waypoints, logger, distance_m=None):
         self._logger = logger
 
         if distance_m is None:

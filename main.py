@@ -10,12 +10,13 @@ import sys
 import time
 
 from control.button import Button
+from control.chase_waypoint_generator import ChaseWaypointGenerator
 from control.command import Command
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.sup800f import switch_to_nmea_mode
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
-from control.driver import Driver, STEERING_GPIO_PIN, THROTTLE_GPIO_PIN
+from control.driver import Driver, STEERING_GPIO_PIN, STEERING_NEUTRAL_US, THROTTLE_GPIO_PIN, THROTTLE_NEUTRAL_US
 from control.telemetry_data import TelemetryData
 from monitor.http_server import HttpServer
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
@@ -49,15 +50,15 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
         time.sleep(0.1)
         blaster.write(
             '{pin}={throttle}\n'.format(
-                pin=18,
-                throttle=1500
+                pin=THROTTLE_GPIO_PIN,
+                throttle=THROTTLE_NEUTRAL_US
             )
         )
         time.sleep(0.1)
         blaster.write(
             '{pin}={steering}\n'.format(
-                pin=4,
-                steering=1650
+                pin=STEERING_GPIO_PIN,
+                steering=STEERING_NEUTRAL_US
             )
         )
         time.sleep(0.1)
@@ -82,7 +83,6 @@ def start_threads(
         max_throttle
 ):
     """Runs everything."""
-    # TODO: Get latitude longitude central coordinate from the GPS
     telemetry = Telemetry(logger)  # Sparkfun HQ
     global DRIVER
     DRIVER = Driver(telemetry, logger)
@@ -111,9 +111,6 @@ def start_threads(
     # waits for messages and them forwards them on.
     command.set_telemetry_data(telemetry_data)
 
-    first_waypoint = waypoint_generator.get_current_waypoint(0.0, 0.0)
-    telemetry_data._x_m = first_waypoint[0] - 100.0
-    telemetry_data._y_m = first_waypoint[1] - 100.0
     monitor_port = int(get_configuration('MONITOR_PORT', 8080))
     monitor_address = get_configuration('MONITOR_ADDRESS', '0.0.0.0')
     http_server = HttpServer(
@@ -250,13 +247,14 @@ def main():
 
     waypoint_generator = None
     if args.kml_file is not None:
-        waypoint_generator = KmlWaypointGenerator(logger, args.kml_file)
+        kml = KmlWaypointGenerator(logger, args.kml_file)
     else:
         logger.info('Setting waypoints to Solid State Depot for testing')
-        waypoint_generator = KmlWaypointGenerator(
+        kml = KmlWaypointGenerator(
             logger,
             'paths/solid-state-depot.kmz'
         )
+    waypoint_generator = ChaseWaypointGenerator(kml._waypoints, logger)
 
     logger.debug('Calling start_threads')
 
