@@ -1,9 +1,11 @@
 """Implements the WaypointGenerator interface. Returns waypoints from a KML
 file. All WaypointGenerator implementations should have two methods:
     get_current_waypoint(self, x_m, y_m) -> (float, float)
+    get_raw_waypoint(self) -> (float, float)
     reached(self, x_m, y_m) -> bool
     next(self)
     done(self) -> bool
+    reset(self)
 This implements the "rabbit chase" algorithm.
 """
 
@@ -20,7 +22,7 @@ class ChaseWaypointGenerator(object):
         self._logger = logger
 
         if distance_m is None:
-            self._distance_m = 2.0
+            self._distance_m = 15.0
         else:
             self._distance_m = distance_m
 
@@ -98,6 +100,12 @@ class ChaseWaypointGenerator(object):
 
         raise ValueError('No waypoints left')
 
+    def get_raw_waypoint(self):
+        """Returns the raw waypoint. Should only be used with monitors."""
+        if self._current_waypoint < len(self._waypoints):
+            return self._waypoints[self._current_waypoint]
+        return (0.0, 0.0)
+
     @staticmethod
     def _circle_intersection(point_1, point_2, circle_center, circle_radius):
         """Returns an iterable list of the points of intersection between a line
@@ -138,8 +146,8 @@ class ChaseWaypointGenerator(object):
         self._last_x_m = x_m
         self._last_y_m = y_m
         return math.sqrt(
-            (x_m - self._waypoints[0][0]) ** 2 +
-            (y_m - self._waypoints[0][1]) ** 2
+            (x_m - self._waypoints[self._current_waypoint][0]) ** 2 +
+            (y_m - self._waypoints[self._current_waypoint][1]) ** 2
         ) < 1.5
 
     def next(self):
@@ -155,6 +163,7 @@ class ChaseWaypointGenerator(object):
     def reset(self):
         """Resets the waypoints."""
         self._waypoints = copy.deepcopy(self._initial_waypoints)
+        self._current_waypoint = 0
 
     @staticmethod
     def _tangent_distance_m(point, line_point_1, line_point_2):
