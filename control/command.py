@@ -16,6 +16,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     NEUTRAL_TIME_1_S = 1.0
     REVERSE_TIME_S = 0.25
     NEUTRAL_TIME_2_S = 0.25
+    NEUTRAL_TIME_3_S = 1.0
 
     def __init__(  # pylint: disable=too-many-arguments
             self,
@@ -162,16 +163,17 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 self._logger.info(
                     'RC car is not moving according to speed history, reversing'
                 )
-                unstuck_iterator = self._unstuck_yourself_iterator(3.0)
+                unstuck_iterator = self._unstuck_yourself_iterator(2.0)
                 while next(unstuck_iterator):
                     yield True
 
                 # Force the car to drive for a little while
                 start = time.time()
+                self._start_time = start
                 while (
                         self._run
                         and self._run_course
-                        and time.time() < start + 3.0
+                        and time.time() < start + 2.0
                         and next(course_iterator)
                 ):
                     yield True
@@ -366,4 +368,11 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         while time.time() < start + seconds:
             self._driver.drive(-.5, turn_direction)
             yield True
+
+        # Pause for a bit; jamming from reverse to drive is a bad idea
+        start = time.time()
+        while time.time() < start + self.NEUTRAL_TIME_3_S:
+            self._driver.drive(0.0, 0.0)
+            yield True
+
         yield False
