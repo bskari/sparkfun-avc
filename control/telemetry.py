@@ -76,10 +76,10 @@ class Telemetry(object):
         self._logger.debug(
             'Estimates: x m {x}, y m {y}, heading d {heading},'
             ' speed m/s^2 {speed}'.format(
-                x=values['x_m'],
-                y=values['y_m'],
-                heading=values['heading_d'],
-                speed=values['speed_m_s'],
+                x=round(values['x_m'], 3),
+                y=round(values['y_m'], 3),
+                heading=round(values['heading_d'], 3),
+                speed=round(values['speed_m_s'], 3),
             )
         )
         return values

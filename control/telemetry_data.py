@@ -156,10 +156,10 @@ class TelemetryData(threading.Thread):
 
         self._logger.debug(
             'lat: {}, long: {}, speed: {}, course: {}'.format(
-                latitude,
-                longitude,
-                speed_m_s,
-                course
+                round(latitude, 7),
+                round(longitude, 7),
+                round(speed_m_s, 3),
+                round(course, 3),
             )
         )
 
@@ -197,7 +197,7 @@ class TelemetryData(threading.Thread):
                 self._logger.warn(
                     'Dropped {} compass messages in a row, std dev = {}'.format(
                         self._dropped_compass_messages,
-                        std_devs_away
+                        round(std_devs_away, 3)
                     )
                 )
                 self._dropped_compass_messages = 0

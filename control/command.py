@@ -183,8 +183,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
             self._logger.debug(
                 'Distance to goal {waypoint}: {distance}'.format(
-                    waypoint=current_waypoint,
-                    distance=distance_m,
+                    waypoint=(round(i, 3) for i in current_waypoint),
+                    distance=round(distance_m, 3),
                 )
             )
             # We let the waypoint generator tell us if a waypoint has been
@@ -193,7 +193,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                     telemetry['x_m'],
                     telemetry['y_m']
             ):
-                self._logger.info('Reached ' + str(current_waypoint))
+                self._logger.info('Reached {}'.format((round(i, 3) for i in current_waypoint)))
                 self._waypoint_generator.next()
                 continue
 
@@ -213,8 +213,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
             self._logger.debug(
                 'My heading: {my_heading}, goal heading: {goal_heading}'.format(
-                    my_heading=heading_d,
-                    goal_heading=degrees,
+                    my_heading=round(heading_d, 3),
+                    goal_heading=round(degrees, 3),
                 )
             )
 
@@ -238,7 +238,11 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                             telemetry['x_m'],
                             telemetry['y_m']
                     ):
-                        self._logger.info('Reached ' + str(current_waypoint))
+                        self._logger.info(
+                            'Reached {}'.format(
+                                (round(i, 3) for i in current_waypoint)
+                            )
+                        )
                         self._waypoint_generator.next()
                         break
                     if Telemetry.is_turn_left(heading_d, degrees) != is_left:

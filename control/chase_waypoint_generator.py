@@ -61,9 +61,9 @@ class ChaseWaypointGenerator(object):
                 self._logger.warn(
                     'No chase waypoint in range: {distance}'
                     ' from {point_1}-{point_2}, using tangent'.format(
-                        distance=self._distance_m,
-                        point_1=previous,
-                        point_2=current
+                        distance=round(self._distance_m, 3),
+                        point_1=(round(i, 3) for i in previous),
+                        point_2=(round(i, 3) for i in current),
                     )
                 )
 
