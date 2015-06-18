@@ -145,12 +145,11 @@ class Telemetry(object):
             )
         # Values for Tamiya Grasshopper, from observation. This is at .5
         # throttle, but we turn faster at higher speeds.
-        BASE_MAX_TURN_RATE_D_S = 90.0
+        BASE_MAX_TURN_RATE_D_S = 150.0
         # We always update the steering change, because we don't have sensors
         # to get estimates for it from other sources for our Kalman filter
         self._location_filter.manual_steering(
-            (self._estimated_steering + self._estimated_throttle * 0.5)
-            * BASE_MAX_TURN_RATE_D_S
+            self._estimated_steering * BASE_MAX_TURN_RATE_D_S
         )
 
     @staticmethod
