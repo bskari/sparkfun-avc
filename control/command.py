@@ -158,7 +158,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             if (
                 self._telemetry.is_stopped()
                 and self._start_time is not None
-                and time.time() - self._start_time < 2.0
+                and time.time() - self._start_time > 2.0
             ):
                 self._logger.info(
                     'RC car is not moving according to speed history, reversing'
