@@ -12,10 +12,9 @@ from monitor.web_socket_handler import WebSocketHandler
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, command, telemetry, telemetry_data, logger, port):
+    def __init__(self, command, telemetry, logger, port):
         self._command = command
         self._telemetry = telemetry
-        self._telemetry_data = telemetry_data
         self._logger = logger
         self._port = port
 
@@ -146,7 +145,6 @@ class StatusApp(object):
             'command': 'calibrate-compass',
             'seconds': calibrate_seconds
         })
-        self._telemetry_data.calibrate_compass(calibrate_seconds)
         return {'success': True}
 
     @cherrypy.expose

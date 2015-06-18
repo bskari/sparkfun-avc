@@ -16,7 +16,6 @@ class HttpServer(threading.Thread):
             self,
             command,
             telemetry,
-            telemetry_data,
             logger,
             address=None,
             port=None
@@ -30,7 +29,7 @@ class HttpServer(threading.Thread):
         config = StatusApp.get_config(os.path.abspath(os.getcwd()))
 
         application = cherrypy.tree.mount(
-            StatusApp(command, telemetry, telemetry_data, logger, port),
+            StatusApp(command, telemetry, logger, port),
             '/',
             config
         )
