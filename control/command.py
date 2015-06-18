@@ -13,6 +13,9 @@ from control.telemetry import Telemetry
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     """Processes telemetry data and controls the RC car."""
     VALID_COMMANDS = {'start', 'stop', 'reset', 'calibrate-compass'}
+    NEUTRAL_TIME_1_S = 1.0
+    REVERSE_TIME_S = 0.25
+    NEUTRAL_TIME_2_S = 0.25
 
     def __init__(  # pylint: disable=too-many-arguments
             self,
@@ -151,6 +154,9 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         course_iterator = self._run_course_iterator()
         while True:
             if self._telemetry.is_stopped():
+                self._logger.info(
+                    'RC car is not moving according to speed history, reversing'
+                )
                 unstuck_iterator = self._unstuck_yourself_iterator(1.0)
                 while next(unstuck_iterator):
                     yield True
@@ -330,8 +336,27 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
     def _unstuck_yourself_iterator(self, seconds):
         """Commands the car to reverse and try to get off an obstacle."""
+        # The ESC requires us to send neutral throttle for a bit, then send
+        # reverse, then neutral, then reverse again (which will actually drive
+        # the car in reverse)
+
         start = time.time()
+        while time.time() < start + self.NEUTRAL_TIME_1_S:
+            self._driver.drive(0.0, 0.0)
+            yield True
+
+        start = time.time()
+        while time.time() < start + self.REVERSE_TIME_S:
+            self._driver.drive(-0.5, 0.0)
+            yield True
+
+        start = time.time()
+        while time.time() < start + self.NEUTRAL_TIME_2_S:
+            self._driver.drive(0.0, 0.0)
+            yield True
+
         turn_direction = 1.0 if random.randint(0, 1) == 0 else -1.0
+        start = time.time()
         while time.time() < start + seconds:
             self._driver.drive(-.5, turn_direction)
             yield True

@@ -5,7 +5,6 @@ import collections
 import json
 import math
 import threading
-import time
 
 from control.location_filter import LocationFilter
 from control.synchronized import synchronized
@@ -16,11 +15,6 @@ from control.synchronized import synchronized
 CENTRAL_LATITUDE = 40.091244
 CENTRAL_LONGITUDE = -105.185276
 
-# Values for Tamiya Grasshopper, from observation
-BASE_MAX_TURN_RATE_D_S = 100.0
-# We overestimate this because the compass takes a little while to update, and
-# it keeps causing the car to oversteer. This should compensate.
-MAX_TURN_RATE_D_S = BASE_MAX_TURN_RATE_D_S * 1.3
 # The turn rate when steering is -1.0 or 1.0
 # Time it takes to turn from steering -1.0 to 1.0
 FULL_TURN_TIME_S = 1.0
@@ -38,7 +32,7 @@ class Telemetry(object):
     """
     EQUATORIAL_RADIUS_M = 6378.1370 * 1000
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
-    HISTORICAL_SPEED_READINGS_COUNT = 20
+    HISTORICAL_SPEED_READINGS_COUNT = 10
 
     def __init__(self, logger):
         self._data = {}
@@ -133,9 +127,6 @@ class Telemetry(object):
             return False
 
         if all((speed == 0.0 for speed in self._speed_history)):
-            self._logger.info(
-                'RC car is not moving according to speed history'
-            )
             self._speed_history.clear()
             return True
         return False
@@ -152,10 +143,14 @@ class Telemetry(object):
             self._location_filter.manual_throttle(
                 self._estimated_throttle * MAX_SPEED_M_S
             )
+        # Values for Tamiya Grasshopper, from observation. This is at .5
+        # throttle, but we turn faster at higher speeds.
+        BASE_MAX_TURN_RATE_D_S = 90.0
         # We always update the steering change, because we don't have sensors
         # to get estimates for it from other sources for our Kalman filter
         self._location_filter.manual_steering(
-            self._estimated_steering * MAX_TURN_RATE_D_S
+            (self._estimated_steering + self._estimated_throttle * 0.5)
+            * BASE_MAX_TURN_RATE_D_S
         )
 
     @staticmethod
