@@ -108,7 +108,10 @@ class Telemetry(object):
 
         if 'compass_d' in message:
             self._update_estimated_drive()
-            self._location_filter.update_compass(message['compass_d'])
+            self._location_filter.update_compass(
+                message['compass_d'],
+                message['confidence']
+            )
 
         if 'x_m' in message:
             self._update_estimated_drive()

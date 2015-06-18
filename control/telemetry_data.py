@@ -51,6 +51,7 @@ class TelemetryData(threading.Thread):
         self._calibrate_compass_end_time = None
         self._nmea_mode = True
         self._last_compass_heading_d = 0.0
+        self._dropped_compass_messages = 0
 
     def run(self):
         """Run in a thread, hands raw telemetry readings to telemetry
@@ -105,7 +106,6 @@ class TelemetryData(threading.Thread):
         except:
             raise EnvironmentError('Not a UTF-8 message')
 
-        # TODO: Configure the module so that it only puts out GPRMC messages
         if line.startswith('$GPRMC'):
             self._handle_gprmc(line)
             return True
@@ -121,8 +121,6 @@ class TelemetryData(threading.Thread):
 
         parsed = parse_binary(message)
         if parsed is None:
-            if message[0] == '$':
-                throw
             return False
         self._handle_binary(parsed)
         return True
@@ -188,10 +186,31 @@ class TelemetryData(threading.Thread):
                 math.atan2(flux_y, flux_x)
             ) + 8.666  # Boulder declination
         )
-        # TODO: Drop messages that are several standard deviations off
+        magnitude = flux_x ** 2 + flux_y ** 2
+        std_devs_away = abs(
+            self._magnitude_mean - magnitude
+        ) / self._magnitude_std_dev
+        # In a normal distribution, 95% of readings should be within 2 std devs
+        if std_devs_away > 2.0:
+            self._dropped_compass_messages += 1
+            if self._dropped_compass_messages > 10:
+                self._logger.warn(
+                    'Dropped {} compass messages in a row, std dev = {}'.format(
+                        self._dropped_compass_messages,
+                        std_devs_away
+                    )
+                )
+                self._dropped_compass_messages = 0
+            return
+
+        if std_devs_away > 1.0:
+            confidence = 2.0 - std_devs_away
+        else:
+            confidence = 1.0
+
         self._telemetry.handle_message({
-            # TODO: We need to tell the system how confident we are
-            'compass_d': self._last_compass_heading_d
+            'compass_d': self._last_compass_heading_d,
+            'confidence': confidence
         })
 
     def kill(self):
@@ -200,7 +219,10 @@ class TelemetryData(threading.Thread):
 
     def calibrate_compass(self, seconds):
         """Requests that the car calibrate the compasss."""
-        self._calibrate_compass_end_time = time.time() + seconds
+        if self._calibrate_compass is None:
+            self._calibrate_compass_end_time = time.time() + seconds
+        else:
+            self._logger.warn('Compass is already being calibrated')
 
     def _calibrate_compass(self):
         """Calibrates the compass."""

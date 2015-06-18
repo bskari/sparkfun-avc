@@ -111,7 +111,7 @@ class LocationFilter(object):
             time_diff_s
         )
 
-    def update_compass(self, compass_d):
+    def update_compass(self, compass_d, confidence):
         """Update the heading estimation."""
         measurements = numpy.matrix(
             [0.0, 0.0, compass_d, 0.0]
@@ -121,6 +121,10 @@ class LocationFilter(object):
         time_diff_s = now - self._last_observation_s
         self._last_observation_s = now
 
+        self.COMPASS_MEASUREMENT_NOISE[2].itemset(
+            2,
+            45 + 45 * (1.0 - confidence)
+        )
         self._update(
             measurements,
             self.COMPASS_OBSERVER_MATRIX,
