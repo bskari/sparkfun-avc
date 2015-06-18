@@ -46,9 +46,21 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     DRIVER.drive(0.0, 0.0)
     time.sleep(0.2)
     with open('/dev/pi-blaster', 'w') as blaster:
-        # And disable PWM
-        blaster.write('release {pin}\n'.format(pin=THROTTLE_GPIO_PIN))
-        blaster.write('release {pin}\n'.format(pin=STEERING_GPIO_PIN))
+        time.sleep(0.1)
+        blaster.write(
+            '{pin}={throttle}\n'.format(
+                pin=18,
+                throttle=1500
+            )
+        )
+        time.sleep(0.1)
+        blaster.write(
+            '{pin}={steering}\n'.format(
+                pin=4,
+                steering=1650
+            )
+        )
+        time.sleep(0.1)
 
     for thread in THREADS:
         thread.kill()
