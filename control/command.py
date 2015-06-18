@@ -43,6 +43,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self._sleep_time = None
         self._wake_time = None
         self._telemetry_data = None
+        self._start_time = None
 
     def handle_message(self, message):
         """Handles command messages, e.g. 'start' or 'stop'."""
@@ -153,11 +154,15 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         """Returns an iterator that drives everything."""
         course_iterator = self._run_course_iterator()
         while True:
-            if self._telemetry.is_stopped():
+            if (
+                self._telemetry.is_stopped()
+                and self._start_time is not None
+                and time.time() - self._start_time < 2.0
+            ):
                 self._logger.info(
                     'RC car is not moving according to speed history, reversing'
                 )
-                unstuck_iterator = self._unstuck_yourself_iterator(1.0)
+                unstuck_iterator = self._unstuck_yourself_iterator(3.0)
                 while next(unstuck_iterator):
                     yield True
 
@@ -313,6 +318,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     def run_course(self):
         """Starts the RC car running the course."""
         self._run_course = True
+        self._start_time = time.time()
 
     def stop(self):
         """Stops the RC car from running the course."""
