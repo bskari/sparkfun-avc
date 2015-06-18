@@ -201,10 +201,10 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 self._waypoint_generator.next()
                 continue
 
-            if distance_m > 3.0:
-                speed = 1.0
+            if distance_m > 10.0 or distance_m / telemetry['speed_m_s'] > 2.0:
+                throttle = 1.0
             else:
-                speed = 0.5
+                throttle = 0.5
 
             degrees = Telemetry.relative_degrees(
                 telemetry['x_m'],
@@ -252,7 +252,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                     if Telemetry.is_turn_left(heading_d, degrees) != is_left:
                         break
 
-                self._driver.drive(speed, 0.0)
+                self._driver.drive(throttle, 0.0)
                 yield True
                 continue
             elif diff_d > 90.0:
@@ -263,12 +263,14 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 turn = 0.25
 
             # Turning while going fast causes the car to roll over
-            if telemetry['speed_m_s'] > 7.0:
+            if telemetry['speed_m_s'] > 7.0 or throttle >= 0.75:
+                turn = max(turn, 0.25)
+            elif telemetry['speed_m_s'] > 4.0 or throttle >= 0.5:
                 turn = max(turn, 0.5)
 
             if Telemetry.is_turn_left(heading_d, degrees):
                 turn = -turn
-            self._driver.drive(speed, turn)
+            self._driver.drive(throttle, turn)
             yield True
 
         self._logger.info('No waypoints, stopping')
