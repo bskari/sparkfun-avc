@@ -254,7 +254,7 @@ def main():
             logger,
             'paths/solid-state-depot.kmz'
         )
-    waypoint_generator = ChaseWaypointGenerator(kml._waypoints, logger)
+    waypoint_generator = kml
 
     logger.debug('Calling start_threads')
 
