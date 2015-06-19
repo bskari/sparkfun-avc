@@ -48,7 +48,10 @@ class Button(threading.Thread):  # pylint: disable=too-few-public-methods
 
         # One press to start, two within a second to stop
         if self._button_press_time is None:
-            self._logger.info('Ignoring first button press')
+            if self._command.is_running_course():
+                self._logger.info('Ignoring first button press')
+            else:
+                self._command.handle_message({'command': 'start'})
         elif self._command.is_running_course():
             if time.time() - self._button_press_time < 1.0:
                 self._command.handle_message({'command': 'stop'})
