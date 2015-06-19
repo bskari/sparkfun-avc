@@ -24,15 +24,17 @@ Red is 5V DC power, connected to pin 4.
 White/yellow is signal, connected to GPIO 18, pin 12.
 
 Button:
-One wire connects to pin 1, 3V3 DC.
-One wire connects to GPIO 17, pin pin 11.
+This is a three way wire. One end connects to a 10K resistor and then to 3V3
+pin 17.  Another end (behind the resistor) connects to GPIO 24, pin 18.  The
+third end (also behind the resistor) connects to the switch and then to ground
+pin 20.
 
 GPS:
 1 - RXD, connect to UART TXD, GPIO 14, pin 8.
 2 - TXD, connect to UART RXD, GPIO 15, pin 10.
-3 - Ground, connect to pin 20.
+3 - Ground, connect to pin 14.
 4 - 3.3V VDD, connect to pin 1.
 5 - VBAT, connect to pin 1.
 6 - P1PPS, leave unconnected.
-7 - BOOT_SEL, 3.3 VDD, connect to pin 17.
+7 - BOOT_SEL, 3.3 VDD, connect to pin 1.
 8 - RSTN, leave unconnected.
