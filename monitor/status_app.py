@@ -140,10 +140,8 @@ class StatusApp(object):
         """Calibrates the compass."""
         self._check_post()
         self._logger.info('Received calibrate compass command from web')
-        calibrate_seconds = 20
         self._command.handle_message({
             'command': 'calibrate-compass',
-            'seconds': calibrate_seconds
         })
         return {'success': True}
 

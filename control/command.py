@@ -377,6 +377,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             current_waypoint[0],
             current_waypoint[1]
         )
+        is_left = Telemetry.is_turn_left(heading_d, degrees)
         if is_left is None:
             turn_direction = 1.0 if random.randint(0, 1) == 0 else -1.0
         elif is_left:

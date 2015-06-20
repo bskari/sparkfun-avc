@@ -219,7 +219,7 @@ class TelemetryData(threading.Thread):
 
     def calibrate_compass(self, seconds):
         """Requests that the car calibrate the compasss."""
-        if self._calibrate_compass is None:
+        if self._calibrate_compass_end_time is None:
             self._calibrate_compass_end_time = time.time() + seconds
         else:
             self._logger.warn('Compass is already being calibrated')
