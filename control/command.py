@@ -163,7 +163,9 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 self._logger.info(
                     'RC car is not moving according to speed history, reversing'
                 )
-                unstuck_iterator = self._unstuck_yourself_iterator(2.0)
+
+                unstuck_iterator = self._unstuck_yourself_iterator(1.0)
+
                 while next(unstuck_iterator):
                     yield True
 
@@ -342,7 +344,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         """Returns True if we're currently navigating the course."""
         return self._run_course
 
-    def _unstuck_yourself_iterator(self, seconds):
+    def _unstuck_yourself_iterator(self, seconds, random=False):
         """Commands the car to reverse and try to get off an obstacle."""
         # The ESC requires us to send neutral throttle for a bit, then send
         # reverse, then neutral, then reverse again (which will actually drive
@@ -363,7 +365,25 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             self._driver.drive(0.0, 0.0)
             yield True
 
-        turn_direction = 1.0 if random.randint(0, 1) == 0 else -1.0
+        telemetry = self._telemetry.get_data()
+        heading_d = telemetry['heading_d']
+        current_waypoint = self._waypoint_generator.get_current_waypoint(
+            telemetry['x_m'],
+            telemetry['y_m']
+        )
+        degrees = Telemetry.relative_degrees(
+            telemetry['x_m'],
+            telemetry['y_m'],
+            current_waypoint[0],
+            current_waypoint[1]
+        )
+        if is_left is None:
+            turn_direction = 1.0 if random.randint(0, 1) == 0 else -1.0
+        elif is_left:
+            turn_direction = 1.0  # Reversed because we're driving in reverse
+        else:
+            turn_direction = -1.0
+
         start = time.time()
         while time.time() < start + seconds:
             self._driver.drive(-.5, turn_direction)

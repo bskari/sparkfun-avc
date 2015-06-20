@@ -67,7 +67,8 @@ class Driver(object):
         if throttle_percentage > 0.0:
             throttle = min(self._max_throttle, throttle_percentage)
         else:
-            throttle = max(-self._max_throttle, throttle_percentage)
+            # Reverse is slower than forward, so allow 2x
+            throttle = max(-2 * self._max_throttle, throttle_percentage, -1.0)
 
         with open('/dev/pi-blaster', 'w') as blaster:
             blaster.write(
