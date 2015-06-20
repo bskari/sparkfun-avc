@@ -170,6 +170,21 @@ def make_parser():
     )
 
     parser.add_argument(
+        '--video',
+        dest='video',
+        help='The video file name.',
+        default=(
+            '/data/video-{date}.h264'.format(
+                date=datetime.datetime.strftime(
+                    now,
+                    '%Y-%m-%d_%H-%M-%S'
+                )
+            )
+        ),
+        type=str
+    )
+
+    parser.add_argument(
         '-v',
         '--verbose',
         dest='verbose',
@@ -204,24 +219,13 @@ def main():
     parser = make_parser()
     args = parser.parse_args()
 
-    file_name = 'run-{}.h264'.format(
-        datetime.datetime.strftime(
-            datetime.datetime.now(),
-            '%Y-%m-%d_%H:%M:%S'
-        )
-    )
     try:
         global POPEN
-        POPEN = subprocess.Popen(
-            'raspivid -o /data/{} -w 1024 -h 576 -b 6000000'.format(file_name)
-        )
+        POPEN = subprocess.Popen((
+            'raspivid', '-o', args.video, '-w', '1024', '-h', '576', '-b', '6000000', '-t', '300000'
+        ))
     except Exception:
-        try:
-            POPEN = subprocess.Popen(
-                'raspivid -o /tmp/{} -w 1024 -h 576 -b 6000000'.format(file_name)
-            )
-        except Exception:
-            logging.warning('Unable to save video')
+        logging.warning('Unable to save video')
 
     logger = logging.Logger('sparkfun')
     logger.setLevel(logging.DEBUG)
