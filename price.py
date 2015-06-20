@@ -11,7 +11,7 @@ def main():
     item_to_price = {
         'Tamiya Grasshopper RC Car': 89.41,
         '7.2V Tenergy 3800mAh NiMH battery': 26.99,
-        'Raspberry Pi A+': 21.96,
+        'Raspberry Pi 2': 39.95,
         '2200 mAh USB battery': 16.99,
         'Raspberry Pi camera': 29.95,
         'Rosewill WiFi adapter': 5.99,
