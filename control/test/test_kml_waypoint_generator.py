@@ -1,7 +1,9 @@
 """Tests the Telemetry class."""
 import collections
+import io
 import math
 import unittest
+import zipfile
 
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.telemetry import Telemetry
@@ -42,7 +44,8 @@ class TestKmlWaypointGenerator(unittest.TestCase):
             '{},{},50'.format(long, lat) for long, lat in coordinates_long_lat
         ))
         kml = KML_TEMPLATE.format(coordinates_str)
-        waypoints = KmlWaypointGenerator._load_waypoints(kml)
+        kml_buffer = io.StringIO(kml)
+        waypoints = KmlWaypointGenerator._load_waypoints(kml_buffer)
         for m_offset, long_lat in zip(waypoints, coordinates_long_lat):
             x_m_1, y_m_1 = m_offset
             long_, lat = long_lat
@@ -172,11 +175,19 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         waypoint_generator.next()
         self.assertTrue(waypoint_generator.done())
 
+    def test_zipped_files_smoke(self):
+        """The generator should also support zipped KML files (KMZ)."""
+        logger = DummyLogger()
+        archive_file_name = '/tmp/test.kmz'
+        with zipfile.ZipFile(archive_file_name, 'w') as archive:
+            archive.write('../paths/solid-state-depot.kml', 'doc.kml')
+        KmlWaypointGenerator(logger, archive_file_name)
+
     @staticmethod
     def make_generator():
         """Returns a KML waypoint generator."""
         logger = DummyLogger()
         return KmlWaypointGenerator(
             logger,
-            '../paths/solid-state-depot.kmz'
+            '../paths/solid-state-depot.kml'
         )

@@ -15,7 +15,7 @@ from xml.etree import ElementTree
 import collections
 import copy
 import math
-import zipfile
+import re
 
 from control.telemetry import Telemetry
 
@@ -24,15 +24,22 @@ class KmlWaypointGenerator(object):
     """Loads and returns waypoints from a KML file."""
 
     def __init__(self, logger, kml_file_name):
-        with zipfile.ZipFile(kml_file_name) as archive:
-            kml_string = archive.open('doc.kml').read()
-            self._initial_waypoints = self._load_waypoints(kml_string)
-            self._waypoints = copy.deepcopy(self._initial_waypoints)
-            logger.info(
-                'Loaded {length} waypoints'.format(
-                    length=len(self._waypoints)
-                )
+        if kml_file_name.endswith('.kmz'):
+            import zipfile
+            with zipfile.ZipFile(kml_file_name) as archive:
+                kml_stream = archive.open('doc.kml')
+                self._initial_waypoints = self._load_waypoints(kml_stream)
+        else:
+            with open(kml_file_name) as file_:
+                kml_stream = file_
+                self._initial_waypoints = self._load_waypoints(kml_stream)
+
+        self._waypoints = copy.deepcopy(self._initial_waypoints)
+        logger.info(
+            'Loaded {length} waypoints'.format(
+                length=len(self._waypoints)
             )
+        )
         self._last_distance_m = 1000000.0
 
     def get_current_waypoint(self, x_m, y_m):  # pylint: disable=unused-argument
@@ -82,7 +89,7 @@ class KmlWaypointGenerator(object):
         self._waypoints = copy.deepcopy(self._initial_waypoints)
 
     @staticmethod
-    def _load_waypoints(kml_string):
+    def _load_waypoints(kml_stream):
         """Loads and returns the waypoints from a KML string."""
 
         def get_child(element, tag_name):
@@ -92,7 +99,8 @@ class KmlWaypointGenerator(object):
                     return child
             raise ValueError('No {tag} element found'.format(tag=tag_name))
 
-        root = ElementTree.fromstring(kml_string)
+        root = ElementTree.parse(kml_stream).getroot()
+        print(dir(root))
         if 'kml' not in root.tag:
             raise ValueError('Not a KML file')
 
@@ -104,7 +112,7 @@ class KmlWaypointGenerator(object):
 
         waypoints = collections.deque()
         text = coordinates.text.strip()
-        for csv in text.split(' '):
+        for csv in re.split(r'\s', text):
             (
                 longitude,
                 latitude,
