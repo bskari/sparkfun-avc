@@ -171,19 +171,12 @@ class LocationFilter(object):
         """Runs the Kalman update using the provided measurements."""
         # Prediction step
         transition = self._prediction_step(time_diff_s)
-        #print('1. A=\n{}'.format(transition))
-        #print('   P=\n{}'.format(self._covariance_matrix))
-        #print('   x=\n{}'.format(self._estimates))
-        #print('2. H=\n{}'.format(observer_matrix))
-        #print('   z=\n{}'.format(measurements))
-        #print('3. x=\n{}'.format(self._estimates))
 
         # Update uncertainty
         # P = A * P * A' + Q
         self._covariance_matrix = \
             transition * self._covariance_matrix * transition.transpose() \
             + self._process_noise
-        #print('4. P=\n{}'.format(self._covariance_matrix))
 
         # Compute the Kalman gain
         # K = P * H' * inv(H * P * H' + R)
@@ -204,7 +197,6 @@ class LocationFilter(object):
 
         kalman_gain = \
                 self._covariance_matrix * observer_matrix.transpose() * hphtri
-        #print('5. K=\n{}'.format(kalman_gain))
 
         # Determine innovation or residual and update our estimate
         # x = x + K * (z - H * x)
@@ -221,14 +213,11 @@ class LocationFilter(object):
         heading_d = Telemetry.wrap_degrees(self._estimates[2].item(0))
         self._estimates[2].itemset(0, heading_d)
 
-        #print('6. x=\n{}'.format(self._estimates))
-
         # Update the covariance
         # P = (I - K * H) * P
         self._covariance_matrix = (
             numpy.identity(len(kalman_gain)) - kalman_gain * observer_matrix
         ) * self._covariance_matrix
-        #print('7. P=\n{}'.format(self._covariance_matrix))
 
         assert len(self._estimates) == 4 and len(self._estimates[0]) == 1, \
             'Estimates should be size 4x1 but is {}x{} after update'.format(
