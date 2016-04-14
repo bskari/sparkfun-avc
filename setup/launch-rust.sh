@@ -6,7 +6,7 @@ tmux send-keys -t sparkfun 'cd ~pi/sparkfun-avc/setup' c-m
 tmux send-keys -t sparkfun 'export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3' c-m
 tmux send-keys -t sparkfun 'source /usr/local/bin/virtualenvwrapper.sh' c-m
 tmux send-keys -t sparkfun 'workon sparkfun' c-m
-tmux send-keys -t sparkfun './rooter -m rust -w' c-m
+tmux send-keys -t sparkfun 'sudo ~pi/.virtualenvs/sparkfun/bin/python -m rust -w' c-m
 # We need to wait a few seconds before starting the Rust program because it
 # expects to open and read commands from some Unix domain sockets which the
 # Python side creates.

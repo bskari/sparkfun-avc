@@ -75,6 +75,7 @@ apt-get upgrade
 # TODO: What about gstreamer?
 apt-get install -y \
     ack-grep \
+    auto-conf \
     dnsmasq \
     gcc \
     gpsd \
@@ -91,14 +92,13 @@ apt-get install -y \
     tmux \
     vim \
 
-echo 'Setting up rooter'
-pushd ~pi
-    chown -R pi:pi sparkfun-avc
-    pushd sparkfun-avc/setup
-        gcc rooter.c -o rooter
-        chown root:root rooter
-        chmod +s rooter
-    popd
+pushd /tmp
+    git clone https://github.com/sarfata/pi-blaster
+    cd pi-blaster
+    ./autogen.sh
+    ./configure
+    make
+    make install
 popd
 
 # Hell with bash, let's do the rest of this in Python
