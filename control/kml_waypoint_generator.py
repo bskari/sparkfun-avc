@@ -11,10 +11,10 @@ waypoint per call; this should allow interfaces to implement other algorithms,
 such as the "rabbit chase" method.
 """
 
+from pykml import parser
 import collections
 import copy
 import math
-import pykml
 import re
 
 from control.telemetry import Telemetry
@@ -94,13 +94,12 @@ class KmlWaypointGenerator(object):
 
         def get_child(element, tag_name):
             """Returns the child element with the given tag name."""
-            for child in element:
-                if tag_name in child.tag:
-                    return child
-            raise ValueError('No {tag} element found'.format(tag=tag_name))
+            try:
+                return getattr(element, tag_name)
+            except AttributeError:
+                raise ValueError('No {tag} element found'.format(tag=tag_name))
 
-        root = pykml.parser.parse(kml_stream).getroot()
-        print(dir(root))
+        root = parser.parse(kml_stream).getroot()
         if 'kml' not in root.tag:
             raise ValueError('Not a KML file')
 
