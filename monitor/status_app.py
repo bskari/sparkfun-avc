@@ -73,7 +73,7 @@ class StatusApp(object):
             },
             '/static': {
                 'tools.staticdir.on': True,
-                'tools.staticdir.dir': './static',
+                'tools.staticdir.dir': '../static-web',
             },
             '/ws': {
                 'tools.websocket.on': True,
