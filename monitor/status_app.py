@@ -2,11 +2,14 @@
 
 import cherrypy
 import netifaces
-import os.path
+import os
 import subprocess
 import sys
 
 from monitor.web_socket_handler import WebSocketHandler
+
+
+STATIC_DIR = 'static-web'
 
 
 class StatusApp(object):
@@ -73,7 +76,7 @@ class StatusApp(object):
             },
             '/static': {
                 'tools.staticdir.on': True,
-                'tools.staticdir.dir': '../static-web',
+                'tools.staticdir.dir': '..' + os.sep + STATIC_DIR
             },
             '/ws': {
                 'tools.websocket.on': True,
@@ -87,11 +90,12 @@ class StatusApp(object):
         # This is the worst templating ever, but I don't feel like it's worth
         # installing a full engine just for this one substitution
         index_page = None
+        index_file_name = STATIC_DIR + os.sep + 'index.html'
         if sys.version_info.major == 2:
-            with open('monitor/static/index.html') as file_:
+            with open(index_file_name) as file_:
                 index_page = file_.read().decode('utf-8')
         else:
-            with open('monitor/static/index.html', encoding='utf-8') as file_:
+            with open(index_file_name, encoding='utf-8') as file_:
                 index_page = file_.read()
         return index_page.replace(
             '${webSocketAddress}',

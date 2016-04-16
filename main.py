@@ -9,8 +9,6 @@ import subprocess
 import sys
 import time
 
-from control.button import Button
-from control.chase_waypoint_generator import ChaseWaypointGenerator
 from control.command import Command
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.sup800f import switch_to_nmea_mode
@@ -24,6 +22,17 @@ from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 # pylint: disable=global-statement
 # pylint: disable=broad-except
 
+try:
+    from control.button import Button
+except SystemError:
+    # Importing RPIO (used in button) on a non Raspberry Pi raises a
+    # SystemError, so for testing on other systems, just ignore it
+    print('Disabling button because not running on Raspberry Pi')
+    class Dummy(object):
+        def __getattr__(self, attr):
+            return lambda *arg, **kwarg: None
+    Button = lambda *arg: Dummy()
+    serial.Serial = lambda *arg: Dummy()
 
 THREADS = []
 POPEN = None
@@ -267,7 +276,7 @@ def main():
         logger.info('Setting waypoints to Solid State Depot for testing')
         kml = KmlWaypointGenerator(
             logger,
-            'paths/solid-state-depot.kmz'
+            'paths/solid-state-depot.kml'
         )
     waypoint_generator = kml
 
