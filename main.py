@@ -10,12 +10,12 @@ import sys
 import time
 
 from control.command import Command
+from control.driver import Driver, STEERING_GPIO_PIN, STEERING_NEUTRAL_US, THROTTLE_GPIO_PIN, THROTTLE_NEUTRAL_US
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.sup800f import switch_to_nmea_mode
+from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
-from control.driver import Driver, STEERING_GPIO_PIN, STEERING_NEUTRAL_US, THROTTLE_GPIO_PIN, THROTTLE_NEUTRAL_US
-from control.telemetry_data import TelemetryData
 from monitor.http_server import HttpServer
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
@@ -112,13 +112,13 @@ def start_threads(
         serial_.readline()
     logger.info('Done')
 
-    telemetry_data = TelemetryData(telemetry, serial_, logger)
+    sup800f_telemetry = Sup800fTelemetry(telemetry, serial_, logger)
 
     # This is used for compass calibration
     # TODO: I really don't like having cross dependencies between command and
     # driver; this should be factored out so that there is a single class that
     # waits for messages and them forwards them on.
-    command.set_telemetry_data(telemetry_data)
+    command.set_telemetry_data(sup800f_telemetry)
 
     monitor_port = int(get_configuration('MONITOR_PORT', 8080))
     monitor_address = get_configuration('MONITOR_ADDRESS', '0.0.0.0')
@@ -137,14 +137,14 @@ def start_threads(
     )
 
     global THREADS
-    THREADS = [command, telemetry_data, http_server, button, telemetry_dumper]
+    THREADS = [command, sup800f_telemetry, http_server, button, telemetry_dumper]
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
 
     # Use a fake timeout so that the main thread can still receive signals
-    telemetry_data.join(100000000000)
-    # Once we get here, telemetry_data has died and there's no point in
+    sup800f_telemetry.join(100000000000)
+    # Once we get here, sup800f_telemetry has died and there's no point in
     # continuing because we're not receiving telemetry messages any more, so
     # stop the command module
     command.stop()

@@ -27,7 +27,7 @@ COMPASS_SPEED_CUTOFF_KM_HOUR = 10.0
 COMPASS_SPEED_CUTOFF_M_S = COMPASS_SPEED_CUTOFF_KM_HOUR * 1000.0 / 3600.0
 
 
-class TelemetryData(threading.Thread):
+class Sup800fTelemetry(threading.Thread):
     """Reader of GPS module that implements the TelemetryData interface."""
     def __init__(
             self,
@@ -36,7 +36,7 @@ class TelemetryData(threading.Thread):
             logger,
     ):
         """Create the TelemetryData thread."""
-        super(TelemetryData, self).__init__()
+        super(Sup800fTelemetry, self).__init__()
 
         self._telemetry = telemetry
         self._serial = serial
