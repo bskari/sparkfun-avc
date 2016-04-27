@@ -5,12 +5,11 @@ from ws4py.server.cherrypyserver import WebSocketTool
 import cherrypy
 import logging
 import os
-import threading
 
 from monitor.status_app import StatusApp
 
 
-class HttpServer(threading.Thread):
+class HttpServer(object):
     """Runs CherryPy in a thread."""
     def __init__(
             self,

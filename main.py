@@ -1,5 +1,8 @@
 """Main command module that starts the different threads."""
+from ws4py.server.cherrypyserver import WebSocketPlugin
+from ws4py.server.cherrypyserver import WebSocketTool
 import argparse
+import cherrypy
 import datetime
 import logging
 import os
@@ -7,6 +10,7 @@ import serial
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 from control.command import Command
@@ -16,7 +20,8 @@ from control.sup800f import switch_to_nmea_mode
 from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
-from monitor.http_server import HttpServer
+from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
+from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
 # pylint: disable=global-statement
@@ -31,12 +36,59 @@ except SystemError:
     class Dummy(object):
         def __getattr__(self, attr):
             return lambda *arg, **kwarg: None
+    global Button
     Button = lambda *arg: Dummy()
     serial.Serial = lambda *arg: Dummy()
+    global Driver
+    Driver = lambda *arg: Dummy()
 
 THREADS = []
 POPEN = None
 DRIVER = None
+
+
+class CherryPyServer(threading.Thread):
+    """Runs the various web apps in a thread."""
+
+    def __init__(self, port, address, command, telemetry, logger):
+        super(CherryPyServer, self).__init__()
+
+        # Web monitor
+        config = MonitorApp.get_config(os.path.abspath(os.getcwd()))
+        status_app = cherrypy.tree.mount(
+            MonitorApp(command, telemetry, logger, port),
+            '/',
+            config
+        )
+        cherrypy.config.update({
+            'server.socket_host': address,
+            'server.socket_port': port
+        })
+
+        WebSocketPlugin(cherrypy.engine).subscribe()
+        cherrypy.tools.websocket = WebSocketTool()
+
+        # Web telemetry
+        config = WebTelemetryStatusApp.get_config(os.path.abspath(os.getcwd()))
+        web_telemetry_app = cherrypy.tree.mount(
+            WebTelemetryStatusApp(command, telemetry, logger, port),
+            '/telemetry',
+            config
+        )
+
+        # OMG, shut up CherryPy, nobody cares about your problems
+        for app in (status_app, web_telemetry_app, cherrypy):
+            app.log.access_log.setLevel(logging.ERROR)
+            app.log.error_log.setLevel(logging.ERROR)
+
+    def run(self):
+        """Runs the thread and server in a thread."""
+        cherrypy.engine.start()
+
+    @staticmethod
+    def kill():
+        """Stops the thread and server."""
+        cherrypy.engine.exit()
 
 
 def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
@@ -55,22 +107,25 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
 
     DRIVER.drive(0.0, 0.0)
     time.sleep(0.2)
-    with open('/dev/pi-blaster', 'w') as blaster:
-        time.sleep(0.1)
-        blaster.write(
-            '{pin}={throttle}\n'.format(
-                pin=THROTTLE_GPIO_PIN,
-                throttle=THROTTLE_NEUTRAL_US
+    try:
+        with open('/dev/pi-blaster', 'w') as blaster:
+            time.sleep(0.1)
+            blaster.write(
+                '{pin}={throttle}\n'.format(
+                    pin=THROTTLE_GPIO_PIN,
+                    throttle=THROTTLE_NEUTRAL_US
+                )
             )
-        )
-        time.sleep(0.1)
-        blaster.write(
-            '{pin}={steering}\n'.format(
-                pin=STEERING_GPIO_PIN,
-                steering=STEERING_NEUTRAL_US
+            time.sleep(0.1)
+            blaster.write(
+                '{pin}={steering}\n'.format(
+                    pin=STEERING_GPIO_PIN,
+                    steering=STEERING_NEUTRAL_US
+                )
             )
-        )
-        time.sleep(0.1)
+            time.sleep(0.1)
+    except IOError:
+        pass
 
     for thread in THREADS:
         thread.kill()
@@ -120,24 +175,26 @@ def start_threads(
     # waits for messages and them forwards them on.
     command.set_telemetry_data(sup800f_telemetry)
 
-    monitor_port = int(get_configuration('MONITOR_PORT', 8080))
-    monitor_address = get_configuration('MONITOR_ADDRESS', '0.0.0.0')
-    http_server = HttpServer(
-        command,
-        telemetry,
-        logger,
-        port=monitor_port,
-        address=monitor_address
-    )
     button = Button(command, logger)
+
     telemetry_dumper = TelemetryDumper(
         telemetry,
         waypoint_generator,
         web_socket_handler
     )
 
+    port = int(get_configuration('PORT', 8080))
+    address = get_configuration('ADDRESS', '0.0.0.0')
+    cherry_py_server = CherryPyServer(port, address, command, telemetry, logger)
+
     global THREADS
-    THREADS = [command, sup800f_telemetry, http_server, button, telemetry_dumper]
+    THREADS = [
+        button,
+        cherry_py_server,
+        command,
+        sup800f_telemetry,
+        telemetry_dumper,
+    ]
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
@@ -149,8 +206,8 @@ def start_threads(
     # stop the command module
     command.stop()
     command.join(100000000000)
-    http_server.kill()
-    http_server.join(100000000000)
+    cherry_py_server.kill()
+    cherry_py_server.join(100000000000)
     button.kill()
     button.join(100000000000)
 

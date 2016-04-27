@@ -10,6 +10,7 @@ from monitor.web_socket_handler import WebSocketHandler
 
 
 STATIC_DIR = 'static-web'
+MONITOR_DIR = 'monitor' + os.sep
 
 
 class StatusApp(object):
@@ -57,7 +58,7 @@ class StatusApp(object):
             self._host_ip = get_ip(iface)
             if self._host_ip is not None:
                 logger.info(
-                    'Web server listening on {iface}'.format(
+                    'Monitor web server listening on {iface}'.format(
                         iface=iface
                     )
                 )
@@ -90,7 +91,7 @@ class StatusApp(object):
         # This is the worst templating ever, but I don't feel like it's worth
         # installing a full engine just for this one substitution
         index_page = None
-        index_file_name = STATIC_DIR + os.sep + 'index.html'
+        index_file_name = MONITOR_DIR + 'index.html'
         if sys.version_info.major == 2:
             with open(index_file_name) as file_:
                 index_page = file_.read().decode('utf-8')
