@@ -35,12 +35,17 @@ except SystemError:
     print('Disabling button because not running on Raspberry Pi')
     class Dummy(object):
         def __getattr__(self, attr):
-            return lambda *arg, **kwarg: None
+            return lambda *arg, **kwarg: time.sleep(0.01)
+
     global Button
     Button = lambda *arg: Dummy()
     serial.Serial = lambda *arg: Dummy()
     global Driver
     Driver = lambda *arg: Dummy()
+    global Sup800fTelemetry
+    Sup800fTelemetry = lambda *arg: Dummy()
+    global switch_to_nmea_mode
+    switch_to_nmea_mode = lambda *arg: Dummy()
 
 THREADS = []
 POPEN = None
