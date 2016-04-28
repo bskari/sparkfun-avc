@@ -25,12 +25,70 @@
     </nav>
 
     <div class="container theme-showcase" role="main">
-        There doesn't seem to be anything here
+        <div id="alerts">
+        </div>
+
+        <p>
+            <button id="run-button" type="button" class="btn btn-lg btn-success">Run</button>
+            <button id="stop-button" type="button" class="btn btn-lg btn-danger">Stop</button>
+            <button id="send-button" type="button" class="btn btn-lg btn-default">Send</button>
+            <button id="stop-sending-button" type="button" class="btn btn-lg btn-default">Stop Sending</button>
+        </p>
+
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table">
+                    <tr>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Altitude</th>
+                        <th>Accuracy</th>
+                        <th>Heading°</th>
+                        <th>Speed m/s</th>
+                        <th>Timestamp</th>
+                    </tr>
+                    <tr>
+                        <td id="latitude"></td>
+                        <td id="longitude"></td>
+                        <td id="altitude"></td>
+                        <td id="accuracy"></td>
+                        <td id="heading"></td>
+                        <td id="speed"></td>
+                        <td id="timestamp"></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script src="/static/jquery-2.1.3.min.js"></script>
     <script src="/static/bootstrap/js/bootstrap.min.js"></script>
-    <script src="/static/status.js"></script>
+    <script src="/static/telemetry.js"></script>
+    <script type="text/javascript">
+$(document).ready(function () {
+    'use strict';
+    var buttons = {
+        run: $('#run-button'),
+        stop: $('#stop-button'),
+        send: $('#send-button'),
+        stopSending: $('#stop-sending-button')
+    };
+    var telemetryFields = {
+        latitude: $('#latitude'),
+        longitude: $('#longitude'),
+        altitude: $('#altitude'),
+        accuracy: $('#accuracy'),
+        heading: $('#heading'),
+        speed: $('#speed'),
+        timestamp: $('#timestamp')
+    };
+    sparkfun.telemetry.init(
+        buttons,
+        telemetryFields,
+        '${webSocketAddress}'
+    );
+});
+    </script>
 </body>
 
 </html>

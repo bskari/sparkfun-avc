@@ -5,6 +5,8 @@ import netifaces
 import os
 import sys
 
+from control.web_telemetry.web_socket_handler import WebSocketHandler
+
 STATIC_DIR = 'static-web'
 WEB_TELEMETRY_DIR = 'control' + os.sep + 'web_telemetry' + os.sep
 
@@ -76,11 +78,17 @@ class StatusApp(object):
                 'tools.staticdir.on': True,
                 'tools.staticdir.dir': '..' + os.sep + '..'  + os.sep + STATIC_DIR
             },
+            '/ws': {
+                'tools.websocket.on': True,
+                'tools.websocket.handler_cls': WebSocketHandler
+            },
         }
 
     @cherrypy.expose
     def index(self):  # pylint: disable=no-self-use
         """Index page."""
+        # This is the worst templating ever, but I don't feel like it's worth
+        # installing a full engine just for this one substitution
         index_page = None
         index_file_name = WEB_TELEMETRY_DIR + 'index.html'
         if sys.version_info.major == 2:
@@ -89,4 +97,15 @@ class StatusApp(object):
         else:
             with open(index_file_name, encoding='utf-8') as file_:
                 index_page = file_.read()
-        return index_page
+        return index_page.replace(
+            '${webSocketAddress}',
+            'ws://{host_ip}:{port}/ws'.format(
+                host_ip=self._host_ip,
+                port=self._port
+            )
+        )
+
+    @cherrypy.expose
+    def ws(self):  # pylint: disable=invalid-name
+        """Dummy method to tell CherryPy to expose the web socket end point."""
+        pass
