@@ -136,13 +136,9 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
         pass
 
     LOGGER_PRODUCER.kill()
-    print(len(THREADS))
     for thread in THREADS:
-        print('Killing thread')
         thread.kill()
-        print('Joining thread')
         thread.join()
-        print('Done')
     sys.exit(0)
 
 

@@ -45,5 +45,10 @@ class RabbitMqLoggerProducer(object):
         )
 
     def kill(self):
+        self._channel.basic_publish(
+            exchange=config.LOGS_EXCHANGE,
+            routing_key='',
+            body=json.dumps({'quit': True})
+        )
         self._channel.cancel()
         self._connection.close()

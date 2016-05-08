@@ -48,6 +48,9 @@ class RabbitMqLoggerConsumer(threading.Thread):
     def _callback(self, channel, method, properties, body):
         """Handles received messages."""
         body = json.loads(bytes.decode(body, 'utf8'))
+        if 'quit' in body:
+            channel.close()
+            return
         record = self._logger.makeRecord(
             'sparkfun',
             body['level'],
