@@ -23,8 +23,8 @@ from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
-from rabbit_logging.rabbit_mq_logger_consumer import RabbitMqLoggerConsumer
-from rabbit_logging.rabbit_mq_logger_producer import RabbitMqLoggerProducer
+from messaging.logger_consumer import LoggerConsumer
+from messaging.logger_producer import LoggerProducer
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
@@ -306,8 +306,8 @@ def main():
         logging.warning('Unable to save video')
 
     global LOGGER_PRODUCER
-    LOGGER_PRODUCER = RabbitMqLoggerProducer()
-    logger_consumer = RabbitMqLoggerConsumer()
+    LOGGER_PRODUCER = LoggerProducer()
+    logger_consumer = LoggerConsumer()
     formatter = logging.Formatter(
         '%(asctime)s:%(levelname)s %(message)s'
     )

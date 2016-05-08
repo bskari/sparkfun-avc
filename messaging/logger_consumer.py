@@ -1,19 +1,19 @@
 """Logger that receives from RabbitMQ."""
 
-from rabbit_logging import config
+from messaging import config
 import json
 import logging
 import pika
 import threading
 
 
-class RabbitMqLoggerConsumer(threading.Thread):
+class LoggerConsumer(threading.Thread):
     """Logger that receives from RabbitMQ. This implements (some of) the
     logging.Logger interface.
     """
 
     def __init__(self):
-        super(RabbitMqLoggerConsumer, self).__init__()
+        super(LoggerConsumer, self).__init__()
 
         self._handlers = []
 

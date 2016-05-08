@@ -1,12 +1,12 @@
 """Logger that broadcasts to RabbitMQ."""
 
-from rabbit_logging import config
+from messaging import config
 import json
 import logging
 import pika
 
 
-class RabbitMqLoggerProducer(object):
+class LoggerProducer(object):
     """Logger that broadcasts to RabbitMQ. This implements (some of) the
     logging.Logger interface.
     """
