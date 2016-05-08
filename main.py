@@ -23,6 +23,8 @@ from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
+from rabbit_logging.rabbit_mq_logger_consumer import RabbitMqLoggerConsumer
+from rabbit_logging.rabbit_mq_logger_producer import RabbitMqLoggerProducer
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
@@ -50,6 +52,7 @@ except SystemError:
 THREADS = []
 POPEN = None
 DRIVER = None
+LOGGER_PRODUCER = None
 
 
 class CherryPyServer(threading.Thread):
@@ -132,9 +135,14 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     except IOError:
         pass
 
+    LOGGER_PRODUCER.kill()
+    print(len(THREADS))
     for thread in THREADS:
+        print('Killing thread')
         thread.kill()
+        print('Joining thread')
         thread.join()
+        print('Done')
     sys.exit(0)
 
 
@@ -149,7 +157,8 @@ def start_threads(
         waypoint_generator,
         logger,
         web_socket_handler,
-        max_throttle
+        max_throttle,
+        extra_threads=None
 ):
     """Runs everything."""
     telemetry = Telemetry(logger)  # Sparkfun HQ
@@ -200,6 +209,8 @@ def start_threads(
         sup800f_telemetry,
         telemetry_dumper,
     ]
+    if extra_threads is not None:
+        THREADS += list(extra_threads)
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
@@ -298,8 +309,9 @@ def main():
     except Exception:
         logging.warning('Unable to save video')
 
-    logger = logging.Logger('sparkfun')
-    logger.setLevel(logging.DEBUG)
+    global LOGGER_PRODUCER
+    LOGGER_PRODUCER = RabbitMqLoggerProducer()
+    logger_consumer = RabbitMqLoggerConsumer()
     formatter = logging.Formatter(
         '%(asctime)s:%(levelname)s %(message)s'
     )
@@ -309,7 +321,7 @@ def main():
         file_handler = logging.FileHandler(args.log)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
-        logger.addHandler(file_handler)
+        logger_consumer.addHandler(file_handler)
     except Exception as exception:
         logging.warning('Could not create file log: ' + str(exception))
 
@@ -319,15 +331,15 @@ def main():
     else:
         stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
-    logger.addHandler(stdout_handler)
+    logger_consumer.addHandler(stdout_handler)
 
     web_socket_handler = WebSocketLoggingHandler()
     web_socket_handler.setLevel(logging.INFO)
     web_socket_handler.setFormatter(formatter)
-    logger.addHandler(web_socket_handler)
+    logger_consumer.addHandler(web_socket_handler)
 
     if sys.version_info.major < 3:
-        logger.warn(
+        LOGGER_PRODUCER.warn(
             'Python 2 is not officially supported, use at your own risk'
         )
 
@@ -335,20 +347,23 @@ def main():
     if args.kml_file is not None:
         kml = KmlWaypointGenerator(logger, args.kml_file)
     else:
-        logger.info('Setting waypoints to Solid State Depot for testing')
+        LOGGER_PRODUCER.info(
+            'Setting waypoints to Solid State Depot for testing'
+        )
         kml = KmlWaypointGenerator(
-            logger,
+            LOGGER_PRODUCER,
             'paths/solid-state-depot.kml'
         )
     waypoint_generator = kml
 
-    logger.debug('Calling start_threads')
+    LOGGER_PRODUCER.debug('Calling start_threads')
 
     start_threads(
         waypoint_generator,
-        logger,
+        LOGGER_PRODUCER,
         web_socket_handler,
         args.max_throttle,
+        extra_threads=(logger_consumer,)
     )
 
 
