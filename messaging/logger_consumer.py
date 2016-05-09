@@ -12,15 +12,17 @@ class LoggerConsumer(threading.Thread):
     logging.Logger interface.
     """
 
-    def __init__(self):
+    def __init__(self, host=None):
         super(LoggerConsumer, self).__init__()
 
         self._handlers = []
 
         self._logger = logging.getLogger('sparkfun') 
 
+        if host is None:
+            host = 'localhost'
         self._connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host='localhost')
+            pika.ConnectionParameters(host=host)
         )
         self._channel = self._connection.channel()
         result = self._channel.queue_declare(exclusive=True)

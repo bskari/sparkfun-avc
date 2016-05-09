@@ -11,9 +11,12 @@ class LoggerProducer(object):
     logging.Logger interface.
     """
 
-    def __init__(self):
+    def __init__(self, host=None):
+        if host is None:
+            host = 'localhost'
+
         self._connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host='localhost')
+            pika.ConnectionParameters(host=host)
         )
         self._channel = self._connection.channel()
         self._channel.exchange_declare(
