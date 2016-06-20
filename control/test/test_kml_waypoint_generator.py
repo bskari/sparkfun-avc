@@ -43,8 +43,8 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         coordinates_str = ' '.join((
             '{},{},50'.format(long, lat) for long, lat in coordinates_long_lat
         ))
-        kml = KML_TEMPLATE.format(coordinates_str)
-        kml_buffer = io.StringIO(kml)
+        kml = KML_TEMPLATE.format(coordinates_str).encode('utf-8')
+        kml_buffer = io.BytesIO(kml)
         waypoints = KmlWaypointGenerator._load_waypoints(kml_buffer)
         for m_offset, long_lat in zip(waypoints, coordinates_long_lat):
             x_m_1, y_m_1 = m_offset
@@ -180,7 +180,7 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         logger = DummyLogger()
         archive_file_name = '/tmp/test.kmz'
         with zipfile.ZipFile(archive_file_name, 'w') as archive:
-            archive.write('../paths/solid-state-depot.kml', 'doc.kml')
+            archive.write('paths/solid-state-depot.kml', 'doc.kml')
         KmlWaypointGenerator(logger, archive_file_name)
 
     @staticmethod
@@ -189,5 +189,5 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         logger = DummyLogger()
         return KmlWaypointGenerator(
             logger,
-            '../paths/solid-state-depot.kml'
+            'paths/solid-state-depot.kml'
         )
