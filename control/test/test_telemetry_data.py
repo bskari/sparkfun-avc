@@ -1,12 +1,12 @@
-"""Tests the Telemetry class."""
+"""Tests the Sup800fTelemetry class."""
 import unittest
 
-from control.telemetry_data import TelemetryData
+from control.sup800f_telemetry import Sup800fTelemetry
 from control.test.dummy_logger import DummyLogger
 
 
-class TestTelemetryData(unittest.TestCase):
-    """Tests the TelemetryData class."""
+class TestSup800fTelemetry(unittest.TestCase):
+    """Tests the Sup800fTelemetry class."""
 
     def test_handle_gprmc(self):
         """Tests the GPRMC message parsing."""
@@ -18,9 +18,9 @@ class TestTelemetryData(unittest.TestCase):
                 self.message = message_
 
         dummy_telemetry = DummyTelemetry()
-        td = TelemetryData(dummy_telemetry, None, DummyLogger())
+        sup800f = Sup800fTelemetry(dummy_telemetry, None, DummyLogger())
         # Sparkfun HQ (40.090841, -105.185090), 5 m/s, 180.0
-        td._handle_gprmc(
+        sup800f._handle_gprmc(
             '$GPRMC,123456.789,A,4005.429,N,10511.105,W,9.719,180.0,030415,003.9,W,A*hh\r\n'
         )
 
