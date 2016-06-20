@@ -21,7 +21,7 @@ it to an SD card, install Git, clone this repo, and then run
 The main Python code is in the [control folder](control). To use
 it in your own project, you will need to change the
 [Driver](control/driver.py) class to control your specific
-vehicle, and the [TelemetryData](control/telemetry_data.py)
+vehicle, and the [Telemetry](control/telemetry.py)
 class to read data from your sensors. For simplicity, I tried to keep all
 readings using meters so that I wouldn't need to convert latitude and
 longitude, so my example class converts latitude and longitude readings to
