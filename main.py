@@ -23,8 +23,6 @@ from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
-from messaging.logger_consumer import LoggerConsumer
-from messaging.logger_producer import LoggerProducer
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
@@ -32,13 +30,18 @@ from messaging.logger_producer import LoggerProducer
 try:
     from control.button import Button
 except SystemError:
-    # Importing RPIO (used in button) on a non Raspberry Pi raises a
-    # SystemError, so for testing on other systems, just ignore it
     print('Disabling button because not running on Raspberry Pi')
-    class Dummy(object):
+    override_imports_for_non_rpi()
+
+def override_imports_for_non_rpi():
+    """Overrides modules that only work on the Raspberry Pi. Importing RPIO
+    (used in button) on a non Raspberry Pi raises a SystemError, so for testing
+    on other systems, just ignore it.
+    """
+    class Dummy(object):  # pylint: disable=missing-docstring,too-few-public-methods
         def __getattr__(self, attr):
             return lambda *arg, **kwarg: time.sleep(0.01)
-
+    # pylint: disable=invalid-name
     global Button
     Button = lambda *arg: Dummy()
     serial.Serial = lambda *arg: Dummy()
