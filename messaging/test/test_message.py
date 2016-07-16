@@ -30,16 +30,24 @@ class TestMessage(unittest.TestCase):
         consumer = threading.Thread(target=consume)
         consumer.start()
 
-        # TODO(2016-07-10) Fix this race condition. It looks like if I send the
-        # message before the receiver has set up, the messages are never queued
-        # or something.
+        # Give the receiver some time to set up, see comment below
         time.sleep(0.05)
         self.assertIs(self.message, None)
         sent_message = 'banana'
         mp.publish(sent_message)
         mp.publish('QUIT')
+        for _ in range(10):
+            # Because of a race condition, if the message is sent before the
+            # receiver has set up, the messages are never queued or something.
+            # Keep resending until the thread exits.
+            consumer.join(0.05)
+            if consumer.is_alive():
+                mp.publish(sent_message)
+                mp.publish('QUIT')
+
+        consumer.join(0.05)
+        self.assertFalse(consumer.is_alive())
         mp.kill()
-        consumer.join()
         self.assertEqual(self.message, bytes(sent_message, 'utf-8'))
 
 
