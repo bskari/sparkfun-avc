@@ -6,6 +6,7 @@ import cherrypy
 import datetime
 import logging
 import os
+import pickle
 import serial
 import signal
 import subprocess
@@ -21,17 +22,13 @@ from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
+from messaging.message_consumer import consume_messages
+from messaging.message_producer import MessageProducer
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
 # pylint: disable=global-statement
 # pylint: disable=broad-except
-
-try:
-    from control.button import Button
-except SystemError:
-    print('Disabling button because not running on Raspberry Pi')
-    override_imports_for_non_rpi()
 
 def override_imports_for_non_rpi():
     """Overrides modules that only work on the Raspberry Pi. Importing RPIO
@@ -52,10 +49,15 @@ def override_imports_for_non_rpi():
     global switch_to_nmea_mode
     switch_to_nmea_mode = lambda *arg: Dummy()
 
+try:
+    from control.button import Button
+except SystemError:
+    print('Disabling button because not running on Raspberry Pi')
+    override_imports_for_non_rpi()
+
 THREADS = []
 POPEN = None
 DRIVER = None
-LOGGER_PRODUCER = None
 
 
 class CherryPyServer(threading.Thread):
@@ -102,6 +104,44 @@ class CherryPyServer(threading.Thread):
         cherrypy.engine.exit()
 
 
+class RabbitMqHandlerWrapper(logging.Handler):
+    """Wraps a Logging.Handler to receive messages from RabbitMQ."""
+    static_threads = []
+    static_producer = None
+
+    def __init__(self, handler):
+        super(RabbitMqHandlerWrapper, self).__init__()
+        self._handler = handler
+        consume = lambda: consume_messages('logger', self._callback)
+        thread = threading.Thread(target=consume)
+        RabbitMqHandlerWrapper.static_threads.append(thread)
+
+        if RabbitMqHandlerWrapper.static_producer is None:
+            producer = MessageProducer('logger')
+            self.emit = lambda record: producer.publish(pickle.dumps(record))
+            RabbitMqHandlerWrapper.static_producer = producer
+        else:
+            self.emit = lambda record: None
+
+    @staticmethod
+    def start():
+        for thread in RabbitMqHandlerWrapper.static_threads:
+            thread.start()
+
+    @staticmethod
+    def join():
+        for thread in RabbitMqHandlerWrapper.static_threads:
+            thread.join()
+
+    @staticmethod
+    def kill():
+        RabbitMqHandlerWrapper.static_producer.publish('QUIT')
+
+    def _callback(self, pickled_record):
+        record = pickle.loads(pickled_record)
+        self._handler.emit(record)
+
+
 def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     """Terminates the program. Used when a signal is received."""
     print(
@@ -138,7 +178,6 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     except IOError:
         pass
 
-    LOGGER_PRODUCER.kill()
     for thread in THREADS:
         thread.kill()
         thread.join()
@@ -207,6 +246,7 @@ def start_threads(
         command,
         sup800f_telemetry,
         telemetry_dumper,
+        RabbitMqHandlerWrapper
     ]
     if extra_threads is not None:
         THREADS += list(extra_threads)
@@ -308,9 +348,8 @@ def main():
     except Exception:
         logging.warning('Unable to save video')
 
-    global LOGGER_PRODUCER
-    LOGGER_PRODUCER = LoggerProducer()
-    logger_consumer = LoggerConsumer()
+    logger = logging.Logger('sparkfun')
+    logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         '%(asctime)s:%(levelname)s %(message)s'
     )
@@ -320,7 +359,7 @@ def main():
         file_handler = logging.FileHandler(args.log)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
-        logger_consumer.addHandler(file_handler)
+        logger.addHandler(RabbitMqHandlerWrapper(file_handler))
     except Exception as exception:
         logging.warning('Could not create file log: ' + str(exception))
 
@@ -330,15 +369,15 @@ def main():
     else:
         stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
-    logger_consumer.addHandler(stdout_handler)
+    logger.addHandler(RabbitMqHandlerWrapper(stdout_handler))
 
     web_socket_handler = WebSocketLoggingHandler()
     web_socket_handler.setLevel(logging.INFO)
     web_socket_handler.setFormatter(formatter)
-    logger_consumer.addHandler(web_socket_handler)
+    logger.addHandler(web_socket_handler)
 
     if sys.version_info.major < 3:
-        LOGGER_PRODUCER.warn(
+        logger.warn(
             'Python 2 is not officially supported, use at your own risk'
         )
 
@@ -346,23 +385,22 @@ def main():
     if args.kml_file is not None:
         kml = KmlWaypointGenerator(logger, args.kml_file)
     else:
-        LOGGER_PRODUCER.info(
+        logger.info(
             'Setting waypoints to Solid State Depot for testing'
         )
         kml = KmlWaypointGenerator(
-            LOGGER_PRODUCER,
+            logger,
             'paths/solid-state-depot.kml'
         )
     waypoint_generator = kml
 
-    LOGGER_PRODUCER.debug('Calling start_threads')
+    logger.debug('Calling start_threads')
 
     start_threads(
         waypoint_generator,
-        LOGGER_PRODUCER,
+        logger,
         web_socket_handler,
         args.max_throttle,
-        extra_threads=(logger_consumer,)
     )
 
 
