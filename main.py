@@ -24,6 +24,7 @@ from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
 from messaging.message_consumer import consume_messages
 from messaging.message_producer import MessageProducer
+from messaging.singleton_mixin import SingletonMixin
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
@@ -58,6 +59,7 @@ except SystemError:
 THREADS = []
 POPEN = None
 DRIVER = None
+EMIT_INITIALIZED = False
 
 
 class CherryPyServer(threading.Thread):
@@ -106,40 +108,35 @@ class CherryPyServer(threading.Thread):
 
 class RabbitMqHandlerWrapper(logging.Handler):
     """Wraps a Logging.Handler to receive messages from RabbitMQ."""
-    static_threads = []
-    static_producer = None
+
+    emit_initialized = False
 
     def __init__(self, handler):
         super(RabbitMqHandlerWrapper, self).__init__()
         self._handler = handler
         consume = lambda: consume_messages('logger', self._callback)
-        thread = threading.Thread(target=consume)
-        RabbitMqHandlerWrapper.static_threads.append(thread)
-
-        if RabbitMqHandlerWrapper.static_producer is None:
-            producer = MessageProducer('logger')
-            self.emit = lambda record: producer.publish(pickle.dumps(record))
-            RabbitMqHandlerWrapper.static_producer = producer
+        self._thread = threading.Thread(target=consume)
+        if not RabbitMqHandlerWrapper.emit_initialized:
+            self._producer = MessageProducer('logger')
+            self.emit = lambda record: self._producer.publish(pickle.dumps(record))
+            RabbitMqHandlerWrapper.emit_initialized = True
         else:
+            self._producer = None
             self.emit = lambda record: None
-
-    @staticmethod
-    def start():
-        for thread in RabbitMqHandlerWrapper.static_threads:
-            thread.start()
-
-    @staticmethod
-    def join():
-        for thread in RabbitMqHandlerWrapper.static_threads:
-            thread.join()
-
-    @staticmethod
-    def kill():
-        RabbitMqHandlerWrapper.static_producer.publish('QUIT')
 
     def _callback(self, pickled_record):
         record = pickle.loads(pickled_record)
         self._handler.emit(record)
+
+    def start(self):
+        self._thread.start()
+
+    def kill(self):
+        if self._producer is not None:
+            self._producer.publish(b'QUIT')
+
+    def join(self):
+        self._thread.join()
 
 
 def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
@@ -196,7 +193,6 @@ def start_threads(
         logger,
         web_socket_handler,
         max_throttle,
-        extra_threads=None
 ):
     """Runs everything."""
     telemetry = Telemetry(logger)  # Sparkfun HQ
@@ -240,16 +236,14 @@ def start_threads(
     cherry_py_server = CherryPyServer(port, address, command, telemetry, logger)
 
     global THREADS
-    THREADS = [
+    for t in (
         button,
         cherry_py_server,
         command,
         sup800f_telemetry,
         telemetry_dumper,
-        RabbitMqHandlerWrapper
-    ]
-    if extra_threads is not None:
-        THREADS += list(extra_threads)
+    ):
+        THREADS.append(t)
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
@@ -359,7 +353,9 @@ def main():
         file_handler = logging.FileHandler(args.log)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
-        logger.addHandler(RabbitMqHandlerWrapper(file_handler))
+        rabbit_handler = RabbitMqHandlerWrapper(file_handler)
+        logger.addHandler(rabbit_handler)
+        THREADS.append(rabbit_handler)
     except Exception as exception:
         logging.warning('Could not create file log: ' + str(exception))
 
@@ -369,7 +365,9 @@ def main():
     else:
         stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
-    logger.addHandler(RabbitMqHandlerWrapper(stdout_handler))
+    rabbit_handler = RabbitMqHandlerWrapper(stdout_handler)
+    logger.addHandler(rabbit_handler)
+    THREADS.append(rabbit_handler)
 
     web_socket_handler = WebSocketLoggingHandler()
     web_socket_handler.setLevel(logging.INFO)
