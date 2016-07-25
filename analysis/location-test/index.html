@@ -10,6 +10,11 @@
 <div id="output">
 output
 </div>
+<div id="error">
+error
+</div>
+
+<!-- TODO: Add buttons to start and cancel watchPosition -->
 
 <script type="text/javascript">
 var outputDiv = document.getElementById('output');
@@ -24,12 +29,18 @@ if (/http:/.test(window.location)) {
     var watchID = navigator.geolocation.watchPosition(function(position) {
         var params = '/post';
         var coordsUl = document.createElement('ul');
-        for (key in position.coords) {
-            params += ('&' + key + '=' + position.coords[key]);
+
+        function addStuff(key, value) {
+            params += ('&' + key + '=' + value);
             var coordsLi = document.createElement('li');
-            coordsLi.innerHTML = key + ': ' + position.coords[key];
+            coordsLi.innerHTML = key + ': ' + value;
             coordsUl.appendChild(coordsLi);
         }
+        for (key in position.coords) {
+            addStuff(key, position.coords[key]);
+        }
+        addStuff('timestamp', String(position.timestamp));
+
         params = params.replace('&', '?');
         outputDiv.innerHTML = '';
         outputDiv.appendChild(coordsUl);
@@ -37,6 +48,12 @@ if (/http:/.test(window.location)) {
         var request = new XMLHttpRequest();
         request.open('GET', params);
         request.send();
+    }, function(positionError) {
+        document.getElementById('error').innerHTML = error.message;
+    }, {
+        enableHighAccuracy: true,  // Use the GPS
+        timeout: 1000,  // Android was only returning ever 5s, so force lower
+        maximumAge: 0  // Never use cached values
     });
 }
 
