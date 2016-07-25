@@ -1,0 +1,5 @@
+analysis/location-test/location-test-new-certificate.pem
+analysis/location-test/location-test-private-key.pem
+analysis/location-test/location-test-cert-req.csr
+analysis/location-test/out.json
+analysis/location-test/out.kml

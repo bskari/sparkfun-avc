@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>
+    Test
+</title>
+</head>
+<body>
+
+<div id="output">
+output
+</div>
+
+<script type="text/javascript">
+var outputDiv = document.getElementById('output');
+if (/http:/.test(window.location)) {
+    var newUrl = 'https://' +
+        window.location.hostname +
+        ':4443'
+        window.location.pathname +
+        window.location.hash;
+    outputDiv.innerHTML = '<a href="' + newUrl + '">Click for HTTPS</a>';
+} else {
+    var watchID = navigator.geolocation.watchPosition(function(position) {
+        var params = '/post';
+        var coordsUl = document.createElement('ul');
+        for (key in position.coords) {
+            params += ('&' + key + '=' + position.coords[key]);
+            var coordsLi = document.createElement('li');
+            coordsLi.innerHTML = key + ': ' + position.coords[key];
+            coordsUl.appendChild(coordsLi);
+        }
+        params = params.replace('&', '?');
+        outputDiv.innerHTML = '';
+        outputDiv.appendChild(coordsUl);
+
+        var request = new XMLHttpRequest();
+        request.open('GET', params);
+        request.send();
+    });
+}
+
+</script>
+
+</body>
+</html>
