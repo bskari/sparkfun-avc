@@ -30,7 +30,7 @@ def main():
         if name is None:
             name = 'unknown'
         else:
-            name = name.group()
+            name = name.group()[1:-1]
 
         coordinates = ' '.join(
                 (('{},{},0'.format(line['longitude'], line['latitude']) for line in entries))
@@ -48,6 +48,7 @@ def main():
     with open('coordinates_template.kml') as template:
         template = ''.join(template.readlines())
 
+    # Parentheses are here to match the regex for user agent extraction
     separated_entries['(all)'] = lines
     placemarks = '\n'.join((
         format_placemark(user_agent, entries)
