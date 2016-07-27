@@ -164,6 +164,8 @@ class Sup800fTelemetry(threading.Thread):
         )
 
         self._telemetry.handle_message({
+            'latitude': latitude,
+            'longitude': longitude,
             'x_m': Telemetry.longitude_to_m_offset(longitude),
             'y_m': Telemetry.latitude_to_m_offset(latitude),
             # TODO: Parse other messages to estimate these
