@@ -282,6 +282,59 @@ different from the current algorithm.'''
             self.assertAlmostEqual(distance(p * _345, p * 90.0, 4.0), 5.0)
             self.assertAlmostEqual(distance(p * (90 - _345), p * 90, 3.0), 5.0)
 
+    def test_intersection(self):
+        """Tests the line intersection algorithm."""
+        intersect_cases = (
+            ((-1, 0), (1, 0), (0, 1), (0, -1)),
+            ((1, 1), (-1, -1), (-1, 1), (1, -1)),
+        )
+        for case in intersect_cases:
+            self.assertTrue(Telemetry.intersects(*case))  # pylint: disable=star-args
+
+        separate_cases = (
+            ((1, 1), (0, 0), (-1, -1), (-2, -2)),
+            ((1, 1), (0, 0), (-1, -1), (5, 20)),
+        )
+        for case in separate_cases:
+            self.assertFalse(Telemetry.intersects(*case))  # pylint: disable=star-args
+
+        smoke_cases = (
+            ((-1, 1), (0, 0), (-1, 1), (0, 0)),  # Same
+            ((-1, 1), (0, 0), (-5, 5), (0, 0)),  # Overlap with 1 end points
+            ((-1, 1), (0, 0), (-5, 5), (5, -5)),  # Overlap
+            ((1, 0), (-1, 0), (2, -1), (-2, -1)),  # Parallel
+            ((1, 1), (1, 1), (2, 2), (2, 2)),  # Points
+            ((1, 1), (1, 1), (1, 1), (1, 1)),  # Same points
+            ((0.0, 0.0), (1.0, 0.0), (1.0, 0.0), (1.0, 1.0)),  # End to end
+        )
+        for case in smoke_cases:
+            # Just make sure nothing catches on fire
+            Telemetry.intersects(*case)  # pylint: disable=star-args
+
+    def test_point_in_polygon(self):
+        """Tests point in polygon."""
+        diamond = ((1, 0), (0, -1), (-1, 0), (0, 1))
+        for point in ((1, 1), (-1, 1), (-1, -1), (1, -1)):
+            self.assertFalse(Telemetry.point_in_polygon(point, diamond))
+        self.assertTrue(Telemetry.point_in_polygon((0, 0), diamond))
+
+        # -------------
+        # |  *  *  *  |
+        # |*/-\ * /-\*|
+        # |/ * \-/ * \|
+        polygon = (
+            (0, 0), (0, 4), (8, 4), (8, 0), (6, 2), (4, 0), (2, 2)
+        )
+        inside = ((1, 1), (2, 3), (4, 3), (6, 3), (7, 1))
+        outside = (
+            (2, 1), (6, 1), (8.1, 0.1), (8.1, 3.9), (-1, -1), (100, 0),
+            (0, 100), (100, 100), (-100, -100), (-100, 100), (100, -100)
+        )
+        for point in inside:
+            self.assertTrue(Telemetry.point_in_polygon(point, polygon))
+        for point in outside:
+            self.assertFalse(Telemetry.point_in_polygon(point, polygon))
+
 
 if __name__ == '__main__':
     unittest.main()

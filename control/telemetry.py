@@ -341,3 +341,31 @@ class Telemetry(object):
             (0.0, distance),
             math.radians(angle)
         )
+
+    @staticmethod
+    def intersects(a, b, c, d):
+        """Returns True if two line segments intersect."""
+        def ccw(a, b, c):
+            return (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0])
+
+        return ccw(a, c, d) != ccw(b, c, d) and ccw(a, b, c) != ccw(a, b, d)
+
+    @staticmethod
+    def point_in_polygon(point, polygon):
+        """Returns true if a point is strictly inside of a simple polygon."""
+        min_x = min(p[0] for p in polygon)
+        min_y = min(p[1] for p in polygon)
+        # To avoid degenerate parallel cases, put some arbitrary numbers here
+        outside = (min_x - 51.029238029833, min_y - 50.2132323872)
+
+        inside = False
+
+        next_point = iter(polygon)
+        next(next_point)
+        for p1, p2 in zip(polygon, next_point):
+            if Telemetry.intersects(outside, point, p1, p2):
+                inside = not inside
+        if Telemetry.intersects(outside, point, polygon[-1], polygon[0]):
+            inside = not inside
+
+        return inside
