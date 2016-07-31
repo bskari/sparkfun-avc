@@ -8,6 +8,7 @@ import sys
 
 from monitor.web_socket_handler import WebSocketHandler
 from messaging.rabbit_logger import RabbitMqLogger
+from messaging.rabbit_producers import CommandProducer
 
 
 STATIC_DIR = 'static-web'
@@ -17,8 +18,8 @@ MONITOR_DIR = 'monitor' + os.sep
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, command, telemetry, port):
-        self._command = command
+    def __init__(self, telemetry, port):
+        self._command = CommandProducer()
         self._telemetry = telemetry
         self._logger = RabbitMqLogger()
         self._port = port
@@ -118,7 +119,7 @@ class StatusApp(object):
     def run(self):
         """Runs the car."""
         self._check_post()
-        self._command.handle_message({'command': 'start'})
+        self._command.start()
         self._logger.info('Received run command from web')
         return {'success': True}
 
@@ -127,7 +128,7 @@ class StatusApp(object):
     def stop(self):
         """Stops the car."""
         self._check_post()
-        self._command.handle_message({'command': 'stop'})
+        self._command.stop()
         self._logger.info('Received stop command from web')
         return {'success': True}
 
@@ -136,7 +137,7 @@ class StatusApp(object):
     def reset(self):
         """Resets the waypoints."""
         self._check_post()
-        self._command.handle_message({'command': 'reset'})
+        self._command.reset()
         self._logger.info('Received reset command from web')
         return {'success': True}
 
@@ -146,9 +147,7 @@ class StatusApp(object):
         """Calibrates the compass."""
         self._check_post()
         self._logger.info('Received calibrate compass command from web')
-        self._command.handle_message({
-            'command': 'calibrate-compass',
-        })
+        self._command.calibrate_compass()
         return {'success': True}
 
     @cherrypy.expose
@@ -156,7 +155,7 @@ class StatusApp(object):
     def line_up(self):  # pylint: disable=no-self-use
         """Plays the Mario Kart line up sound."""
         self._check_post()
-        self._command.handle_message({'command': 'line-up'})
+        #self._command.line_up()
         if (
                 os.path.isfile('/usr/bin/mpg123')
                 and os.path.isfile('sound/race-start.mp3')
@@ -172,7 +171,7 @@ class StatusApp(object):
     def count_down(self):  # pylint: disable=no-self-use
         """Plays the Mario Kart count down sound."""
         self._check_post()
-        self._command.handle_message({'command': 'count-down'})
+        #self._command.count_down()
         if os.path.isfile('/usr/bin/mpg123') and os.path.isfile('sound/count-down.mp3'):
             subprocess.Popen(
                 ('mpg123', 'sound/count-down.mp3'),

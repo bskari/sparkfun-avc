@@ -24,7 +24,7 @@ def consume_messages(message_type, callback, host=None):
         if body == b'QUIT':
             channel.basic_cancel(consumer_tag)
             return
-        callback(body)
+        callback(body.decode('utf-8'))
 
     consumer_tag = channel.basic_consume(
         inner_callback,

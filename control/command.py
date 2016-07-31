@@ -1,6 +1,7 @@
 """Class to control the RC car."""
 
 import math
+import queue
 import random
 import sys
 import threading
@@ -8,7 +9,10 @@ import time
 import traceback
 
 from control.telemetry import Telemetry
+from messaging import config
+from messaging.message_consumer import consume_messages
 from messaging.rabbit_logger import RabbitMqLogger
+from messaging.rabbit_producers import CommandProducer
 
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
@@ -19,7 +23,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     NEUTRAL_TIME_2_S = 0.25
     NEUTRAL_TIME_3_S = 1.0
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
             self,
             telemetry,
             driver,
@@ -46,31 +50,30 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self._telemetry_data = None
         self._start_time = None
 
-    def handle_message(self, message):
-        """Handles command messages, e.g. 'start' or 'stop'."""
-        if 'command' not in message:
-            self._logger.info('No command in command message')
-            return
+        self._commands = queue.Queue()
+        callback = lambda message: self._commands.put(message)
+        consume = lambda: consume_messages(config.COMMAND_EXCHANGE, callback)
+        self._thread = threading.Thread(target=consume)
+        self._thread.start()
 
-        if message['command'] not in self.VALID_COMMANDS:
+    def _handle_message(self, command):
+        """Handles command messages, e.g. 'start' or 'stop'."""
+        if command not in self.VALID_COMMANDS:
             self._logger.warning(
                 'Unknown command: "{command}"'.format(
-                    command=message['command']
+                    command=command
                 )
             )
             return
 
-        if message['command'] == 'start':
+        if command == 'start':
             self.run_course()
-        elif message['command'] == 'stop':
+        elif command == 'stop':
             self.stop()
-        elif message['command'] == 'reset':
+        elif command == 'reset':
             self.reset()
-        elif message['command'] == 'calibrate-compass':
-            if 'seconds' in message:
-                self.calibrate_compass(message['seconds'])
-            else:
-                self.calibrate_compass(10)
+        elif command == 'calibrate-compass':
+            self.calibrate_compass(10)
 
     def set_telemetry_data(self, telemetry_data):
         """Sets the telemetry data. Needed for compass calibration."""
@@ -98,6 +101,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         while self._run:
             try:
                 while self._run and not self._run_course:
+                    while not self._commands.empty():
+                        self._handle_message(self._commands.get())
                     self._wait()
 
                 if not self._run:
@@ -107,6 +112,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
                 run_iterator = self._run_iterator()
                 while self._run and self._run_course and next(run_iterator):
+                    while not self._commands.empty():
+                        self._handle_message(self._commands.get())
                     self._wait()
 
                 self._logger.info('Stopping course')
@@ -156,9 +163,9 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         course_iterator = self._run_course_iterator()
         while True:
             if (
-                self._telemetry.is_stopped()
-                and self._start_time is not None
-                and time.time() - self._start_time > 2.0
+                    self._telemetry.is_stopped()
+                    and self._start_time is not None
+                    and time.time() - self._start_time > 2.0
             ):
                 self._logger.info(
                     'RC car is not moving according to speed history, reversing'
@@ -338,13 +345,15 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
     def kill(self):
         """Kills the thread."""
+        CommandProducer()._send('QUIT')
+        self._thread.join()
         self._run = False
 
     def is_running_course(self):
         """Returns True if we're currently navigating the course."""
         return self._run_course
 
-    def _unstuck_yourself_iterator(self, seconds, random=False):
+    def _unstuck_yourself_iterator(self, seconds):
         """Commands the car to reverse and try to get off an obstacle."""
         # The ESC requires us to send neutral throttle for a bit, then send
         # reverse, then neutral, then reverse again (which will actually drive

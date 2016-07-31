@@ -4,6 +4,8 @@ import RPIO
 import threading
 import time
 
+from messaging.rabbit_producers import CommandProducer
+
 
 BUTTON_GPIO_PIN = 24
 BUTTON_DOWN = 1
@@ -13,9 +15,8 @@ BUTTON_UP = 0
 class Button(threading.Thread):  # pylint: disable=too-few-public-methods
     """Listens for physical button presses and controls the car."""
 
-    def __init__(self, command, logger):
+    def __init__(self, logger):
         super(Button, self).__init__()
-        self._command = command
         self._logger = logger
 
         self._button_press_time = None
@@ -27,6 +28,8 @@ class Button(threading.Thread):  # pylint: disable=too-few-public-methods
             self.gpio_callback,
             debounce_timeout_ms=50
         )
+
+        self._command = CommandProducer()
 
     def run(self):
         """Run in a thread, waits for button presses."""
@@ -48,14 +51,10 @@ class Button(threading.Thread):  # pylint: disable=too-few-public-methods
 
         # One press to start, two within a second to stop
         if self._button_press_time is None:
-            if self._command.is_running_course():
-                self._logger.info('Ignoring first button press')
-            else:
-                self._command.handle_message({'command': 'start'})
-        elif self._command.is_running_course():
-            if time.time() - self._button_press_time < 1.0:
-                self._command.handle_message({'command': 'stop'})
+            self._command.start()
+        elif time.time() - self._button_press_time < 1.0:
+            self._command.stop()
         else:
-            self._command.handle_message({'command': 'start'})
+            self._command.start()
 
         self._button_press_time = time.time()

@@ -15,8 +15,7 @@ WEB_TELEMETRY_DIR = 'control' + os.sep + 'web_telemetry' + os.sep
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, command, telemetry, port):
-        self._command = command
+    def __init__(self, telemetry, port):
         self._telemetry = telemetry
         logger = RabbitMqLogger()
         self._port = port

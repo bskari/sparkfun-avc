@@ -15,6 +15,7 @@ class RabbitMqLogger(SingletonMixin):
     def __init__(self):
         super(RabbitMqLogger, self).__init__()
         self._producer = MessageProducer(config.LOGS_EXCHANGE)
+        self.warning = self.warn
 
     def debug(self, message):
         """Forwards messages to debug log."""
@@ -82,5 +83,5 @@ class RabbitMqLoggerReceiver(object):
 
     def _callback(self, json_data):
         """Callback that handles log messages."""
-        data = json.loads(json_data.decode('utf-8'))
+        data = json.loads(json_data)
         self._message_type_to_logger[data['level']](data['message'])

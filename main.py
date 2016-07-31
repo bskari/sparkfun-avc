@@ -62,13 +62,13 @@ EMIT_INITIALIZED = False
 class CherryPyServer(threading.Thread):
     """Runs the various web apps in a thread."""
 
-    def __init__(self, port, address, command, telemetry):
+    def __init__(self, port, address, telemetry):
         super(CherryPyServer, self).__init__()
 
         # Web monitor
         config = MonitorApp.get_config(os.path.abspath(os.getcwd()))
         status_app = cherrypy.tree.mount(
-            MonitorApp(command, telemetry, port),
+            MonitorApp(telemetry, port),
             '/',
             config
         )
@@ -83,7 +83,7 @@ class CherryPyServer(threading.Thread):
         # Web telemetry
         config = WebTelemetryStatusApp.get_config(os.path.abspath(os.getcwd()))
         web_telemetry_app = cherrypy.tree.mount(
-            WebTelemetryStatusApp(command, telemetry, port),
+            WebTelemetryStatusApp(telemetry, port),
             '/telemetry',
             config
         )
@@ -190,7 +190,7 @@ def start_threads(
     # waits for messages and them forwards them on.
     command.set_telemetry_data(sup800f_telemetry)
 
-    button = Button(command)
+    button = Button()
 
     telemetry_dumper = TelemetryDumper(
         telemetry,
@@ -200,7 +200,7 @@ def start_threads(
 
     port = int(get_configuration('PORT', 8080))
     address = get_configuration('ADDRESS', '0.0.0.0')
-    cherry_py_server = CherryPyServer(port, address, command, telemetry)
+    cherry_py_server = CherryPyServer(port, address, telemetry)
 
     global THREADS
     THREADS += (
