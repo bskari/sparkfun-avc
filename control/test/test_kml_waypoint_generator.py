@@ -5,9 +5,13 @@ import math
 import unittest
 import zipfile
 
+# Patch out the logger
+from messaging import rabbit_logger
+from control.test.dummy_logger import DummyLogger
+rabbit_logger.RabbitMqLogger = DummyLogger
+
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.telemetry import Telemetry
-from control.test.dummy_logger import DummyLogger
 
 # pylint: disable=protected-access
 # pylint: disable=too-many-public-methods
@@ -175,19 +179,15 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         waypoint_generator.next()
         self.assertTrue(waypoint_generator.done())
 
-    def test_zipped_files_smoke(self):
+    @staticmethod
+    def test_zipped_files_smoke():
         """The generator should also support zipped KML files (KMZ)."""
-        logger = DummyLogger()
         archive_file_name = '/tmp/test.kmz'
         with zipfile.ZipFile(archive_file_name, 'w') as archive:
             archive.write('paths/solid-state-depot.kml', 'doc.kml')
-        KmlWaypointGenerator(logger, archive_file_name)
+        KmlWaypointGenerator(archive_file_name)
 
     @staticmethod
     def make_generator():
         """Returns a KML waypoint generator."""
-        logger = DummyLogger()
-        return KmlWaypointGenerator(
-            logger,
-            'paths/solid-state-depot.kml'
-        )
+        return KmlWaypointGenerator('paths/solid-state-depot.kml')
