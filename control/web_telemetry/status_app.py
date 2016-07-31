@@ -6,6 +6,7 @@ import os
 import sys
 
 from control.web_telemetry.web_socket_handler import WebSocketHandler
+from messaging.rabbit_logger import RabbitMqLogger
 
 STATIC_DIR = 'static-web'
 WEB_TELEMETRY_DIR = 'control' + os.sep + 'web_telemetry' + os.sep
@@ -14,10 +15,10 @@ WEB_TELEMETRY_DIR = 'control' + os.sep + 'web_telemetry' + os.sep
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, command, telemetry, logger, port):
+    def __init__(self, command, telemetry, port):
         self._command = command
         self._telemetry = telemetry
-        self._logger = logger
+        logger = RabbitMqLogger()
         self._port = port
 
         def get_ip(interface):

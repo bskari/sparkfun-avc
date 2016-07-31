@@ -13,13 +13,14 @@ import copy
 import math
 
 from control.telemetry import Telemetry
+from messaging.rabbit_logger import RabbitMqLogger
 
 
 class ChaseWaypointGenerator(object):
     """Generates waypoints using the 'rabbit chase' algorithm."""
 
-    def __init__(self, waypoints, logger, distance_m=None):
-        self._logger = logger
+    def __init__(self, waypoints, distance_m=None):
+        self._logger = RabbitMqLogger()
 
         if distance_m is None:
             self._distance_m = 15.0

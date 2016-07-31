@@ -8,6 +8,7 @@ import time
 import traceback
 
 from control.telemetry import Telemetry
+from messaging.rabbit_logger import RabbitMqLogger
 
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
@@ -23,7 +24,6 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             telemetry,
             driver,
             waypoint_generator,
-            logger,
             sleep_time_milliseconds=None,
     ):
         """Create the Command thread."""
@@ -35,7 +35,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         else:
             self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
         self._driver = driver
-        self._logger = logger
+        self._logger = RabbitMqLogger()
         self._run = True
         self._run_course = False
         self._waypoint_generator = waypoint_generator

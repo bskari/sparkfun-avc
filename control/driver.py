@@ -1,5 +1,7 @@
 """Drives the Tamiya Grasshopper."""
 
+from messaging.rabbit_logger import RabbitMqLogger
+
 THROTTLE_GPIO_PIN = 18
 THROTTLE_NEUTRAL_US = 1500
 THROTTLE_DIFF = 500
@@ -16,9 +18,9 @@ STEERING_RIGHT_US = STEERING_NEUTRAL_US + STEERING_DIFF
 class Driver(object):
     """Class that implements the Driver interface."""
 
-    def __init__(self, telemetry, logger):
+    def __init__(self, telemetry):
         self._telemetry = telemetry
-        self._logger = logger
+        self._logger = RabbitMqLogger()
         self._throttle = 0.0
         self._steering = 0.0
         self._max_throttle = 1.0

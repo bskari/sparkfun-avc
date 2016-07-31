@@ -4,12 +4,15 @@
     get_turn(self)
 """
 
+from messaging.rabbit_logger import RabbitMqLogger()
+
+
 class DummyDriver(object):
     """Dummy class that implements the Driver interface."""
 
-    def __init__(self, telemetry, logger):
+    def __init__(self, telemetry):
         self._telemetry = telemetry
-        self._logger = logger
+        self._logger = RabbitMqLogger()
         self._throttle = 0.0
         self._steering= 0.0
 

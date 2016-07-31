@@ -6,7 +6,6 @@ import cherrypy
 import datetime
 import logging
 import os
-import pickle
 import serial
 import signal
 import subprocess
@@ -22,9 +21,7 @@ from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
-from messaging.message_consumer import consume_messages
-from messaging.message_producer import MessageProducer
-from messaging.singleton_mixin import SingletonMixin
+from messaging.rabbit_logger import RabbitMqLogger, RabbitMqLoggerReceiver
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
@@ -65,13 +62,13 @@ EMIT_INITIALIZED = False
 class CherryPyServer(threading.Thread):
     """Runs the various web apps in a thread."""
 
-    def __init__(self, port, address, command, telemetry, logger):
+    def __init__(self, port, address, command, telemetry):
         super(CherryPyServer, self).__init__()
 
         # Web monitor
         config = MonitorApp.get_config(os.path.abspath(os.getcwd()))
         status_app = cherrypy.tree.mount(
-            MonitorApp(command, telemetry, logger, port),
+            MonitorApp(command, telemetry, port),
             '/',
             config
         )
@@ -86,7 +83,7 @@ class CherryPyServer(threading.Thread):
         # Web telemetry
         config = WebTelemetryStatusApp.get_config(os.path.abspath(os.getcwd()))
         web_telemetry_app = cherrypy.tree.mount(
-            WebTelemetryStatusApp(command, telemetry, logger, port),
+            WebTelemetryStatusApp(command, telemetry, port),
             '/telemetry',
             config
         )
@@ -104,39 +101,6 @@ class CherryPyServer(threading.Thread):
     def kill():
         """Stops the thread and server."""
         cherrypy.engine.exit()
-
-
-class RabbitMqHandlerWrapper(logging.Handler):
-    """Wraps a Logging.Handler to receive messages from RabbitMQ."""
-
-    emit_initialized = False
-
-    def __init__(self, handler):
-        super(RabbitMqHandlerWrapper, self).__init__()
-        self._handler = handler
-        consume = lambda: consume_messages('logger', self._callback)
-        self._thread = threading.Thread(target=consume)
-        if not RabbitMqHandlerWrapper.emit_initialized:
-            self._producer = MessageProducer('logger')
-            self.emit = lambda record: self._producer.publish(pickle.dumps(record))
-            RabbitMqHandlerWrapper.emit_initialized = True
-        else:
-            self._producer = None
-            self.emit = lambda record: None
-
-    def _callback(self, pickled_record):
-        record = pickle.loads(pickled_record)
-        self._handler.emit(record)
-
-    def start(self):
-        self._thread.start()
-
-    def kill(self):
-        if self._producer is not None:
-            self._producer.publish(b'QUIT')
-
-    def join(self):
-        self._thread.join()
 
 
 def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
@@ -197,13 +161,13 @@ def start_threads(
 ):
     """Runs everything."""
     logger.info('Creating Telemetry')
-    telemetry = Telemetry(logger, kml_file_name)
+    telemetry = Telemetry(kml_file_name)
     logger.info('Done creating Telemetry')
     global DRIVER
-    DRIVER = Driver(telemetry, logger)
+    DRIVER = Driver(telemetry)
     DRIVER.set_max_throttle(max_throttle)
 
-    command = Command(telemetry, DRIVER, waypoint_generator, logger)
+    command = Command(telemetry, DRIVER, waypoint_generator)
 
     logger.info('Setting SUP800F to NMEA mode')
     serial_ = serial.Serial('/dev/ttyAMA0', 115200)
@@ -218,7 +182,7 @@ def start_threads(
         serial_.readline()
     logger.info('Done')
 
-    sup800f_telemetry = Sup800fTelemetry(telemetry, serial_, logger)
+    sup800f_telemetry = Sup800fTelemetry(telemetry, serial_)
 
     # This is used for compass calibration
     # TODO: I really don't like having cross dependencies between command and
@@ -226,7 +190,7 @@ def start_threads(
     # waits for messages and them forwards them on.
     command.set_telemetry_data(sup800f_telemetry)
 
-    button = Button(command, logger)
+    button = Button(command)
 
     telemetry_dumper = TelemetryDumper(
         telemetry,
@@ -236,17 +200,16 @@ def start_threads(
 
     port = int(get_configuration('PORT', 8080))
     address = get_configuration('ADDRESS', '0.0.0.0')
-    cherry_py_server = CherryPyServer(port, address, command, telemetry, logger)
+    cherry_py_server = CherryPyServer(port, address, command, telemetry)
 
     global THREADS
-    for t in (
+    THREADS += (
         button,
         cherry_py_server,
         command,
         sup800f_telemetry,
         telemetry_dumper,
-    ):
-        THREADS.append(t)
+    )
     for thread in THREADS:
         thread.start()
     logger.info('Started all threads')
@@ -345,8 +308,8 @@ def main():
     except Exception:
         logging.warning('Unable to save video')
 
-    logger = logging.Logger('sparkfun')
-    logger.setLevel(logging.DEBUG)
+    concrete_logger = logging.Logger('sparkfun')
+    concrete_logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
         '%(asctime)s:%(levelname)s %(message)s'
     )
@@ -356,9 +319,7 @@ def main():
         file_handler = logging.FileHandler(args.log)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
-        rabbit_handler = RabbitMqHandlerWrapper(file_handler)
-        logger.addHandler(rabbit_handler)
-        THREADS.append(rabbit_handler)
+        concrete_logger.addHandler(file_handler)
     except Exception as exception:
         logging.warning('Could not create file log: ' + str(exception))
 
@@ -368,14 +329,20 @@ def main():
     else:
         stdout_handler.setLevel(logging.INFO)
     stdout_handler.setFormatter(formatter)
-    rabbit_handler = RabbitMqHandlerWrapper(stdout_handler)
-    logger.addHandler(rabbit_handler)
-    THREADS.append(rabbit_handler)
+    concrete_logger.addHandler(stdout_handler)
+
+    rabbit_logger = RabbitMqLoggerReceiver(concrete_logger)
+    # We need to start rabbit_logger now so that other people can log to it
+    rabbit_logger.start()
+    time.sleep(0.1)
+    THREADS.append(rabbit_logger)
 
     web_socket_handler = WebSocketLoggingHandler()
     web_socket_handler.setLevel(logging.INFO)
     web_socket_handler.setFormatter(formatter)
-    logger.addHandler(web_socket_handler)
+    concrete_logger.addHandler(web_socket_handler)
+
+    logger = RabbitMqLogger()
 
     if sys.version_info.major < 3:
         logger.warn(
@@ -388,7 +355,7 @@ def main():
             'Setting waypoints to Solid State Depot for testing'
         )
         kml_file = 'paths/solid-state-depot.kml'
-    waypoint_generator = KmlWaypointGenerator(logger, kml_file)
+    waypoint_generator = KmlWaypointGenerator(kml_file)
 
     logger.debug('Calling start_threads')
 

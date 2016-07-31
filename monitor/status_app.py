@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 from monitor.web_socket_handler import WebSocketHandler
+from messaging.rabbit_logger import RabbitMqLogger
 
 
 STATIC_DIR = 'static-web'
@@ -16,10 +17,10 @@ MONITOR_DIR = 'monitor' + os.sep
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, command, telemetry, logger, port):
+    def __init__(self, command, telemetry, port):
         self._command = command
         self._telemetry = telemetry
-        self._logger = logger
+        self._logger = RabbitMqLogger()
         self._port = port
 
         def get_ip(interface):
@@ -32,7 +33,7 @@ class StatusApp(object):
                     return None
                 return addresses[netifaces.AF_INET][0]['addr']
             except Exception as exc:  # pylint: disable=broad-except
-                logger.warn(
+                self._logger.warn(
                     'Exception trying to get interface address: {exc}'.format(
                         exc=str(exc)
                     )
@@ -57,14 +58,14 @@ class StatusApp(object):
         for iface in interfaces:
             self._host_ip = get_ip(iface)
             if self._host_ip is not None:
-                logger.info(
+                self._logger.info(
                     'Monitor web server listening on {iface}'.format(
                         iface=iface
                     )
                 )
                 break
         if self._host_ip is None:
-            logger.error('No valid host found, listening on loopback')
+            self._logger.error('No valid host found, listening on loopback')
             self._host_ip = get_ip('lo')
 
     @staticmethod

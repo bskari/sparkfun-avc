@@ -18,12 +18,13 @@ import math
 import re
 
 from control.telemetry import Telemetry
+from messaging.rabbit_logger import RabbitMqLogger
 
 
 class KmlWaypointGenerator(object):
     """Loads and returns waypoints from a KML file."""
 
-    def __init__(self, logger, kml_file_name):
+    def __init__(self, kml_file_name):
         if kml_file_name.endswith('.kmz'):
             import zipfile
             with zipfile.ZipFile(kml_file_name) as archive:
@@ -35,6 +36,7 @@ class KmlWaypointGenerator(object):
                 self._initial_waypoints = self._load_waypoints(kml_stream)
 
         self._waypoints = copy.deepcopy(self._initial_waypoints)
+        logger = RabbitMqLogger()
         logger.info(
             'Loaded {length} waypoints'.format(
                 length=len(self._waypoints)

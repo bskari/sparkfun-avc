@@ -11,6 +11,7 @@ import math
 import time
 
 from control.telemetry import Telemetry
+from messaging.rabbit_logger import RabbitMqLogger
 
 # pylint: disable=too-many-instance-attributes
 
@@ -19,9 +20,9 @@ class DummyTelemetry(object):
     """Rough simulation of telemetry data."""
     MAX_SPEED_M_S = 4.7  # From observation
 
-    def __init__(self, logger, first_way_point):
+    def __init__(self, first_way_point):
         self._x_m, self._y_m = first_way_point
-        self._logger = logger
+        self._logger = RabbitMqLogger()
         self._x_m -= 1000
         self._heading = 0.0
         self._last_command_time = time.time()

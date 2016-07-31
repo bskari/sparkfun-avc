@@ -10,6 +10,7 @@ import threading
 
 from control.location_filter import LocationFilter
 from control.synchronized import synchronized
+from messaging.rabbit_logger import RabbitMqLogger
 
 #pylint: disable=invalid-name
 
@@ -36,9 +37,9 @@ class Telemetry(object):
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
     HISTORICAL_SPEED_READINGS_COUNT = 10
 
-    def __init__(self, logger, kml_file_name=None):
+    def __init__(self, kml_file_name=None):
         self._data = {}
-        self._logger = logger
+        self._logger = RabbitMqLogger()
         self._speed_history = collections.deque()
         self._lock = threading.Lock()
 
