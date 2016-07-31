@@ -1,9 +1,11 @@
 """Telemetry class that takes raw sensor data and filters it to remove noise
 and provide more accurate telemetry data.
 """
+from pykml import parser
 import collections
 import json
 import math
+import re
 import threading
 
 from control.location_filter import LocationFilter
@@ -34,7 +36,7 @@ class Telemetry(object):
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
     HISTORICAL_SPEED_READINGS_COUNT = 10
 
-    def __init__(self, logger):
+    def __init__(self, logger, kml_file_name=None):
         self._data = {}
         self._logger = logger
         self._speed_history = collections.deque()
@@ -48,6 +50,36 @@ class Telemetry(object):
 
         self._target_steering = 0.0
         self._target_throttle = 0.0
+
+        self._course = collections.defaultdict(lambda: [])
+        try:
+            if kml_file_name is not None:
+                if kml_file_name.endswith('.kmz'):
+                    import zipfile
+                    with zipfile.ZipFile(kml_file_name) as archive:
+                        self._load_kml(archive.open('doc.kml'))
+                else:
+                    with open(kml_file_name) as stream:
+                        self._load_kml(stream)
+            else:
+                self._course = None
+
+            self._logger.info(
+                'Loaded {} course points and {} inner objects'.format(
+                    len(self._course['course']),
+                    len(self._course['inner'])
+                )
+            )
+            if self._course['course'] == []:
+                self._logger.warn(
+                    'No course defined for {}'.format(kml_file_name)
+                )
+            if self._course['inner'] == []:
+                self._logger.warn(
+                    'No inner obstacles defined for {}'.format(kml_file_name)
+                )
+        except Exception as e:
+            self._logger.error('Unable to load course file: {}'.format(e))
 
     @synchronized
     def get_raw_data(self):
@@ -107,15 +139,21 @@ class Telemetry(object):
             )
 
         if 'x_m' in message:
-            self._update_estimated_drive()
-            self._location_filter.update_gps(
-                message['x_m'],
-                message['y_m'],
-                message['x_accuracy_m'],
-                message['y_accuracy_m'],
-                message['gps_d'],
-                message['speed_m_s']
-            )
+            point = (message['latitude'], message['longitude'])
+            if not self._point_in_course(point):
+                self._logger.info(
+                    'Ignoring out of bounds point: {}'.format(point)
+                )
+            else:
+                self._update_estimated_drive()
+                self._location_filter.update_gps(
+                    message['x_m'],
+                    message['y_m'],
+                    message['x_accuracy_m'],
+                    message['y_accuracy_m'],
+                    message['gps_d'],
+                    message['speed_m_s']
+                )
 
         self._data = message
         self._logger.debug(json.dumps(message))
@@ -151,6 +189,64 @@ class Telemetry(object):
         self._location_filter.manual_steering(
             self._estimated_steering * BASE_MAX_TURN_RATE_D_S
         )
+
+    def _load_kml(self, kml_stream):
+        """Loads the course boundaries from a KML file."""
+
+        def get_child(element, tag_name):
+            """Returns the child element with the given tag name."""
+            try:
+                return getattr(element, tag_name)
+            except AttributeError:
+                raise ValueError('No {tag} element found'.format(tag=tag_name))
+
+        root = parser.parse(kml_stream).getroot()
+        if 'kml' not in root.tag:
+            self._logger.warn('Not a KML file')
+            return None
+
+        document = get_child(root, 'Document')
+        for placemark in document.iterchildren():
+            if not placemark.tag.endswith('Placemark'):
+                continue
+
+            try:
+                polygon = get_child(placemark, 'Polygon')
+            except ValueError:
+                # The KML also includes Path elements; those are fine
+                continue
+
+            bound = get_child(polygon, 'outerBoundaryIs')
+            ring = get_child(bound, 'LinearRing')
+            coordinates = get_child(ring, 'coordinates')
+            waypoints = []
+            text = coordinates.text.strip()
+            for csv in re.split(r'\s', text):
+                (
+                    longitude,
+                    latitude,
+                    altitude  # pylint: disable=unused-variable
+                ) = csv.split(',')
+
+                waypoints.append((
+                    Telemetry.longitude_to_m_offset(float(longitude)),
+                    Telemetry.latitude_to_m_offset(float(latitude))
+                ))
+
+            if str(placemark.name).startswith('course'):
+                self._course['course'] = waypoints
+            elif str(placemark.name).startswith('inner'):
+                self._course['inner'].append(waypoints)
+
+    def _point_in_course(self, point):
+        if self._course is None:
+            return True
+        if not self.point_in_polygon(point, self._course['course']):
+            return False
+        for inner in self._course['inner']:
+            if self.point_in_polygon(point, inner):
+                return False
+        return True
 
     @staticmethod
     def rotate_radians_clockwise(point, radians):

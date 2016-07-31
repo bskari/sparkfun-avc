@@ -193,9 +193,12 @@ def start_threads(
         logger,
         web_socket_handler,
         max_throttle,
+        kml_file_name,
 ):
     """Runs everything."""
-    telemetry = Telemetry(logger)  # Sparkfun HQ
+    logger.info('Creating Telemetry')
+    telemetry = Telemetry(logger, kml_file_name)
+    logger.info('Done creating Telemetry')
     global DRIVER
     DRIVER = Driver(telemetry, logger)
     DRIVER.set_max_throttle(max_throttle)
@@ -379,18 +382,13 @@ def main():
             'Python 2 is not officially supported, use at your own risk'
         )
 
-    waypoint_generator = None
-    if args.kml_file is not None:
-        kml = KmlWaypointGenerator(logger, args.kml_file)
-    else:
+    kml_file = args.kml_file
+    if kml_file is None:
         logger.info(
             'Setting waypoints to Solid State Depot for testing'
         )
-        kml = KmlWaypointGenerator(
-            logger,
-            'paths/solid-state-depot.kml'
-        )
-    waypoint_generator = kml
+        kml_file = 'paths/solid-state-depot.kml'
+    waypoint_generator = KmlWaypointGenerator(logger, kml_file)
 
     logger.debug('Calling start_threads')
 
@@ -399,6 +397,7 @@ def main():
         logger,
         web_socket_handler,
         args.max_throttle,
+        kml_file,
     )
 
 
