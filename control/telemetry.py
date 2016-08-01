@@ -10,6 +10,8 @@ import threading
 
 from control.location_filter import LocationFilter
 from control.synchronized import synchronized
+from messaging import config
+from messaging.message_consumer import consume_messages
 from messaging.rabbit_logger import RabbitMqLogger
 
 #pylint: disable=invalid-name
@@ -51,6 +53,13 @@ class Telemetry(object):
 
         self._target_steering = 0.0
         self._target_throttle = 0.0
+
+        consume = lambda: consume_messages(
+            config.COMMAND_EXCHANGE,
+            self._handle_message
+        )
+        self._thread = threading.Thread(target=consume)
+        self._thread.start()
 
         self._course = collections.defaultdict(lambda: [])
         try:
@@ -124,8 +133,7 @@ class Telemetry(object):
         self._target_steering = steering
         self._target_throttle = throttle
 
-    @synchronized
-    def handle_message(self, message):
+    def _handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
         if 'speed_m_s' in self._data:
             self._speed_history.append(self._data['speed_m_s'])

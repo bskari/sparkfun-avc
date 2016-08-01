@@ -9,8 +9,10 @@ compass_d for compass readings. Optional parameters are time_s,
 accelerometer_m_s_s, and magnetometer.
 """
 
-import numpy
+import datetime
 import math
+import numpy
+import pytz
 import threading
 import time
 
@@ -19,6 +21,8 @@ from control.sup800f import parse_binary
 from control.sup800f import switch_to_binary_mode
 from control.sup800f import switch_to_nmea_mode
 from control.telemetry import Telemetry
+from messaging.rabbit_producers import TelemetryProducer
+from messaging.rabbit_logger import RabbitMqLogger
 
 
 # Below this speed, the GPS module uses the compass to compute heading, if the
@@ -29,18 +33,13 @@ COMPASS_SPEED_CUTOFF_M_S = COMPASS_SPEED_CUTOFF_KM_HOUR * 1000.0 / 3600.0
 
 class Sup800fTelemetry(threading.Thread):
     """Reader of GPS module that implements the TelemetryData interface."""
-    def __init__(
-            self,
-            telemetry,
-            serial,
-            logger,
-    ):
+    def __init__(self, serial):
         """Create the TelemetryData thread."""
         super(Sup800fTelemetry, self).__init__()
 
-        self._telemetry = telemetry
+        self._telemetry = TelemetryProducer()
         self._serial = serial
-        self._logger = logger
+        self._logger = RabbitMqLogger()
         self._run = True
         self._iterations = 0
         # These initial measurements are from a calibration observation
@@ -127,7 +126,6 @@ class Sup800fTelemetry(threading.Thread):
 
     def _handle_gprmc(self, gprmc_message):
         """Handles GPRMC (recommended minimum specific GNSS data) messages."""
-        from control.telemetry import Telemetry
         parts = gprmc_message.split(',')
         latitude_str = parts[3]
         longitude_str = parts[5]
@@ -154,6 +152,26 @@ class Sup800fTelemetry(threading.Thread):
         if speed_m_s < COMPASS_SPEED_CUTOFF_M_S:
             course = self._last_compass_heading_d
 
+        time_ = parts[1]
+        hours = int(time_[0:2])
+        minutes = int(time_[2:4])
+        seconds = float(time_[4:])
+        date = parts[9]
+        day = int(date[0:2])
+        month = int(date[2:4])
+        year = int(date[4:]) + 2000
+        # datetime doesn't do float seconds, so we need to fudge it later
+        datetime_ = datetime.datetime(
+            year,
+            month,
+            day,
+            hours,
+            minutes,
+            0,
+            tzinfo=pytz.utc
+        )
+        timestamp_s = datetime_.timestamp() + seconds
+
         self._logger.debug(
             'lat: {}, long: {}, speed: {}, course: {}'.format(
                 round(latitude, 7),
@@ -163,19 +181,18 @@ class Sup800fTelemetry(threading.Thread):
             )
         )
 
-        self._telemetry.handle_message({
-            'latitude': latitude,
-            'longitude': longitude,
-            'x_m': Telemetry.longitude_to_m_offset(longitude),
-            'y_m': Telemetry.latitude_to_m_offset(latitude),
-            # TODO: Parse other messages to estimate these
-            'x_accuracy_m': 1.0,
-            'y_accuracy_m': 1.0,
-            'gps_d': course,
-            'speed_m_s': speed_m_s,
-        })
+        # TODO: Parse other messages to estimate accuracy
+        self._telemetry.gps_reading(
+            latitude,
+            longitude,
+            1.0,
+            course,
+            speed_m_s,
+            timestamp_s
+        )
 
     def _handle_binary(self, message):
+        """Handles properietary SUP800F binary messages."""
         if message is None:
             return
         flux_x = float(message.magnetic_flux_ut_x - self._compass_offsets[0])
@@ -210,10 +227,10 @@ class Sup800fTelemetry(threading.Thread):
         else:
             confidence = 1.0
 
-        self._telemetry.handle_message({
-            'compass_d': self._last_compass_heading_d,
-            'confidence': confidence
-        })
+        self._telemetry.compass_reading(
+            self._last_compass_heading_d,
+            confidence
+        )
 
     def kill(self):
         """Stops any data collection."""

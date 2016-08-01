@@ -1,12 +1,10 @@
 """Message broker that receives from RabbitMQ."""
 
-import logging
 import pika
 
 
 def consume_messages(message_type, callback, host=None):
     """Starts consuming messages."""
-    #logging.getLogger('pika').setLevel(logging.WARNING)
     if host is None:
         host = 'localhost'
 

@@ -345,7 +345,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
     def kill(self):
         """Kills the thread."""
-        CommandProducer()._send('QUIT')
+        CommandProducer().kill()
         self._thread.join()
         self._run = False
 

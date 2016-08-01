@@ -48,7 +48,7 @@ class TestMessage(unittest.TestCase):
         consumer.join(0.05)
         self.assertFalse(consumer.is_alive())
         mp.kill()
-        self.assertEqual(self.message, bytes(sent_message, 'utf-8'))
+        self.assertEqual(self.message, sent_message)
 
 
 if __name__ == '__main__':
