@@ -32,6 +32,7 @@ class DummyTelemetryData(threading.Thread):
     ):
         """Create the TelemetryData thread."""
         super(DummyTelemetryData, self).__init__()
+        self.name = self.__class__.__name__
 
         self._telemetry = telemetry
         self._logger = logger

@@ -18,8 +18,6 @@ class TestMessage(unittest.TestCase):
 
     def test_1_producer_1_consumer(self):
         """Test single producer single consumer."""
-        mp = MessageProducer(self.EXCHANGE)
-
         def save_message(x):
             self.message = x
 
@@ -28,26 +26,28 @@ class TestMessage(unittest.TestCase):
             consume_messages(self.EXCHANGE, save_message)
 
         consumer = threading.Thread(target=consume)
+        consumer.name = '{}:consume_messages'.format(self.__class__.__name__)
         consumer.start()
 
         # Give the receiver some time to set up, see comment below
         time.sleep(0.05)
         self.assertIs(self.message, None)
         sent_message = 'banana'
-        mp.publish(sent_message)
-        mp.publish('QUIT')
+        producer = MessageProducer(self.EXCHANGE)
+        producer.publish(sent_message)
+        producer.publish('QUIT')
         for _ in range(10):
             # Because of a race condition, if the message is sent before the
             # receiver has set up, the messages are never queued or something.
             # Keep resending until the thread exits.
             consumer.join(0.05)
             if consumer.is_alive():
-                mp.publish(sent_message)
-                mp.publish('QUIT')
+                producer.publish(sent_message)
+                producer.publish('QUIT')
 
         consumer.join(0.05)
         self.assertFalse(consumer.is_alive())
-        mp.kill()
+        producer.kill()
         self.assertEqual(self.message, sent_message)
 
 

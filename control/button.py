@@ -17,6 +17,7 @@ class Button(threading.Thread):  # pylint: disable=too-few-public-methods
 
     def __init__(self, logger):
         super(Button, self).__init__()
+        self.name = self.__class__.__name__
         self._logger = logger
 
         self._button_press_time = None

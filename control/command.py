@@ -12,7 +12,7 @@ from control.telemetry import Telemetry
 from messaging import config
 from messaging.message_consumer import consume_messages
 from messaging.rabbit_logger import RabbitMqLogger
-from messaging.rabbit_producers import CommandProducer
+from messaging.rabbit_producers import CommandProducer, CommandForwardProducer
 
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
@@ -32,6 +32,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     ):
         """Create the Command thread."""
         super(Command, self).__init__()
+        self.name = self.__class__.__name__
 
         self._telemetry = telemetry
         if sleep_time_milliseconds is None:
@@ -40,6 +41,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
         self._driver = driver
         self._logger = RabbitMqLogger()
+        self._forwarder = CommandForwardProducer()
         self._run = True
         self._run_course = False
         self._waypoint_generator = waypoint_generator
@@ -51,9 +53,19 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self._start_time = None
 
         self._commands = queue.Queue()
+        def callback(message):
+            self._commands.put(message)
+            # I never could figure out how to do multi consumer exchanges, and
+            # I only need it for two consumers... so, just forward the message
+            # on to the one place it needs to go
+            self._forwarder.forward(message)
+
         callback = lambda message: self._commands.put(message)
         consume = lambda: consume_messages(config.COMMAND_EXCHANGE, callback)
         self._thread = threading.Thread(target=consume)
+        self._thread.name = '{}:consume_messages'.format(
+            self.__class__.__name__
+        )
         self._thread.start()
 
     def _handle_message(self, command):
@@ -345,7 +357,14 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
     def kill(self):
         """Kills the thread."""
-        CommandProducer().kill()
+        for producer in (CommandProducer(), self._forwarder):
+            try:
+                producer.kill()
+            except ValueError as error:
+                print('While killing CommandProducer from {}: {}'.format(
+                    self.__class__.__name__,
+                    error
+                ))
         self._thread.join()
         self._run = False
 

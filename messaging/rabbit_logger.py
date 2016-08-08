@@ -1,4 +1,4 @@
-"""Logger that sends messages over RabbitMQ."""
+"""Logger that sends messages over Unix domain sockets."""
 
 import json
 import threading
@@ -10,7 +10,7 @@ from messaging.singleton_mixin import SingletonMixin
 
 
 class RabbitMqLogger(SingletonMixin):
-    """Logger that sends messages over RabbitMQ."""
+    """Logger that sends messages over Unix domain sockets."""
 
     def __init__(self):
         super(RabbitMqLogger, self).__init__()
@@ -67,6 +67,9 @@ class RabbitMqLoggerReceiver(object):
         }
         consume = lambda: consume_messages(config.LOGS_EXCHANGE, self._callback)
         self._thread = threading.Thread(target=consume)
+        self._thread.name = '{}:consume_messages'.format(
+            self.__class__.__name__
+        )
 
     def start(self):
         """Starts the thread."""
@@ -75,7 +78,12 @@ class RabbitMqLoggerReceiver(object):
 
     def kill(self):
         """Kills the inner thread."""
-        RabbitMqLogger()._producer.publish('QUIT')  # pylint: disable=protected-access
+        try:
+            RabbitMqLogger()._producer.publish('QUIT')  # pylint: disable=protected-access
+        except ValueError as error:
+            # This might happen if we try to send a message after the logger has
+            # been terminated
+            print('While killing {}: {}'.format(self.__class__.__name__, error))
 
     def join(self):
         """Joins the inner thread."""

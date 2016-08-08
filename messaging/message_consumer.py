@@ -1,33 +1,36 @@
-"""Message broker that receives from RabbitMQ."""
+"""Message broker that receives from Unix domain sockets."""
 
-import pika
+import os
+import socket
 
 
-def consume_messages(message_type, callback, host=None):
+def consume_messages(message_type, callback):
     """Starts consuming messages."""
-    if host is None:
-        host = 'localhost'
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    socket_folder = os.sep.join(('.', 'messaging', 'sockets'))
+    socket_address = socket_folder + os.sep + message_type
+    if os.path.exists(socket_address):
+        os.remove(socket_address)
 
-    connection = pika.BlockingConnection(
-        pika.ConnectionParameters(host=host)
-    )
-    channel = connection.channel()
-    result = channel.queue_declare(exclusive=True)
-    queue_name = result.method.queue
-    channel.queue_bind(exchange=message_type, queue=queue_name)
-    consumer_tag = None
+    try:
+        os.mkdir(socket_folder)
+    except OSError:
+        pass
 
-    def inner_callback(channel, method, properties, body):
-        """Callback that intercepts quit messages."""
-        if body == b'QUIT':
-            channel.basic_cancel(consumer_tag)
-            return
-        callback(body.decode('utf-8'))
+    try:
+        sock.bind(socket_address)
+    except socket.error as err:
+        print(err)
+        return
 
-    consumer_tag = channel.basic_consume(
-        inner_callback,
-        queue=queue_name,
-        no_ack=True
-    )
+    while True:
+        datagram = sock.recv(4096)
+        if not datagram:
+            break
+        if datagram == b'QUIT':
+            break
+        message = datagram.decode('utf-8')
+        callback(message)
 
-    channel.start_consuming()
+    sock.close()
+    os.remove(socket_address)

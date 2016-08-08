@@ -64,6 +64,7 @@ class CherryPyServer(threading.Thread):
 
     def __init__(self, port, address, telemetry):
         super(CherryPyServer, self).__init__()
+        self.name = self.__class__.__name__
 
         # Web monitor
         config = MonitorApp.get_config(os.path.abspath(os.getcwd()))
@@ -142,6 +143,14 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     for thread in THREADS:
         thread.kill()
         thread.join()
+    # Three threads should still be active: main, CherryPy reloader and CherryPy
+    # timeout monitor
+    if threading.active_count() != 3:
+        print('Trying to exit while {} threads are still active!'.format(
+            threading.active_count()
+        ))
+        for thread in threading.enumerate():
+            print(thread.name)
     sys.exit(0)
 
 

@@ -19,6 +19,7 @@ class TelemetryDumper(threading.Thread):
         sleep_seconds=None
     ):
         super(TelemetryDumper, self).__init__()
+        self.name = self.__class__.__name__
         self._telemetry = telemetry
         self._waypoint_generator = waypoint_generator
         self._web_socket_handler = web_socket_handler

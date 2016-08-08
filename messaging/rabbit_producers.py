@@ -1,4 +1,4 @@
-"""All of the various RabbitMQ message producers."""
+"""All of the various asynchronous message producers."""
 
 import json
 
@@ -31,8 +31,13 @@ class CommandProducer(SingletonMixin):
         self._producer.publish('calibrate-compass')
 
     def kill(self):
-        """Kills the consumer end of RabbitMQ."""
-        self._producer.publish('QUIT')
+        """Kills the consumer end."""
+        try:
+            self._producer.publish('QUIT')
+        except ValueError as error:
+            # This might happen if we try to send a message after the logger has
+            # been terminated
+            print('While killing {}: {}'.format(self.__class__.__name__, error))
 
 
 class TelemetryProducer(SingletonMixin):
@@ -67,3 +72,29 @@ class TelemetryProducer(SingletonMixin):
             'heading_d': heading_d,
             'confidence': confidence,
         }))
+
+
+class CommandForwardProducer(SingletonMixin):
+    """Forwards commands to another exchange."""
+    # This is a complete hack. I couldn't figure out how to do multiple
+    # consumers, but I only need it for one producer (command) and I only have
+    # two consumers, so I'll just manually forward them. I know this is fragile
+    # and tightly coupled, because handlers shouldn't need to or know about
+    # forwarding messages.
+    # TODO(skari): Implement multi consumer
+    def __init__(self):
+        super(CommandForwardProducer, self).__init__()
+        self._producer = MessageProducer(config.COMMAND_FORWARDED_EXCHANGE)
+
+    def forward(self, message):
+        """Forwards the message."""
+        self._producer.publish(message)
+
+    def kill(self):
+        """Kills the consumer end."""
+        try:
+            self._producer.publish('QUIT')
+        except ValueError as error:
+            # This might happen if we try to send a message after the logger has
+            # been terminated
+            print('While killing {}: {}'.format(self.__class__.__name__, error))

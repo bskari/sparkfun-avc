@@ -2,7 +2,6 @@
 
 import math
 import numpy
-import threading
 import time
 
 # pylint: disable=no-member

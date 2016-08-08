@@ -48,6 +48,7 @@ class DriverListener(threading.Thread):
 
     def __init__(self, socket_file_name):
         super(DriverListener, self).__init__()
+        self.name = self.__class__.__name__
 
         self._socket_file_name = socket_file_name
         self._run = True

@@ -1,40 +1,31 @@
-"""Logger that broadcasts to RabbitMQ."""
+"""Message broker that sends to Unix domain sockets."""
 
-from messaging import config
-import pika
+import os
+import socket
 
 
 class MessageProducer(object):
-    """Message broker that sends to RabbitMQ."""
+    """Message broker that sends to Unix domain sockets."""
 
-    def __init__(self, message_type, host=None):
-        if host is None:
-            host = 'localhost'
+    def __init__(self, message_type):
+        self._message_type = message_type
+        socket_address = os.sep.join(
+            ('.', 'messaging', 'sockets', message_type)
+        )
 
-        self._exchange = message_type
-        self._connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=host)
-        )
-        self._channel = self._connection.channel()
-        self._channel.exchange_declare(
-            exchange=self._exchange,
-            exchange_type='fanout'
-        )
+        if not os.path.exists(socket_address):
+            raise ValueError('Socket does not exist: {}'.format(socket_address))
+
+        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self._socket.connect(socket_address)
 
     def publish(self, message):
         """Publishes a message."""
-        self._channel.basic_publish(
-            exchange=self._exchange,
-            routing_key='',
-            body=message
-        )
+        self._socket.send(message.encode('utf-8'))
 
     def kill(self):
         """Kills all listening consumers."""
-        #self._channel.basic_publish(
-        #    exchange=config.LOGS_EXCHANGE,
-        #    routing_key='',
-        #    body='QUIT'
-        #)
-        self._channel.cancel()
-        self._connection.close()
+        try:
+            self._socket.send(b'QUIT')
+        except ConnectionRefusedError:  # pylint: disable=undefined-variable
+            pass

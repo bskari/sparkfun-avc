@@ -36,6 +36,7 @@ class Sup800fTelemetry(threading.Thread):
     def __init__(self, serial):
         """Create the TelemetryData thread."""
         super(Sup800fTelemetry, self).__init__()
+        self.name = self.__class__.__name__
 
         self._telemetry = TelemetryProducer()
         self._serial = serial

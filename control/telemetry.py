@@ -55,10 +55,13 @@ class Telemetry(object):
         self._target_throttle = 0.0
 
         consume = lambda: consume_messages(
-            config.COMMAND_EXCHANGE,
+            config.COMMAND_FORWARDED_EXCHANGE,
             self._handle_message
         )
         self._thread = threading.Thread(target=consume)
+        self._thread.name = '{}:consume_messages'.format(
+            self.__class__.__name__
+        )
         self._thread.start()
 
         self._course = collections.defaultdict(lambda: [])
