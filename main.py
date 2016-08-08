@@ -145,7 +145,10 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
         thread.join()
     # Three threads should still be active: main, CherryPy reloader and CherryPy
     # timeout monitor
-    if threading.active_count() != 3:
+    # TODO: Remember the name of the reloader thread
+    expected = set(('MainThread', '_TimeoutMonitor'))
+    actives = set((thread.name for thread in threading.enumerate()))
+    if not (expected <= actives):
         print('Trying to exit while {} threads are still active!'.format(
             threading.active_count()
         ))
