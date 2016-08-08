@@ -9,11 +9,11 @@ from messaging.message_producer import MessageProducer
 from messaging.singleton_mixin import SingletonMixin
 
 
-class RabbitMqLogger(SingletonMixin):
+class AsyncLogger(SingletonMixin):
     """Logger that sends messages over Unix domain sockets."""
 
     def __init__(self):
-        super(RabbitMqLogger, self).__init__()
+        super(AsyncLogger, self).__init__()
         self._producer = MessageProducer(config.LOGS_EXCHANGE)
         self.warning = self.warn
 
@@ -53,11 +53,11 @@ class RabbitMqLogger(SingletonMixin):
         }))
 
 
-class RabbitMqLoggerReceiver(object):
-    """Class that handles RabbitMQ messages."""
+class AsyncLoggerReceiver(object):
+    """Class that handles Unix domain socket messages."""
 
     def __init__(self, logger):
-        super(RabbitMqLoggerReceiver, self).__init__()
+        super(AsyncLoggerReceiver, self).__init__()
         self._message_type_to_logger = {
             'debug': logger.debug,
             'info': logger.info,
@@ -79,7 +79,7 @@ class RabbitMqLoggerReceiver(object):
     def kill(self):
         """Kills the inner thread."""
         try:
-            RabbitMqLogger()._producer.publish('QUIT')  # pylint: disable=protected-access
+            AsyncLogger()._producer.publish('QUIT')  # pylint: disable=protected-access
         except ValueError as error:
             # This might happen if we try to send a message after the logger has
             # been terminated

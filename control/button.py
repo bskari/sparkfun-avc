@@ -4,7 +4,7 @@ import RPIO
 import threading
 import time
 
-from messaging.rabbit_producers import CommandProducer
+from messaging.async_producers import CommandProducer
 
 
 BUTTON_GPIO_PIN = 24

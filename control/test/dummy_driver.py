@@ -4,7 +4,7 @@
     get_turn(self)
 """
 
-from messaging.rabbit_logger import RabbitMqLogger()
+from messaging.async_logger import AsyncLogger()
 
 
 class DummyDriver(object):
@@ -12,7 +12,7 @@ class DummyDriver(object):
 
     def __init__(self, telemetry):
         self._telemetry = telemetry
-        self._logger = RabbitMqLogger()
+        self._logger = AsyncLogger()
         self._throttle = 0.0
         self._steering= 0.0
 

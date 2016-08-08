@@ -3,9 +3,9 @@ import math
 import unittest
 
 # Patch out the logger
-from messaging import rabbit_logger
+from messaging import async_logger
 from control.test.dummy_logger import DummyLogger
-rabbit_logger.RabbitMqLogger = DummyLogger
+async_logger.AsyncLogger = DummyLogger
 
 from control.chase_waypoint_generator import ChaseWaypointGenerator
 

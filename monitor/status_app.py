@@ -7,8 +7,8 @@ import subprocess
 import sys
 
 from monitor.web_socket_handler import WebSocketHandler
-from messaging.rabbit_logger import RabbitMqLogger
-from messaging.rabbit_producers import CommandProducer
+from messaging.async_logger import AsyncLogger
+from messaging.async_producers import CommandProducer
 
 
 STATIC_DIR = 'static-web'
@@ -21,7 +21,7 @@ class StatusApp(object):
     def __init__(self, telemetry, port):
         self._command = CommandProducer()
         self._telemetry = telemetry
-        self._logger = RabbitMqLogger()
+        self._logger = AsyncLogger()
         self._port = port
 
         def get_ip(interface):

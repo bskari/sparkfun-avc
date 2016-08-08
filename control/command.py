@@ -11,8 +11,8 @@ import traceback
 from control.telemetry import Telemetry
 from messaging import config
 from messaging.message_consumer import consume_messages
-from messaging.rabbit_logger import RabbitMqLogger
-from messaging.rabbit_producers import CommandProducer, CommandForwardProducer
+from messaging.async_logger import AsyncLogger
+from messaging.async_producers import CommandProducer, CommandForwardProducer
 
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
@@ -40,7 +40,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         else:
             self._sleep_time_seconds = sleep_time_milliseconds / 1000.0
         self._driver = driver
-        self._logger = RabbitMqLogger()
+        self._logger = AsyncLogger()
         self._forwarder = CommandForwardProducer()
         self._run = True
         self._run_course = False

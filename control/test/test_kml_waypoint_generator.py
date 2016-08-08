@@ -6,9 +6,9 @@ import unittest
 import zipfile
 
 # Patch out the logger
-from messaging import rabbit_logger
+from messaging import async_logger
 from control.test.dummy_logger import DummyLogger
-rabbit_logger.RabbitMqLogger = DummyLogger
+async_logger.AsyncLogger = DummyLogger
 
 from control.kml_waypoint_generator import KmlWaypointGenerator
 from control.telemetry import Telemetry

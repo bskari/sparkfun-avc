@@ -18,7 +18,7 @@ import math
 import re
 
 from control.telemetry import Telemetry
-from messaging.rabbit_logger import RabbitMqLogger
+from messaging.async_logger import AsyncLogger
 
 
 class KmlWaypointGenerator(object):
@@ -36,7 +36,7 @@ class KmlWaypointGenerator(object):
                 self._initial_waypoints = self._load_waypoints(kml_stream)
 
         self._waypoints = copy.deepcopy(self._initial_waypoints)
-        logger = RabbitMqLogger()
+        logger = AsyncLogger()
         logger.info(
             'Loaded {length} waypoints'.format(
                 length=len(self._waypoints)

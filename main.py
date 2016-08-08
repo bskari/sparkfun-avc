@@ -21,7 +21,7 @@ from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
-from messaging.rabbit_logger import RabbitMqLogger, RabbitMqLoggerReceiver
+from messaging.async_logger import AsyncLogger, AsyncLoggerReceiver
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
@@ -340,18 +340,18 @@ def main():
     stdout_handler.setFormatter(formatter)
     concrete_logger.addHandler(stdout_handler)
 
-    rabbit_logger = RabbitMqLoggerReceiver(concrete_logger)
-    # We need to start rabbit_logger now so that other people can log to it
-    rabbit_logger.start()
+    async_logger = AsyncLoggerReceiver(concrete_logger)
+    # We need to start async_logger now so that other people can log to it
+    async_logger.start()
     time.sleep(0.1)
-    THREADS.append(rabbit_logger)
+    THREADS.append(async_logger)
 
     web_socket_handler = WebSocketLoggingHandler()
     web_socket_handler.setLevel(logging.INFO)
     web_socket_handler.setFormatter(formatter)
     concrete_logger.addHandler(web_socket_handler)
 
-    logger = RabbitMqLogger()
+    logger = AsyncLogger()
 
     if sys.version_info.major < 3:
         logger.warn(

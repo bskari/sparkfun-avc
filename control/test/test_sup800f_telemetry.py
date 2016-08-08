@@ -2,12 +2,12 @@
 import unittest
 
 # Patch out the logger
-from messaging import rabbit_logger
+from messaging import async_logger
 from control.test.dummy_logger import DummyLogger
-rabbit_logger.RabbitMqLogger = DummyLogger
+async_logger.AsyncLogger = DummyLogger
 
 # Patch out the telemetry
-from messaging import rabbit_producers
+from messaging import async_producers
 class DummyTelemetry(object):
     def __init__(self):
         self.message = {}
@@ -18,7 +18,7 @@ class DummyTelemetry(object):
         self.message['bearing'] = bearing
         self.message['speed'] = speed
         self.message['timestamp'] = timestamp
-rabbit_producers.TelemetryProducer = DummyTelemetry
+async_producers.TelemetryProducer = DummyTelemetry
 
 from control.sup800f_telemetry import Sup800fTelemetry
 

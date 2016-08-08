@@ -21,8 +21,8 @@ from control.sup800f import parse_binary
 from control.sup800f import switch_to_binary_mode
 from control.sup800f import switch_to_nmea_mode
 from control.telemetry import Telemetry
-from messaging.rabbit_producers import TelemetryProducer
-from messaging.rabbit_logger import RabbitMqLogger
+from messaging.async_producers import TelemetryProducer
+from messaging.async_logger import AsyncLogger
 
 
 # Below this speed, the GPS module uses the compass to compute heading, if the
@@ -40,7 +40,7 @@ class Sup800fTelemetry(threading.Thread):
 
         self._telemetry = TelemetryProducer()
         self._serial = serial
-        self._logger = RabbitMqLogger()
+        self._logger = AsyncLogger()
         self._run = True
         self._iterations = 0
         # These initial measurements are from a calibration observation

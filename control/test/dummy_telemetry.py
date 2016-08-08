@@ -11,7 +11,7 @@ import math
 import time
 
 from control.telemetry import Telemetry
-from messaging.rabbit_logger import RabbitMqLogger
+from messaging.async_logger import AsyncLogger
 
 # pylint: disable=too-many-instance-attributes
 
@@ -22,7 +22,7 @@ class DummyTelemetry(object):
 
     def __init__(self, first_way_point):
         self._x_m, self._y_m = first_way_point
-        self._logger = RabbitMqLogger()
+        self._logger = AsyncLogger()
         self._x_m -= 1000
         self._heading = 0.0
         self._last_command_time = time.time()
