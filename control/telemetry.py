@@ -64,33 +64,34 @@ class Telemetry(object):
         )
         self._thread.start()
 
-        self._course = collections.defaultdict(lambda: [])
         try:
             if kml_file_name is not None:
                 if kml_file_name.endswith('.kmz'):
                     import zipfile
                     with zipfile.ZipFile(kml_file_name) as archive:
-                        self._load_kml(archive.open('doc.kml'))
+                        self._course = self._load_kml(archive.open('doc.kml'))
                 else:
                     with open(kml_file_name) as stream:
-                        self._load_kml(stream)
+                        self._course = self._load_kml(stream)
+
+                self._logger.info(
+                    'Loaded {} course points and {} inner objects'.format(
+                        len(self._course['course']),
+                        len(self._course['inner'])
+                    )
+                )
             else:
                 self._course = None
 
-            self._logger.info(
-                'Loaded {} course points and {} inner objects'.format(
-                    len(self._course['course']),
-                    len(self._course['inner'])
-                )
-            )
-            if self._course['course'] == []:
-                self._logger.warn(
-                    'No course defined for {}'.format(kml_file_name)
-                )
-            if self._course['inner'] == []:
-                self._logger.warn(
-                    'No inner obstacles defined for {}'.format(kml_file_name)
-                )
+            if self._course is not None:
+                if len(self._course['course']) == 0:
+                    self._logger.warn(
+                        'No course defined for {}'.format(kml_file_name)
+                    )
+                if len(self._course['inner']) == 0:
+                    self._logger.warn(
+                        'No inner obstacles defined for {}'.format(kml_file_name)
+                    )
         except Exception as e:
             self._logger.error('Unable to load course file: {}'.format(e))
 
@@ -150,19 +151,27 @@ class Telemetry(object):
                 message['confidence']
             )
 
-        if 'x_m' in message:
+        if 'latitude' in message:
             point = (message['latitude'], message['longitude'])
-            if not self._point_in_course(point):
+            if not self._d_point_in_course(point):
                 self._logger.info(
                     'Ignoring out of bounds point: {}'.format(point)
                 )
             else:
+                message['x_m'] = \
+                    self.longitude_to_m_offset(message['longitude_d'])
+                message['y_m'] = \
+                    self.latitude_to_m_offset(message['longitude_d'])
+
                 self._update_estimated_drive()
                 self._location_filter.update_gps(
                     message['x_m'],
                     message['y_m'],
-                    message['x_accuracy_m'],
-                    message['y_accuracy_m'],
+                    # The location filter supports accuracy in both directions,
+                    # but TelemetryProducer only reports one right now. I don't
+                    # think any of my sources report both right now.
+                    message['accuracy_m'],
+                    message['accuracy_m'],
                     message['gps_d'],
                     message['speed_m_s']
                 )
@@ -204,6 +213,7 @@ class Telemetry(object):
 
     def _load_kml(self, kml_stream):
         """Loads the course boundaries from a KML file."""
+        course = collections.defaultdict(lambda: [])
 
         def get_child(element, tag_name):
             """Returns the child element with the given tag name."""
@@ -246,11 +256,11 @@ class Telemetry(object):
                 ))
 
             if str(placemark.name).startswith('course'):
-                self._course['course'] = waypoints
+                course['course'] = waypoints
             elif str(placemark.name).startswith('inner'):
-                self._course['inner'].append(waypoints)
+                course['inner'].append(waypoints)
 
-    def _point_in_course(self, point):
+    def _d_point_in_course(self, point):
         if self._course is None:
             return True
         if not self.point_in_polygon(point, self._course['course']):
@@ -464,7 +474,7 @@ class Telemetry(object):
         min_x = min(p[0] for p in polygon)
         min_y = min(p[1] for p in polygon)
         # To avoid degenerate parallel cases, put some arbitrary numbers here
-        outside = (min_x - 51.029238029833, min_y - 50.2132323872)
+        outside = (min_x - .029238029833, min_y - .0132323872)
 
         inside = False
 

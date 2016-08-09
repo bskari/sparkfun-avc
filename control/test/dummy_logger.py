@@ -22,6 +22,10 @@ class DummyLogger(object):
         """Warning message."""
         print(message)
 
+    def warn(self, message):
+        """Warning message."""
+        print(message)
+
     def error(self, message):
         """Error message."""
         print(message)

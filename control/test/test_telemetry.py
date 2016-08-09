@@ -3,7 +3,8 @@ import math
 import mock
 import unittest
 
-from control.telemetry import Telemetry
+from control.telemetry import CENTRAL_LATITUDE, CENTRAL_LONGITUDE, Telemetry
+from messaging.message_consumer import consume_messages
 
 #pylint: disable=invalid-name
 #pylint: disable=too-many-public-methods
@@ -334,6 +335,53 @@ different from the current algorithm.'''
             self.assertTrue(Telemetry.point_in_polygon(point, polygon))
         for point in outside:
             self.assertFalse(Telemetry.point_in_polygon(point, polygon))
+
+        # Test the last segment. The function uses an arbitrary offset, so test
+        # all directions so that we can change the offset and not break.
+        tiny = 0.0001
+        polygon = ((-tiny, -tiny), (tiny, -tiny), (tiny, tiny), (-tiny, tiny))
+        self.assertTrue(Telemetry.point_in_polygon((0, 0), polygon))
+        for point in polygon:
+            point_2 = [i * 2 for i in point]
+            self.assertFalse(Telemetry.point_in_polygon(point_2, polygon))
+        for point in (-tiny, tiny):
+            point_2 = (point * 2, 0)
+            self.assertFalse(Telemetry.point_in_polygon(point_2, polygon))
+        for point in (-tiny, tiny):
+            point_2 = (0, point * 2)
+            self.assertFalse(Telemetry.point_in_polygon(point_2, polygon))
+        for point in polygon:
+            point_2 = (point[0] * 2, point[1])
+            self.assertFalse(Telemetry.point_in_polygon(point_2, polygon))
+        for point in polygon:
+            point_2 = (point[0], point[1] * 2)
+            self.assertFalse(Telemetry.point_in_polygon(point_2, polygon))
+
+    @mock.patch('control.telemetry.consume_messages')
+    def test_central_offset(self, mock_consume):
+        """The offset should default to Sparkfun, or be loaded from the KML
+        course.
+        """
+        telemetry = Telemetry()
+        self.assertLess(
+            telemetry.distance_m(
+                # From Google Earth
+                40.090764,
+                -105.184879,
+                CENTRAL_LATITUDE,
+                CENTRAL_LONGITUDE
+            ),
+            100
+        )
+
+        # Smoke test
+        course = {
+            'course': ((1, 2), (3, 4)),
+            'inner': ()
+        }
+        with mock.patch.object(Telemetry, '_load_kml', return_value=course):
+            with mock.patch('builtins.open'):
+                Telemetry('file.kml')
 
 
 if __name__ == '__main__':
