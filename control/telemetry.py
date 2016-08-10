@@ -260,6 +260,8 @@ class Telemetry(object):
             elif str(placemark.name).startswith('inner'):
                 course['inner'].append(waypoints)
 
+        return course
+
     def _d_point_in_course(self, point):
         if self._course is None:
             return True

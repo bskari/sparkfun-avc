@@ -82,13 +82,13 @@ apt-get install -y \
     hostapd \
     iw \
     libraspberrypi-bin \
+    libxml2 \
     mpg123 \
     openssh-server \
     python-virtualenv \
     python3 \
     python3-dev \
     python3-pip \
-    rabbitmq-server \
     sudo \
     tmux \
     vim \
