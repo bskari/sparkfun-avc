@@ -5,6 +5,7 @@ import threading
 import time
 
 from messaging.async_producers import CommandProducer
+from messaging.async_logger import AsyncLogger
 
 
 BUTTON_GPIO_PIN = 24
@@ -15,10 +16,10 @@ BUTTON_UP = 0
 class Button(threading.Thread):  # pylint: disable=too-few-public-methods
     """Listens for physical button presses and controls the car."""
 
-    def __init__(self, logger):
+    def __init__(self):
         super(Button, self).__init__()
         self.name = self.__class__.__name__
-        self._logger = logger
+        self._logger = AsyncLogger()
 
         self._button_press_time = None
         self._run = True

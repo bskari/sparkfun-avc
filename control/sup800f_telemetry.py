@@ -125,6 +125,14 @@ class Sup800fTelemetry(threading.Thread):
         self._handle_binary(parsed)
         return True
 
+    @staticmethod
+    def _timestamp(dt):
+        """Computes the Unix timestamp from a datetime object. This is needed
+        because Python < 3.2 doesn't have .timestamp built in.
+        """
+        return (dt - datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)) \
+            / datetime.timedelta(seconds=1)
+
     def _handle_gprmc(self, gprmc_message):
         """Handles GPRMC (recommended minimum specific GNSS data) messages."""
         parts = gprmc_message.split(',')
@@ -171,7 +179,7 @@ class Sup800fTelemetry(threading.Thread):
             0,
             tzinfo=pytz.utc
         )
-        timestamp_s = datetime_.timestamp() + seconds
+        timestamp_s = self._timestamp(datetime_) + seconds
 
         self._logger.debug(
             'lat: {}, long: {}, speed: {}, course: {}'.format(

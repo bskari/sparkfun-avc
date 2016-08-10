@@ -194,7 +194,7 @@ def start_threads(
         serial_.readline()
     logger.info('Done')
 
-    sup800f_telemetry = Sup800fTelemetry(telemetry, serial_)
+    sup800f_telemetry = Sup800fTelemetry(serial_)
 
     # This is used for compass calibration
     # TODO: I really don't like having cross dependencies between command and

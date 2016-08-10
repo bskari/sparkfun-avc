@@ -58,11 +58,23 @@ class Telemetry(object):
             config.COMMAND_FORWARDED_EXCHANGE,
             self._handle_message
         )
-        self._thread = threading.Thread(target=consume)
-        self._thread.name = '{}:consume_messages'.format(
-            self.__class__.__name__
+        thread = threading.Thread(target=consume)
+        thread.name = '{}:consume_messages:{}'.format(
+            self.__class__.__name__,
+            config.COMMAND_FORWARDED_EXCHANGE
         )
-        self._thread.start()
+        thread.start()
+
+        consume = lambda: consume_messages(
+            config.TELEMETRY_EXCHANGE,
+            self._handle_message
+        )
+        thread = threading.Thread(target=consume)
+        thread.name = '{}:consume_messages:{}'.format(
+            self.__class__.__name__,
+            config.TELEMETRY_EXCHANGE
+        )
+        thread.start()
 
         try:
             if kml_file_name is not None:
@@ -139,6 +151,7 @@ class Telemetry(object):
 
     def _handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
+        message = json.loads(message)
         if 'speed_m_s' in self._data:
             self._speed_history.append(self._data['speed_m_s'])
             while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
@@ -151,8 +164,8 @@ class Telemetry(object):
                 message['confidence']
             )
 
-        if 'latitude' in message:
-            point = (message['latitude'], message['longitude'])
+        if 'latitude_d' in message:
+            point = (message['latitude_d'], message['longitude_d'])
             if not self._d_point_in_course(point):
                 self._logger.info(
                     'Ignoring out of bounds point: {}'.format(point)
