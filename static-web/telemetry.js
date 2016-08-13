@@ -39,6 +39,9 @@ sparkfun.telemetry.init = function(
     sparkfun.telemetry.speed = telemetryFields.speed;
     sparkfun.telemetry.timestamp = telemetryFields.timestamp;
 
+    sparkfun.telemetry._noSleep = new NoSleep();
+    document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
+
     sparkfun.telemetry.webSocket = null;
     if (window.WebSocket) {
         sparkfun.telemetry.webSocket = new WebSocket(webSocketAddress);
@@ -51,12 +54,12 @@ sparkfun.telemetry.init = function(
     }
 
     window.onbeforeunload = function(e) {
-         sparkfun.telemetry.webSocket.close(1000);
-         if (!e) {
-             e = window.event;
-         }
-         e.stopPropogation();
-         e.preventDefault();
+        sparkfun.telemetry.webSocket.close(1000);
+        if (!e) {
+            e = window.event;
+        }
+        e.stopPropogation();
+        e.preventDefault();
     };
 
     sparkfun.telemetry.webSocket.onmessage = function (evt) {
@@ -150,6 +153,7 @@ sparkfun.telemetry.addAlert = function (message) {
  * Start sending the telemetry data.
  */
 sparkfun.telemetry.send = function () {
+    document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
     sparkfun.telemetry.watchId = navigator.geolocation.watchPosition(
         sparkfun.telemetry.watch,
         function (error) {
@@ -168,6 +172,14 @@ sparkfun.telemetry.send = function () {
  */
 sparkfun.telemetry.stopSending = function () {
     navigator.geolocation.clearWatch(sparkfun.telemetry.watchId);
+    sparkfun.telemetry._noSleep.disable();
+
+    // Enable no sleep next time we touch anything
+    // I'd like to make it this only enable when we touch 'send' again, but
+    // running this code inside of the 'send' handler would mean we need to
+    // click twice to make it work, and I would rather have the failure
+    // condition of "on but should be off" than the reverse
+    document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
 };
 
 
@@ -179,4 +191,10 @@ sparkfun.telemetry.addAlert = function (message) {
         '<div class="alert alert-danger">' +
             '<button type="button" class="close" data-dismiss="alert">' +
             '&times;</button>' + message + '</div>');
+};
+
+
+sparkfun.telemetry.enableNoSleep = function() {
+    sparkfun.telemetry._noSleep.enable();
+    document.removeEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
 };
