@@ -46,7 +46,7 @@ sparkfun.telemetry.init = function(
         sparkfun.telemetry.webSocket = new MozWebSocket(webSocketAddress);
     }
     if (sparkfun.telemetry.webSocket === null) {
-        sparkfun.telemetry.addAlert('Your browser does not support websockets, monitoring disabled');
+        sparkfun.telemetry.addAlert('Your browser does not support websockets, telemetry disabled');
         return;
     }
 
@@ -153,7 +153,9 @@ sparkfun.telemetry.send = function () {
     sparkfun.telemetry.watchId = navigator.geolocation.watchPosition(
         sparkfun.telemetry.watch,
         function (error) {
-            addAlert(JSON.stringify(error));
+            console.log(error);
+            sparkfun.telemetry.addAlert(error.message);
+            sparkfun.telemetry.stopSending();
         },
         {
             enableHighAccuracy: true
@@ -166,4 +168,15 @@ sparkfun.telemetry.send = function () {
  */
 sparkfun.telemetry.stopSending = function () {
     navigator.geolocation.clearWatch(sparkfun.telemetry.watchId);
+};
+
+
+/**
+ * @param {string} message
+ */
+sparkfun.telemetry.addAlert = function (message) {
+    $('#alerts').append(
+        '<div class="alert alert-danger">' +
+            '<button type="button" class="close" data-dismiss="alert">' +
+            '&times;</button>' + message + '</div>');
 };

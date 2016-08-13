@@ -75,7 +75,10 @@ class CherryPyServer(threading.Thread):
         )
         cherrypy.config.update({
             'server.socket_host': address,
-            'server.socket_port': port
+            'server.socket_port': port,
+            'server.ssl_module': 'builtin',
+            'server.ssl_certificate': 'control/web_telemetry/cert.pem',
+            'server.ssl_private_key': 'control/web_telemetry/key.pem'
         })
 
         WebSocketPlugin(cherrypy.engine).subscribe()

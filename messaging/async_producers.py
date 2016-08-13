@@ -66,10 +66,10 @@ class TelemetryProducer(SingletonMixin):
             'timestamp_s': timestamp_s,
         }))
 
-    def compass_reading(self, heading_d, confidence):
+    def compass_reading(self, compass_d, confidence):
         """Sends a compass reading."""
         self._producer.publish(json.dumps({
-            'heading_d': heading_d,
+            'compass_d': compass_d,
             'confidence': confidence,
         }))
 
