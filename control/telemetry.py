@@ -167,7 +167,7 @@ class Telemetry(object):
         if 'latitude_d' in message:
             point = (message['latitude_d'], message['longitude_d'])
             if not self._d_point_in_course(point):
-                self._logger.info(
+                self._logger.debug(
                     'Ignoring out of bounds point: {}'.format(point)
                 )
             else:
