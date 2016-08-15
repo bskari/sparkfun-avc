@@ -7,6 +7,8 @@ hostapd
 iw
 libraspberrypi-bin
 libxml2
+libxml2-dev
+libxslt1-dev
 mpg123
 openssh-server
 python-virtualenv
