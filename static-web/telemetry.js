@@ -46,7 +46,7 @@ sparkfun.telemetry.init = function(
 
     sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
-    if (jwindow.WebSocket) {
+    if (window.WebSocket) {
         sparkfun.telemetry.webSocket = new WebSocket(webSocketAddress);
     } else if (window.MozWebSocket) {
         sparkfun.telemetry.webSocket = new MozWebSocket(webSocketAddress);
@@ -112,7 +112,7 @@ sparkfun.telemetry.watch = function(position) {
         heading_d: position.coords.heading,
         accuracy_m: position.coords.accuracy,
         altitude_m: position.coords.altitude,
-        timestamp_s: position.coords.timestamp});
+        timestamp_s: position.timestamp});
 
     if (sparkfun.telemetry.webSocket) {
         sparkfun.telemetry.webSocket.send(data);
@@ -194,10 +194,11 @@ sparkfun.telemetry.watchPositionDelegate = function(callback, error, options) {
                 speed: 0,
                 heading: 90,
                 accuracy: 5,
-                altitude: 1655,
-                timestamp: new Date().getTime()
-            }});
-        }, 1000);
+                altitude: 1655
+            },
+            timestamp: new Date().getTime()
+        });
+    }, 1000);
 };
 
 
