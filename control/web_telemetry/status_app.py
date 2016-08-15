@@ -4,9 +4,12 @@ import cherrypy
 import netifaces
 import os
 import sys
+from ws4py.websocket import WebSocket
+import json
 
 from control.web_telemetry.web_socket_handler import WebSocketHandler
 from messaging.async_logger import AsyncLogger
+from messaging.async_producers import TelemetryProducer
 
 STATIC_DIR = 'static-web'
 WEB_TELEMETRY_DIR = 'control' + os.sep + 'web_telemetry' + os.sep
@@ -103,9 +106,58 @@ class StatusApp(object):
                 host_ip=self._host_ip,
                 port=self._port
             )
+        ).replace(
+            '${postAddress}',
+            'https://{host_ip}:{port}/telemetry/post_telemetry'.format(
+                host_ip=self._host_ip,
+                port=self._port
+            )
         )
 
     @cherrypy.expose
     def ws(self):  # pylint: disable=invalid-name
         """Dummy method to tell CherryPy to expose the web socket end point."""
         pass
+
+    @cherrypy.expose
+    @cherrypy.tools.allow(methods=['POST'])
+    @cherrypy.tools.json_out()
+    def post_telemetry(self, message):  # pylint: disable=no-self-use
+        """End point for receiving telemetry readings. Some phones don't support
+        websockets, so just use plain old POST.
+        """
+        try:
+            message = json.loads(str(message))
+
+            if 'latitude_d' in message:
+                TelemetryProducer().gps_reading(
+                    message['latitude_d'],
+                    message['longitude_d'],
+                    message['accuracy_m'],
+                    message['heading_d'],
+                    message['speed_m_s'],
+                    message['timestamp_s']
+                )
+            elif 'compass_d' in message:
+                TelemetryProducer().compass_reading(
+                    message['compass_d'],
+                    message['confidence']
+                )
+            else:
+                AsyncLogger().error(
+                    'Received unexpected web telemetry message: {}'.format(
+                        message
+                    )
+                )
+
+        except Exception as exc:  # pylint: disable=broad-except
+            AsyncLogger().error(
+                'Invalid POST telemetry message "{}": {} {}'.format(
+                    message,
+                    type(exc),
+                    exc
+                )
+            )
+            return {'success': False, 'message': str(exc)}
+
+        return {'success': True}

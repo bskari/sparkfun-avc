@@ -19,11 +19,13 @@ sparkfun.telemetry = sparkfun.telemetry || {};
  *  timestamp:Object
  * } telemetryFields
  * @param {string} webSocketAddress
+ * @param {string} postAddress
  */
 sparkfun.telemetry.init = function(
         buttons,
         telemetryFields,
-        webSocketAddress
+        webSocketAddress,
+        postAddress
 ) {
     'use strict';
     buttons.run.click(sparkfun.telemetry.run);
@@ -42,15 +44,17 @@ sparkfun.telemetry.init = function(
     sparkfun.telemetry._noSleep = new NoSleep();
     document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
 
+    sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
-    if (window.WebSocket) {
+    if (jwindow.WebSocket) {
         sparkfun.telemetry.webSocket = new WebSocket(webSocketAddress);
     } else if (window.MozWebSocket) {
         sparkfun.telemetry.webSocket = new MozWebSocket(webSocketAddress);
-    }
-    if (sparkfun.telemetry.webSocket === null) {
-        sparkfun.telemetry.addAlert('Your browser does not support websockets, telemetry disabled');
-        return;
+    } else {
+        sparkfun.telemetry.addAlert(
+            'Your browser does not support websockets, falling back to POST',
+            'alert-info'
+        );
     }
 
     window.onbeforeunload = function(e) {
@@ -62,19 +66,20 @@ sparkfun.telemetry.init = function(
         e.preventDefault();
     };
 
-    sparkfun.telemetry.webSocket.onmessage = function (evt) {
-        // TODO(2016-04-27) Figure out where this message is coming from and
-        // prevent it from sending
-        if (evt.isTrusted !== undefined) {
-            return;
-        }
-        sparkfun.telemetry.addAlert('Unknown message: ' + JSON.stringify(evt));
-    };
+    if (sparkfun.telemetry.webSocket) {
+        sparkfun.telemetry.webSocket.onmessage = function (evt) {
+            // TODO(2016-04-27) Figure out where this message is coming from and
+            // prevent it from sending
+            if (evt.isTrusted !== undefined) {
+                return;
+            }
+            sparkfun.telemetry.addAlert('Unknown message: ' + JSON.stringify(evt));
+        };
 
-    sparkfun.telemetry.webSocket.onclose = function (evt) {
-        sparkfun.telemetry.addAlert('Connection closed by server');
-    };
-
+        sparkfun.telemetry.webSocket.onclose = function (evt) {
+            sparkfun.telemetry.addAlert('Connection closed by server');
+        };
+    }
     sparkfun.telemetry.watchId = null;
 };
 
@@ -100,15 +105,23 @@ sparkfun.telemetry.stop = function () {
  */
 sparkfun.telemetry.watch = function(position) {
     'use strict';
-    sparkfun.telemetry.webSocket.send(
-        JSON.stringify({
-            latitude_d: position.coords.latitude,
-            longitude_d: position.coords.longitude,
-            speed_m_s: position.coords.speed,
-            heading_d: position.coords.heading,
-            accuracy: position.coords.accuracy,
-            altitude: position.coords.altitude,
-            timestamp: position.timestamp}));
+    var data = JSON.stringify({
+        latitude_d: position.coords.latitude,
+        longitude_d: position.coords.longitude,
+        speed_m_s: position.coords.speed,
+        heading_d: position.coords.heading,
+        accuracy_m: position.coords.accuracy,
+        altitude_m: position.coords.altitude,
+        timestamp_s: position.coords.timestamp});
+
+    if (sparkfun.telemetry.webSocket) {
+        sparkfun.telemetry.webSocket.send(data);
+    } else {
+        sparkfun.telemetry._poke(
+            sparkfun.telemetry.postEndPoint,
+            {'message': data}
+        );
+    }
     sparkfun.telemetry.latitude.text(position.coords.latitude);
     sparkfun.telemetry.longitude.text(position.coords.longitude);
     sparkfun.telemetry.speed.text(position.coords.speed);
@@ -122,9 +135,12 @@ sparkfun.telemetry.watch = function(position) {
 /**
  * @param {string} url
  */
-sparkfun.telemetry._poke = function(url) {
+sparkfun.telemetry._poke = function(url, data) {
     'use strict';
-    $.post(url, '', function (data, textStatus, jqXHR) {
+    if (data === undefined) {
+        data = '';
+    }
+    $.post(url, data, function (data, textStatus, jqXHR) {
         if (data.success !== true) {
             if (data.message) {
                 sparkfun.telemetry.addAlert('Failed: ' + data.message);
@@ -150,11 +166,47 @@ sparkfun.telemetry.addAlert = function (message) {
 
 
 /**
+ * Returns true if running on a mobile device.
+ */
+sparkfun.telemetry.isMobile = function() {
+    return navigator.userAgent.match(/(iPad)|(iPhone)|(iPod)|(android)|(webOS)/i);
+};
+
+
+/**
+ * Delegate for navigator.geolocation. On mobile, this uses GPS, but on desktop,
+ * it uses a fake position generator, because Google's geolocation API that uses
+ * WiFi rejects websites that are using self-signed certificates.
+ */
+sparkfun.telemetry.watchPositionDelegate = function(callback, error, options) {
+    if (sparkfun.telemetry.isMobile()) {
+        return navigator.geolocation.watchPosition(callback, error, options);
+    }
+    sparkfun.telemetry.addAlert(
+        'Desktop browser detected, providing fake data',
+        'alert-warning');
+    return window.setInterval(function() {
+        callback({
+            coords: {
+                // SSD
+                latitude: 40.021405 + ((Math.random() - 0.5) / 1000),
+                longitude: -105.250020 + ((Math.random() - 0.5) / 1000),
+                speed: 0,
+                heading: 90,
+                accuracy: 5,
+                altitude: 1655,
+                timestamp: new Date().getTime()
+            }});
+        }, 1000);
+};
+
+
+/**
  * Start sending the telemetry data.
  */
 sparkfun.telemetry.send = function () {
     document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
-    sparkfun.telemetry.watchId = navigator.geolocation.watchPosition(
+    sparkfun.telemetry.watchId = sparkfun.telemetry.watchPositionDelegate(
         sparkfun.telemetry.watch,
         function (error) {
             console.log(error);
@@ -171,7 +223,11 @@ sparkfun.telemetry.send = function () {
  * Stops sending the telemetry data.
  */
 sparkfun.telemetry.stopSending = function () {
-    navigator.geolocation.clearWatch(sparkfun.telemetry.watchId);
+    if (sparkfun.telemetry.isMobile()) {
+        navigator.geolocation.clearWatch(sparkfun.telemetry.watchId);
+    } else {
+        window.clearInterval(sparkfun.telemetry.watchId);
+    }
     sparkfun.telemetry._noSleep.disable();
 
     // Enable no sleep next time we touch anything
@@ -186,9 +242,12 @@ sparkfun.telemetry.stopSending = function () {
 /**
  * @param {string} message
  */
-sparkfun.telemetry.addAlert = function (message) {
+sparkfun.telemetry.addAlert = function (message, level) {
+    if (level === undefined) {
+        level = 'alert-danger';
+    }
     $('#alerts').append(
-        '<div class="alert alert-danger">' +
+        '<div class="alert ' + level + '">' +
             '<button type="button" class="close" data-dismiss="alert">' +
             '&times;</button>' + message + '</div>');
 };
