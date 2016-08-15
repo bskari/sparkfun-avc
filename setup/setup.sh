@@ -73,25 +73,7 @@ popd
 apt-get upgrade
 # TODO: Install raspistill and raspivid? We could use the picamera Python library
 # TODO: What about gstreamer?
-apt-get install -y \
-    ack-grep \
-    auto-conf \
-    dnsmasq \
-    gcc \
-    gpsd \
-    hostapd \
-    iw \
-    libraspberrypi-bin \
-    libxml2 \
-    mpg123 \
-    openssh-server \
-    python-virtualenv \
-    python3 \
-    python3-dev \
-    python3-pip \
-    sudo \
-    tmux \
-    vim \
+apt-get install -y $(cat apt-requirements.txt)
 
 pushd /tmp
     git clone https://github.com/sarfata/pi-blaster
