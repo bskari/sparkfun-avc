@@ -25,12 +25,14 @@ class WebSocketHandler(WebSocket):  # pylint: disable=no-init
                     message['accuracy_m'],
                     message['heading_d'],
                     message['speed_m_s'],
-                    message['timestamp_s']
+                    message['timestamp_s'],
+                    message['device_id'],
                 )
             elif 'compass_d' in message:
                 TelemetryProducer().compass_reading(
                     message['compass_d'],
-                    message['confidence']
+                    message['confidence'],
+                    message['device_id'],
                 )
             else:
                 AsyncLogger().error(

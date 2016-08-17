@@ -54,7 +54,8 @@ class TelemetryProducer(SingletonMixin):
             accuracy_m,
             bearing_d,
             speed_m_s,
-            timestamp_s
+            timestamp_s,
+            device_id
     ):
         """Sends a GPS reading."""
         self._producer.publish(json.dumps({
@@ -64,6 +65,7 @@ class TelemetryProducer(SingletonMixin):
             'bearing_d': bearing_d,
             'speed_m_s': speed_m_s,
             'timestamp_s': timestamp_s,
+            'device_id': device_id,
         }))
 
     def compass_reading(self, compass_d, confidence):
@@ -71,6 +73,7 @@ class TelemetryProducer(SingletonMixin):
         self._producer.publish(json.dumps({
             'compass_d': compass_d,
             'confidence': confidence,
+            'device_id': device_id,
         }))
 
 

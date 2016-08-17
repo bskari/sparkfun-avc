@@ -44,12 +44,23 @@ sparkfun.telemetry.init = function(
     sparkfun.telemetry._noSleep = new NoSleep();
     document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
 
+    var parens = /\([^)]*\)/.exec(navigator.userAgent);
+    // I think this is supposed to return null if there's no match, but just to
+    // be safe, I'm going to test both
+    if (parens !== null && parens.length > 0) {
+        sparkfun.telemetry.deviceId =
+            parens[0].slice(0, -1)
+            .split(';')
+            .sort(function(a, b) { return b.length - a.length; })[0];
+    } else {
+        sparkfun.telemetry.deviceId = 'web-telemetry';
+    }
+    sparkfun.telemetry.deviceId += '-' + String(Math.round(Math.random() * 10000));
+    sparkfun.telemetry.addAlert(sparkfun.telemetry.deviceId, 'alert-info');
     sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
     webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
-    // Not sure why, but I'm not receiving anything over websockets on iPhone 4,
-    // so force it to use POST
-    if (!navigator.userAgent.match('iPhone OS 7') && userAgentwindow.WebSocket) {
+    if (!navigator.userAgent.match('iPhone OS 7') && window.WebSocket) {
         sparkfun.telemetry.webSocket = new WebSocket(webSocketAddress);
     } else if (!navigator.userAgent.match('iPhone OS 7') && window.MozWebSocket) {
         sparkfun.telemetry.webSocket = new MozWebSocket(webSocketAddress);
@@ -123,7 +134,8 @@ sparkfun.telemetry.watch = function(position) {
         heading_d: position.coords.heading,
         accuracy_m: position.coords.accuracy,
         altitude_m: position.coords.altitude,
-        timestamp_s: timestamp});
+        timestamp_s: timestamp,
+        device_id: sparkfun.telemetry.deviceId});
 
     if (sparkfun.telemetry.webSocket) {
         sparkfun.telemetry.webSocket.send(data);

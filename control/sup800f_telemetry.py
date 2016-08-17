@@ -197,7 +197,8 @@ class Sup800fTelemetry(threading.Thread):
             1.0,
             course,
             speed_m_s,
-            timestamp_s
+            timestamp_s,
+            'sup800f'
         )
 
     def _handle_binary(self, message):
@@ -238,7 +239,8 @@ class Sup800fTelemetry(threading.Thread):
 
         self._telemetry.compass_reading(
             self._last_compass_heading_d,
-            confidence
+            confidence,
+            'sup800f'
         )
 
     def kill(self):
