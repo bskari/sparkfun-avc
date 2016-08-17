@@ -46,6 +46,7 @@ sparkfun.telemetry.init = function(
 
     sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
+    webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
     // Not sure why, but I'm not receiving anything over websockets on iPhone 4,
     // so force it to use POST
     if (!navigator.userAgent.match('iPhone OS 7') && userAgentwindow.WebSocket) {
@@ -58,7 +59,6 @@ sparkfun.telemetry.init = function(
             'alert-info'
         );
     }
-    sparkfun.telemetry.addAlert(navigator.userAgent);
 
     window.onbeforeunload = function(e) {
         sparkfun.telemetry.webSocket.close(1000);

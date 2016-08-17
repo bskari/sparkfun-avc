@@ -102,13 +102,13 @@ class StatusApp(object):
                 index_page = file_.read()
         return index_page.replace(
             '${webSocketAddress}',
-            'wss://{host_ip}:{port}/telemetry/ws'.format(
+            '{host_ip}:{port}/telemetry/ws'.format(
                 host_ip=self._host_ip,
                 port=self._port
             )
         ).replace(
             '${postAddress}',
-            'https://{host_ip}:{port}/telemetry/post_telemetry'.format(
+            '//{host_ip}:{port}/telemetry/post_telemetry'.format(
                 host_ip=self._host_ip,
                 port=self._port
             )

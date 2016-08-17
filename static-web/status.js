@@ -79,6 +79,7 @@ sparkfun.status.init = function(
     sparkfun.status.followInterval = null;
 
     sparkfun.status.webSocket = null;
+    webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
     if (window.WebSocket) {
         sparkfun.status.webSocket = new WebSocket(webSocketAddress);
     } else if (window.MozWebSocket) {
