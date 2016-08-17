@@ -46,9 +46,11 @@ sparkfun.telemetry.init = function(
 
     sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
-    if (window.WebSocket) {
+    // Not sure why, but I'm not receiving anything over websockets on iPhone 4,
+    // so force it to use POST
+    if (!navigator.userAgent.match('iPhone OS 7') && userAgentwindow.WebSocket) {
         sparkfun.telemetry.webSocket = new WebSocket(webSocketAddress);
-    } else if (window.MozWebSocket) {
+    } else if (!navigator.userAgent.match('iPhone OS 7') && window.MozWebSocket) {
         sparkfun.telemetry.webSocket = new MozWebSocket(webSocketAddress);
     } else {
         sparkfun.telemetry.addAlert(
@@ -56,6 +58,7 @@ sparkfun.telemetry.init = function(
             'alert-info'
         );
     }
+    sparkfun.telemetry.addAlert(navigator.userAgent);
 
     window.onbeforeunload = function(e) {
         sparkfun.telemetry.webSocket.close(1000);
@@ -105,6 +108,14 @@ sparkfun.telemetry.stop = function () {
  */
 sparkfun.telemetry.watch = function(position) {
     'use strict';
+    // Support for old phones that don't follow the spec. They should have
+    // position.timestamp as instance of DOMTimeStamp.
+    var timestamp;
+    if (typeof(position.timestamp) === 'object') {
+        timestamp = new Date(String(position.timestamp)).getTime();
+    } else {
+        timestamp = String(position.timestamp);
+    }
     var data = JSON.stringify({
         latitude_d: position.coords.latitude,
         longitude_d: position.coords.longitude,
@@ -112,7 +123,7 @@ sparkfun.telemetry.watch = function(position) {
         heading_d: position.coords.heading,
         accuracy_m: position.coords.accuracy,
         altitude_m: position.coords.altitude,
-        timestamp_s: position.timestamp});
+        timestamp_s: timestamp});
 
     if (sparkfun.telemetry.webSocket) {
         sparkfun.telemetry.webSocket.send(data);
@@ -128,7 +139,7 @@ sparkfun.telemetry.watch = function(position) {
     sparkfun.telemetry.heading.text(position.coords.heading);
     sparkfun.telemetry.accuracy.text(position.coords.accuracy);
     sparkfun.telemetry.altitude.text(position.coords.altitude);
-    sparkfun.telemetry.timestamp.text(position.timestamp);
+    sparkfun.telemetry.timestamp.text(timestamp);
 };
 
 
