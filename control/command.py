@@ -71,15 +71,20 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     def _handle_message(self, command):
         """Handles command messages, e.g. 'start' or 'stop'."""
         if command not in self.VALID_COMMANDS:
-            if command.startswith('set-max-throttle:'):
+            if command.startswith('set-max-throttle'):
                 try:
-                    max_throttle = float(command.split(':')[0])
+                    max_throttle = float(command.split('=')[1])
                     self.set_max_throttle(max_throttle)
                     return
-                except:  # pylint: disable=bare-except
-                    # Just fall through let the default logger log it
-                    pass
-            self._logger.warning(
+                except Exception as exc: # pylint: disable=broad-except
+                    self._logger.error(
+                        'Bad throttle command: "{command}": {exc}'.format(
+                            command=command,
+                            exc=exc,
+                        )
+                    )
+                    return
+            self._logger.error(
                 'Unknown command: "{command}"'.format(
                     command=command
                 )
