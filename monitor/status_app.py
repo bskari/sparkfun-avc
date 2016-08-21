@@ -152,40 +152,10 @@ class StatusApp(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def line_up(self):  # pylint: disable=no-self-use
-        """Plays the Mario Kart line up sound."""
-        self._check_post()
-        #self._command.line_up()
-        if (
-                os.path.isfile('/usr/bin/mpg123')
-                and os.path.isfile('sound/race-start.mp3')
-        ):
-            subprocess.Popen(
-                ('/usr/bin/mpg123', 'sound/race-start.mp3'),
-                stdout=open('/dev/null', 'w')
-            )
+    def set_max_throttle(self, throttle):  # pylint: disable=no-self-use
+        self._logger.info('Received throttle command from web')
+        self._command.set_max_throttle(throttle)
         return {'success': True}
-
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def count_down(self):  # pylint: disable=no-self-use
-        """Plays the Mario Kart count down sound."""
-        self._check_post()
-        #self._command.count_down()
-        if os.path.isfile('/usr/bin/mpg123') and os.path.isfile('sound/count-down.mp3'):
-            subprocess.Popen(
-                ('mpg123', 'sound/count-down.mp3'),
-                stdout=open('/dev/null', 'w')
-            )
-        return {'success': True}
-
-    @cherrypy.expose
-    @cherrypy.tools.json_out()
-    def follow(self):  # pylint: disable=invalid-name
-        """Tells the car to start following the phone."""
-        self._check_post()
-        self._logger.info('Received follow command from web')
-        return {'success': False, 'message': 'Not implemented'}
 
     @cherrypy.expose
     def ws(self):  # pylint: disable=invalid-name

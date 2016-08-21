@@ -71,6 +71,14 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     def _handle_message(self, command):
         """Handles command messages, e.g. 'start' or 'stop'."""
         if command not in self.VALID_COMMANDS:
+            if command.startswith('set-max-throttle:'):
+                try:
+                    max_throttle = float(command.split(':')[0])
+                    self.set_max_throttle(max_throttle)
+                    return
+                except:  # pylint: disable=bare-except
+                    # Just fall through let the default logger log it
+                    pass
             self._logger.warning(
                 'Unknown command: "{command}"'.format(
                     command=command
@@ -337,6 +345,10 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         except:  # pylint: disable=bare-except
             pass
         self._driver.drive(0.0, 0.0)
+
+    def set_max_throttle(self, throttle):
+        """Sets the maximum throttle speed."""
+        self._driver.set_max_throttle(throttle)
 
     def run_course(self):
         """Starts the RC car running the course."""

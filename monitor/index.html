@@ -30,12 +30,16 @@
 
         <p>
             <button id="run-button" type="button" class="btn btn-lg btn-success">Run</button>
-            <button id="calibrate-compass-button" type="button" class="btn btn-lg btn-default">Calibrate compass</button>
+            <button id="calibrate-compass-button" type="button" class="btn btn-lg btn-default">Calibrate &#9788;</button>
             <button id="reset-button" type="button" class="btn btn-lg btn-default">Reset</button>
-            <button id="line-up-button" type="button" class="btn btn-lg btn-default">Line up</button>
-            <button id="count-down-button" type="button" class="btn btn-lg btn-default">Countdown</button>
             <button id="stop-button" type="button" class="btn btn-lg btn-danger">Stop</button>
-            <button id="follow-button" type="button" class="btn btn-lg btn-info">Follow</button>
+            Throttle:
+            <select id="throttle-select">
+                <option value="0.25">25%</option>
+                <option value="0.5">50%</option>
+                <option value="0.75">75%</option>
+                <option value="1.0">100%</option>
+            </select>
         </p>
 
         <!-- This seemed like a cool idea, but it takes up a lot of space :( -->
@@ -122,10 +126,7 @@ $(document).ready(function () {
         run: $('#run-button'),
         calibrateCompass: $('#calibrate-compass-button'),
         reset: $('#reset-button'),
-        lineUp: $('#line-up-button'),
-        countDown: $('#count-down-button'),
-        stop: $('#stop-button'),
-        follow: $('#follow-button')
+        stop: $('#stop-button')
     };
     var carFields = {
         x_m: $('#x-m'),
@@ -149,6 +150,7 @@ $(document).ready(function () {
     var logs = $('#logs');
     sparkfun.status.init(
         buttons,
+        $('#throttle-select'),
         carFields,
         telemetryFields,
         logs,

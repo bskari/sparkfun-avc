@@ -5,13 +5,11 @@ sparkfun.status = sparkfun.status || {};
 /**
  * @param {
  *  run: Object,
- *  stop: Object,
- *  follow: Object,
  *  calibrateCompass: Object,
- *  reset: Object
- *  line: Object,
- *  count: Object
+ *  reset: Object,
+ *  stop: Object,
  * } buttons
+ * @param {Object} throttle
  * @param {
  *  x_m: Object,
  *  y_m: Object,
@@ -37,6 +35,7 @@ sparkfun.status = sparkfun.status || {};
  */
 sparkfun.status.init = function(
         buttons,
+        throttle,
         carFields,
         telemetryFields,
         logs,
@@ -46,10 +45,8 @@ sparkfun.status.init = function(
     buttons.run.click(sparkfun.status.run);
     buttons.stop.click(sparkfun.status.stop);
     buttons.reset.click(sparkfun.status.reset);
-    buttons.follow.click(sparkfun.status.follow);
     buttons.calibrateCompass.click(sparkfun.status.calibrateCompass);
-    buttons.lineUp.click(sparkfun.status.lineUp);
-    buttons.countDown.click(sparkfun.status.countDown);
+    throttle.change(sparkfun.status.setThrottle);
 
     sparkfun.status.carX_m = carFields.x_m;
     sparkfun.status.carY_m = carFields.y_m;
@@ -182,32 +179,15 @@ sparkfun.status.reset = function () {
 };
 
 
-sparkfun.status.follow = function () {
-    'use strict';
-    // Do this once to set up the geo permissions
-    navigator.geolocation.getCurrentPosition(
-        function () {
-            sparkfun.status.followInterval = window.setInterval(sparkfun.status.sendPosition, 250);
-        });
-    sparkfun.status._poke('/follow');
-};
-
-
 sparkfun.status.calibrateCompass = function () {
     'use strict';
     sparkfun.status._poke('/calibrate-compass');
 };
 
 
-sparkfun.status.lineUp = function () {
+sparkfun.status.setThrottle = function (evt) {
     'use strict';
-    sparkfun.status._poke('/line-up');
-};
-
-
-sparkfun.status.countDown = function () {
-    'use strict';
-    sparkfun.status._poke('/count-down');
+    sparkfun.status._poke('/set-max-throttle', {'throttle': evt.currentTarget.value});
 };
 
 
@@ -235,9 +215,12 @@ sparkfun.status.sendPosition = function() {
 /**
  * @param {string} url
  */
-sparkfun.status._poke = function(url) {
+sparkfun.status._poke = function(url, params) {
     'use strict';
-    $.post(url, '', function (data, textStatus, jqXHR) {
+    if (params === undefined) {
+        params = '';
+    }
+    $.post(url, params, function (data, textStatus, jqXHR) {
         if (data.success !== true) {
             if (data.message) {
                 sparkfun.status.addAlert('Failed: ' + data.message);

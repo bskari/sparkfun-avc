@@ -30,6 +30,10 @@ class CommandProducer(SingletonMixin):
         """Send the calibrate_compass command."""
         self._producer.publish('calibrate-compass')
 
+    def set_max_throttle(self, throttle):
+        """Send the set max throttle command."""
+        self._producer.publish('set-max-throttle={}'.format(throttle))
+
     def kill(self):
         """Kills the consumer end."""
         try:
