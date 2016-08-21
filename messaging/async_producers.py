@@ -72,7 +72,7 @@ class TelemetryProducer(SingletonMixin):
             'device_id': device_id,
         }))
 
-    def compass_reading(self, compass_d, confidence):
+    def compass_reading(self, compass_d, confidence, device_id):
         """Sends a compass reading."""
         self._producer.publish(json.dumps({
             'compass_d': compass_d,
