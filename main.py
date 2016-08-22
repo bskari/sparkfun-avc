@@ -78,7 +78,8 @@ class CherryPyServer(threading.Thread):
             'server.socket_port': port,
             'server.ssl_module': 'builtin',
             'server.ssl_certificate': 'control/web_telemetry/cert.pem',
-            'server.ssl_private_key': 'control/web_telemetry/key.pem'
+            'server.ssl_private_key': 'control/web_telemetry/key.pem',
+            'engine.autoreload.on': False,
         })
 
         WebSocketPlugin(cherrypy.engine).subscribe()
@@ -146,9 +147,7 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     for thread in THREADS:
         thread.kill()
         thread.join()
-    # Three threads should still be active: main, CherryPy reloader and CherryPy
-    # timeout monitor
-    # TODO: Remember the name of the reloader thread
+    # Some threads should still be active
     expected = set(('MainThread', '_TimeoutMonitor'))
     actives = set((thread.name for thread in threading.enumerate()))
     if not (expected <= actives):
