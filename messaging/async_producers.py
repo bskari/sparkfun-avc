@@ -34,15 +34,6 @@ class CommandProducer(SingletonMixin):
         """Send the set max throttle command."""
         self._producer.publish('set-max-throttle={}'.format(throttle))
 
-    def kill(self):
-        """Kills the consumer end."""
-        try:
-            self._producer.publish('QUIT')
-        except ValueError as error:
-            # This might happen if we try to send a message after the logger has
-            # been terminated
-            print('While killing {}: {}'.format(self.__class__.__name__, error))
-
 
 class TelemetryProducer(SingletonMixin):
     """Forwards telemetry messages."""
@@ -96,12 +87,3 @@ class CommandForwardProducer(SingletonMixin):
     def forward(self, message):
         """Forwards the message."""
         self._producer.publish(message)
-
-    def kill(self):
-        """Kills the consumer end."""
-        try:
-            self._producer.publish('QUIT')
-        except ValueError as error:
-            # This might happen if we try to send a message after the logger has
-            # been terminated
-            print('While killing {}: {}'.format(self.__class__.__name__, error))

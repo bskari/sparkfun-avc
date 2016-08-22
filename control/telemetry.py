@@ -55,17 +55,6 @@ class Telemetry(object):
         self._target_throttle = 0.0
 
         consume = lambda: consume_messages(
-            config.COMMAND_FORWARDED_EXCHANGE,
-            self._handle_message
-        )
-        thread = threading.Thread(target=consume)
-        thread.name = '{}:consume_messages:{}'.format(
-            self.__class__.__name__,
-            config.COMMAND_FORWARDED_EXCHANGE
-        )
-        thread.start()
-
-        consume = lambda: consume_messages(
             config.TELEMETRY_EXCHANGE,
             self._handle_message
         )

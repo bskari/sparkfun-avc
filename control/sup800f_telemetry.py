@@ -21,8 +21,10 @@ from control.sup800f import parse_binary
 from control.sup800f import switch_to_binary_mode
 from control.sup800f import switch_to_nmea_mode
 from control.telemetry import Telemetry
-from messaging.async_producers import TelemetryProducer
+from messaging import config
 from messaging.async_logger import AsyncLogger
+from messaging.async_producers import TelemetryProducer
+from messaging.message_consumer import consume_messages
 
 
 # Below this speed, the GPS module uses the compass to compute heading, if the
@@ -52,6 +54,24 @@ class Sup800fTelemetry(threading.Thread):
         self._nmea_mode = True
         self._last_compass_heading_d = 0.0
         self._dropped_compass_messages = 0
+
+        def handle_message(message):
+            """Handles command messages. Only cares about calibrate compass;
+            other messages are ignored.
+            """
+            if message == 'calibrate-compass':
+                self.calibrate_compass(10)
+
+        consume = lambda: consume_messages(
+            config.COMMAND_FORWARDED_EXCHANGE,
+            handle_message
+        )
+        thread = threading.Thread(target=consume)
+        thread.name = '{}:consume_messages:{}'.format(
+            self.__class__.__name__,
+            config.COMMAND_FORWARDED_EXCHANGE
+        )
+        thread.start()
 
     def run(self):
         """Run in a thread, hands raw telemetry readings to telemetry

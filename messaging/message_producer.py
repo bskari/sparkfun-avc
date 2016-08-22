@@ -2,6 +2,7 @@
 
 import os
 import socket
+import time
 
 
 class MessageProducer(object):

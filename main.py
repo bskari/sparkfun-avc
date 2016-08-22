@@ -21,7 +21,10 @@ from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
 from control.telemetry_dumper import TelemetryDumper
 from control.web_telemetry.status_app import StatusApp as WebTelemetryStatusApp
+from messaging import config
 from messaging.async_logger import AsyncLogger, AsyncLoggerReceiver
+from messaging.message_consumer import consume_messages
+from messaging.message_producer import MessageProducer
 from monitor.status_app import StatusApp as MonitorApp
 from monitor.web_socket_logging_handler import WebSocketLoggingHandler
 
@@ -46,6 +49,12 @@ def override_imports_for_non_rpi():
     Sup800fTelemetry = lambda *arg: Dummy()
     global switch_to_nmea_mode
     switch_to_nmea_mode = lambda *arg: Dummy()
+    # Ignore messages
+    drop = lambda message: None
+    drop2 = lambda: consume_messages(config.COMMAND_FORWARDED_EXCHANGE, drop)
+    thread = threading.Thread(target=drop2)
+    thread.name = config.COMMAND_FORWARDED_EXCHANGE
+    thread.start()
 
 try:
     from control.button import Button
@@ -144,13 +153,17 @@ def terminate(signal_number, stack_frame):  # pylint: disable=unused-argument
     except IOError:
         pass
 
+    for socket in os.listdir(os.sep.join(('.', 'messaging', 'sockets'))):
+        MessageProducer(socket).kill()
+    time.sleep(0.1)
+
     for thread in THREADS:
         thread.kill()
         thread.join()
     # Some threads should still be active
     expected = set(('MainThread', '_TimeoutMonitor'))
     actives = set((thread.name for thread in threading.enumerate()))
-    if not (expected <= actives):
+    if not (actives <= expected):
         print('Trying to exit while {} threads are still active!'.format(
             threading.active_count()
         ))
@@ -181,7 +194,6 @@ def start_threads(
     DRIVER = Driver(telemetry)
     DRIVER.set_max_throttle(max_throttle)
 
-    command = Command(telemetry, DRIVER, waypoint_generator)
 
     logger.info('Setting SUP800F to NMEA mode')
     serial_ = serial.Serial('/dev/ttyAMA0', 115200)
@@ -190,30 +202,32 @@ def start_threads(
         serial_.readline()
     try:
         switch_to_nmea_mode(serial_)
-    except:
+    except:  # pylint: disable=W0702
         logger.error('Unable to set mode')
     for _ in range(10):
         serial_.readline()
     logger.info('Done')
 
-    sup800f_telemetry = Sup800fTelemetry(serial_)
-
-    # This is used for compass calibration
-    # TODO: I really don't like having cross dependencies between command and
-    # driver; this should be factored out so that there is a single class that
-    # waits for messages and them forwards them on.
-    command.set_telemetry_data(sup800f_telemetry)
-
     button = Button()
 
+    port = int(get_configuration('PORT', 8080))
+    address = get_configuration('ADDRESS', '0.0.0.0')
+
+    # The following objects must be created in order, because of message
+    # exchange dependencies
+    # TODO(2016-08-21) Have something better than sleeps to work around race
+    # conditions
+    logger.info('Creating threads')
+    sup800f_telemetry = Sup800fTelemetry(serial_)
+    time.sleep(0.5)
+    command = Command(telemetry, DRIVER, waypoint_generator)
+    time.sleep(0.5)
     telemetry_dumper = TelemetryDumper(
         telemetry,
         waypoint_generator,
         web_socket_handler
     )
-
-    port = int(get_configuration('PORT', 8080))
-    address = get_configuration('ADDRESS', '0.0.0.0')
+    time.sleep(0.5)
     cherry_py_server = CherryPyServer(port, address, telemetry)
 
     global THREADS

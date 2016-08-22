@@ -12,7 +12,7 @@ from control.telemetry import Telemetry
 from messaging import config
 from messaging.message_consumer import consume_messages
 from messaging.async_logger import AsyncLogger
-from messaging.async_producers import CommandProducer, CommandForwardProducer
+from messaging.async_producers import CommandForwardProducer
 
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
@@ -60,7 +60,6 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             # on to the one place it needs to go
             self._forwarder.forward(message)
 
-        callback = lambda message: self._commands.put(message)
         consume = lambda: consume_messages(config.COMMAND_EXCHANGE, callback)
         self._thread = threading.Thread(target=consume)
         self._thread.name = '{}:consume_messages'.format(
@@ -99,10 +98,6 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             self.reset()
         elif command == 'calibrate-compass':
             self.calibrate_compass(10)
-
-    def set_telemetry_data(self, telemetry_data):
-        """Sets the telemetry data. Needed for compass calibration."""
-        self._telemetry_data = telemetry_data
 
     def _wait(self):
         """We just define this function separately so that it's easy to patch
@@ -331,15 +326,9 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         if self._run_course:
             self._logger.warn("Can't configure compass while running")
             return
-        if self._telemetry_data is None:
-            self._logger.error(
-                'Unable to configure compass: telemetry_data is None'
-            )
-            return
 
         start = time.time()
         self._driver.drive(0.5, 1.0)
-        self._telemetry_data.calibrate_compass(seconds)
         try:
             while (
                     self._run
@@ -374,15 +363,6 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
 
     def kill(self):
         """Kills the thread."""
-        for producer in (CommandProducer(), self._forwarder):
-            try:
-                producer.kill()
-            except ValueError as error:
-                print('While killing CommandProducer from {}: {}'.format(
-                    self.__class__.__name__,
-                    error
-                ))
-        self._thread.join()
         self._run = False
 
     def is_running_course(self):

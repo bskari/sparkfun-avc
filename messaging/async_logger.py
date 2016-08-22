@@ -77,13 +77,7 @@ class AsyncLoggerReceiver(object):
             self._thread.start()
 
     def kill(self):
-        """Kills the inner thread."""
-        try:
-            AsyncLogger()._producer.publish('QUIT')  # pylint: disable=protected-access
-        except ValueError as error:
-            # This might happen if we try to send a message after the logger has
-            # been terminated
-            print('While killing {}: {}'.format(self.__class__.__name__, error))
+        pass
 
     def join(self):
         """Joins the inner thread."""
