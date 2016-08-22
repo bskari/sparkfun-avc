@@ -54,6 +54,9 @@ class Telemetry(object):
         self._target_steering = 0.0
         self._target_throttle = 0.0
 
+        self._ignored_points = collections.defaultdict(lambda: 0)
+        self._ignored_points_thresholds = collections.defaultdict(lambda: 10)
+
         consume = lambda: consume_messages(
             config.TELEMETRY_EXCHANGE,
             self._handle_message
@@ -141,6 +144,7 @@ class Telemetry(object):
     def _handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
         message = json.loads(message)
+        device = message['device_id']
         if 'speed_m_s' in self._data:
             self._speed_history.append(self._data['speed_m_s'])
             while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
@@ -156,10 +160,23 @@ class Telemetry(object):
         if 'latitude_d' in message:
             point = (message['latitude_d'], message['longitude_d'])
             if not self._d_point_in_course(point):
-                self._logger.debug(
-                    'Ignoring out of bounds point: {}'.format(point)
-                )
+                self._ignored_points[device] += 1
+                if self._ignored_points[device] > self._ignored_points_thresholds[device]:
+                    self._logger.info(
+                        'Dropped {} out of bounds points from {} in a row'.format(
+                            self._ignored_points[device],
+                            device
+                        )
+                    )
+                    self._ignored_points[device] = 0
+                    self._ignored_points_thresholds[device] += 10
+                else:
+                    self._logger.debug(
+                        'Ignoring out of bounds point: {}'.format(point)
+                    )
             else:
+                self._ignored_points[device] = 0
+                self._ignored_points_thresholds[device] = 10
                 message['x_m'] = \
                     self.longitude_to_m_offset(message['longitude_d'])
                 message['y_m'] = \

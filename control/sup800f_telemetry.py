@@ -54,6 +54,7 @@ class Sup800fTelemetry(threading.Thread):
         self._nmea_mode = True
         self._last_compass_heading_d = 0.0
         self._dropped_compass_messages = 0
+        self._dropped_threshold = 10
 
         def handle_message(message):
             """Handles command messages. Only cares about calibrate compass;
@@ -242,7 +243,7 @@ class Sup800fTelemetry(threading.Thread):
         # In a normal distribution, 95% of readings should be within 2 std devs
         if std_devs_away > 2.0:
             self._dropped_compass_messages += 1
-            if self._dropped_compass_messages > 10:
+            if self._dropped_compass_messages > self._dropped_threshold:
                 self._logger.warn(
                     'Dropped {} compass messages in a row, std dev = {}'.format(
                         self._dropped_compass_messages,
@@ -250,7 +251,10 @@ class Sup800fTelemetry(threading.Thread):
                     )
                 )
                 self._dropped_compass_messages = 0
+                self._dropped_threshold += 10
             return
+        self._dropped_compass_messages = 0
+        self._dropped_threshold = 10
 
         if std_devs_away > 1.0:
             confidence = 2.0 - std_devs_away
