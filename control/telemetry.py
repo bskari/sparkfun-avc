@@ -73,26 +73,26 @@ class Telemetry(object):
                 if kml_file_name.endswith('.kmz'):
                     import zipfile
                     with zipfile.ZipFile(kml_file_name) as archive:
-                        self._course = self._load_kml(archive.open('doc.kml'))
+                        self._course_m = self._load_kml(archive.open('doc.kml'))
                 else:
                     with open(kml_file_name) as stream:
-                        self._course = self._load_kml(stream)
+                        self._course_m = self._load_kml(stream)
 
                 self._logger.info(
                     'Loaded {} course points and {} inner objects'.format(
-                        len(self._course['course']),
-                        len(self._course['inner'])
+                        len(self._course_m['course']),
+                        len(self._course_m['inner'])
                     )
                 )
             else:
-                self._course = None
+                self._course_m = None
 
-            if self._course is not None:
-                if len(self._course['course']) == 0:
+            if self._course_m is not None:
+                if len(self._course_m['course']) == 0:
                     self._logger.warn(
                         'No course defined for {}'.format(kml_file_name)
                     )
-                if len(self._course['inner']) == 0:
+                if len(self._course_m['inner']) == 0:
                     self._logger.warn(
                         'No inner obstacles defined for {}'.format(kml_file_name)
                     )
@@ -158,8 +158,11 @@ class Telemetry(object):
             )
 
         if 'latitude_d' in message:
-            point = (message['latitude_d'], message['longitude_d'])
-            if not self._d_point_in_course(point):
+            point_d = (
+                Telemetry.latitude_to_m_offset(message['latitude_d']),
+                Telemetry.longitude_to_m_offset(message['longitude_d'])
+            )
+            if not self._m_point_in_course(point_d):
                 self._ignored_points[device] += 1
                 if self._ignored_points[device] > self._ignored_points_thresholds[device]:
                     self._logger.info(
@@ -172,7 +175,7 @@ class Telemetry(object):
                     self._ignored_points_thresholds[device] += 10
                 else:
                     self._logger.debug(
-                        'Ignoring out of bounds point: {}'.format(point)
+                        'Ignoring out of bounds point: {}'.format(point_d)
                     )
             else:
                 self._ignored_points[device] = 0
@@ -270,8 +273,8 @@ class Telemetry(object):
                 ) = csv.split(',')
 
                 waypoints.append((
+                    Telemetry.latitude_to_m_offset(float(latitude)),
                     Telemetry.longitude_to_m_offset(float(longitude)),
-                    Telemetry.latitude_to_m_offset(float(latitude))
                 ))
 
             if str(placemark.name).startswith('course'):
@@ -281,13 +284,13 @@ class Telemetry(object):
 
         return course
 
-    def _d_point_in_course(self, point):
-        if self._course is None:
+    def _m_point_in_course(self, point_m):
+        if self._course_m is None:
             return True
-        if not self.point_in_polygon(point, self._course['course']):
+        if not self.point_in_polygon(point_m, self._course_m['course']):
             return False
-        for inner in self._course['inner']:
-            if self.point_in_polygon(point, inner):
+        for inner in self._course_m['inner']:
+            if self.point_in_polygon(point_m, inner):
                 return False
         return True
 
