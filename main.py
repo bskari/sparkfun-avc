@@ -189,11 +189,15 @@ def start_threads(
     """Runs everything."""
     logger.info('Creating Telemetry')
     telemetry = Telemetry(kml_file_name)
+    telemetry_dumper = TelemetryDumper(
+        telemetry,
+        waypoint_generator,
+        web_socket_handler
+    )
     logger.info('Done creating Telemetry')
     global DRIVER
     DRIVER = Driver(telemetry)
     DRIVER.set_max_throttle(max_throttle)
-
 
     logger.info('Setting SUP800F to NMEA mode')
     serial_ = serial.Serial('/dev/ttyAMA0', 115200)
@@ -208,13 +212,12 @@ def start_threads(
         serial_.readline()
     logger.info('Done')
 
-    button = Button()
-
-    port = int(get_configuration('PORT', 8080))
-    address = get_configuration('ADDRESS', '0.0.0.0')
-
     # The following objects must be created in order, because of message
-    # exchange dependencies
+    # exchange dependencies:
+    # sup800f_telemetry: reads from command forwarded
+    # command: reads from command, writes to command forwarded
+    # button: writes to command
+    # cherry_py_server: writes to command
     # TODO(2016-08-21) Have something better than sleeps to work around race
     # conditions
     logger.info('Creating threads')
@@ -222,13 +225,11 @@ def start_threads(
     time.sleep(0.5)
     command = Command(telemetry, DRIVER, waypoint_generator)
     time.sleep(0.5)
-    telemetry_dumper = TelemetryDumper(
-        telemetry,
-        waypoint_generator,
-        web_socket_handler
-    )
-    time.sleep(0.5)
+    button = Button()
+    port = int(get_configuration('PORT', 8080))
+    address = get_configuration('ADDRESS', '0.0.0.0')
     cherry_py_server = CherryPyServer(port, address, telemetry)
+    time.sleep(0.5)
 
     global THREADS
     THREADS += (
