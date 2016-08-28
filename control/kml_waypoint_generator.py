@@ -14,35 +14,39 @@ such as the "rabbit chase" method.
 from pykml import parser
 import collections
 import copy
+import json
 import math
+import os
 import re
+import threading
 
 from control.telemetry import Telemetry
+from messaging import config
 from messaging.async_logger import AsyncLogger
+from messaging.message_consumer import consume_messages
 
 
 class KmlWaypointGenerator(object):
     """Loads and returns waypoints from a KML file."""
 
     def __init__(self, kml_file_name):
-        if kml_file_name.endswith('.kmz'):
-            import zipfile
-            with zipfile.ZipFile(kml_file_name) as archive:
-                kml_stream = archive.open('doc.kml')
-                self._initial_waypoints = self._load_waypoints(kml_stream)
-        else:
-            with open(kml_file_name) as file_:
-                kml_stream = file_
-                self._initial_waypoints = self._load_waypoints(kml_stream)
-
-        self._waypoints = copy.deepcopy(self._initial_waypoints)
-        logger = AsyncLogger()
-        logger.info(
-            'Loaded {length} waypoints'.format(
-                length=len(self._waypoints)
-            )
-        )
+        self._logger = AsyncLogger()
+        self._initial_waypoints = None
+        self._waypoints = None
+        # This will initialize both _initial_waypoints and _waypoints
+        self._load_from_file(kml_file_name)
         self._last_distance_m = 1000000.0
+
+        consume = lambda: consume_messages(
+            config.WAYPOINT_EXCHANGE,
+            self._handle_message
+        )
+        thread = threading.Thread(target=consume)
+        thread.name = '{}:consume_messages:{}'.format(
+            self.__class__.__name__,
+            config.WAYPOINT_EXCHANGE
+        )
+        thread.start()
 
     def get_current_waypoint(self, x_m, y_m):  # pylint: disable=unused-argument
         """Returns the current waypoint."""
@@ -89,6 +93,46 @@ class KmlWaypointGenerator(object):
     def reset(self):
         """Resets the waypoints."""
         self._waypoints = copy.deepcopy(self._initial_waypoints)
+
+    def _handle_message(self, message):
+        """Handles a message from the waypoint exchange."""
+        message = json.loads(str(message))
+        if 'command' not in message:
+            self._logger.error('Invalid waypoint message: {}'.format(message))
+            return
+        if message['command'] == 'load' and 'file' in message:
+            try:
+                self._load_from_file('paths' + os.sep + message['file'])
+            except Exception as exc:  # pylint: disable=broad-except
+                self._logger.error(
+                    'Unable to load waypoints from {}: {}'.format(
+                        message['file'],
+                        exc
+                    )
+                )
+        else:
+            self._logger.error(
+                'Invalid waypoint exchange message: {}'.format(message)
+            )
+
+    def _load_from_file(self, kml_file_name):
+        """Loads the KML waypoints from a file."""
+        if kml_file_name.endswith('.kmz'):
+            import zipfile
+            with zipfile.ZipFile(kml_file_name) as archive:
+                kml_stream = archive.open('doc.kml')
+                self._initial_waypoints = self._load_waypoints(kml_stream)
+        else:
+            with open(kml_file_name) as file_:
+                kml_stream = file_
+                self._initial_waypoints = self._load_waypoints(kml_stream)
+
+        self._waypoints = copy.deepcopy(self._initial_waypoints)
+        self._logger.info(
+            'Loaded {length} waypoints'.format(
+                length=len(self._waypoints)
+            )
+        )
 
     @staticmethod
     def _load_waypoints(kml_stream):

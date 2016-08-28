@@ -87,3 +87,19 @@ class CommandForwardProducer(SingletonMixin):
     def forward(self, message):
         """Forwards the message."""
         self._producer.publish(message)
+
+
+class WaypointProducer(SingletonMixin):
+    """Forwards waypoint commands to another exchange."""
+    def __init__(self):
+        super(WaypointProducer, self).__init__()
+        self._producer = MessageProducer(config.WAYPOINT_EXCHANGE)
+
+    def load_kml_file(self, kml_file_name):
+        """Loads some waypoints from a KML file."""
+        self._producer.publish(
+            json.dumps({
+                'command': 'load',
+                'file': kml_file_name
+            })
+        )

@@ -9,6 +9,7 @@ import sys
 from monitor.web_socket_handler import WebSocketHandler
 from messaging.async_logger import AsyncLogger
 from messaging.async_producers import CommandProducer
+from messaging.async_producers import WaypointProducer
 
 
 STATIC_DIR = 'static-web'
@@ -106,6 +107,13 @@ class StatusApp(object):
                 host_ip=self._host_ip,
                 port=self._port
             )
+        ).replace(
+            '${waypointFileOptions}',
+            '\n'.join((
+                '<option value="{file}">{file}</option>'.format(file=i)
+                for i in os.listdir('paths')
+                if i.endswith('kml') or i.endswith('kmz')
+            ))
         )
 
     @cherrypy.expose
@@ -153,8 +161,16 @@ class StatusApp(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def set_max_throttle(self, throttle):  # pylint: disable=no-self-use
+        """Hands off the maximum throttle to the command exchange."""
         self._logger.info('Received throttle command from web')
         self._command.set_max_throttle(throttle)
+        return {'success': True}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def set_waypoints(self, kml_file_name):  # pylint: disable=no-self-use
+        """Hands off the file to load waypoints to the waypoint exchange."""
+        WaypointProducer().load_kml_file(kml_file_name)
         return {'success': True}
 
     @cherrypy.expose

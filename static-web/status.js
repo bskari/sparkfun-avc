@@ -10,6 +10,7 @@ sparkfun.status = sparkfun.status || {};
  *  stop: Object,
  * } buttons
  * @param {Object} throttle
+ * @param {Array<String>} waypointFiles
  * @param {
  *  x_m: Object,
  *  y_m: Object,
@@ -36,6 +37,7 @@ sparkfun.status = sparkfun.status || {};
 sparkfun.status.init = function(
         buttons,
         throttle,
+        waypointFiles,
         carFields,
         telemetryFields,
         logs,
@@ -47,6 +49,7 @@ sparkfun.status.init = function(
     buttons.reset.click(sparkfun.status.reset);
     buttons.calibrateCompass.click(sparkfun.status.calibrateCompass);
     throttle.change(sparkfun.status.setThrottle);
+    waypointFiles.change(sparkfun.status.setWaypoints);
 
     sparkfun.status.carX_m = carFields.x_m;
     sparkfun.status.carY_m = carFields.y_m;
@@ -188,6 +191,12 @@ sparkfun.status.calibrateCompass = function () {
 sparkfun.status.setThrottle = function (evt) {
     'use strict';
     sparkfun.status._poke('/set-max-throttle', {'throttle': evt.currentTarget.value});
+};
+
+
+sparkfun.status.setWaypoints = function (evt) {
+    'use strict';
+    sparkfun.status._poke('/set-waypoints', {'kml_file_name': evt.currentTarget.value});
 };
 
 
