@@ -11,7 +11,7 @@ from messaging import async_producers
 class DummyTelemetry(object):
     def __init__(self):
         self.message = {}
-    def gps_reading(self, lat, long, accuracy, bearing, speed, timestamp):
+    def gps_reading(self, lat, long, accuracy, bearing, speed, timestamp, device_id):
         self.message['lat'] = lat
         self.message['long'] = long
         self.message['accuracy'] = accuracy

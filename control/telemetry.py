@@ -5,6 +5,7 @@ from pykml import parser
 import collections
 import json
 import math
+import os
 import re
 import threading
 
@@ -68,16 +69,10 @@ class Telemetry(object):
         )
         thread.start()
 
+        self._course_m = None
         try:
             if kml_file_name is not None:
-                if kml_file_name.endswith('.kmz'):
-                    import zipfile
-                    with zipfile.ZipFile(kml_file_name) as archive:
-                        self._course_m = self._load_kml(archive.open('doc.kml'))
-                else:
-                    with open(kml_file_name) as stream:
-                        self._course_m = self._load_kml(stream)
-
+                self.load_kml_from_file_name(kml_file_name)
                 self._logger.info(
                     'Loaded {} course points and {} inner objects'.format(
                         len(self._course_m['course']),
@@ -198,8 +193,11 @@ class Telemetry(object):
                     message['speed_m_s']
                 )
 
-        self._data = message
-        self._logger.debug(json.dumps(message))
+            self._data = message
+            self._logger.debug(json.dumps(message))
+
+        if 'load_waypoints' in message:
+            self.load_kml_from_file_name(message['load_waypoints'])
 
     @synchronized
     def is_stopped(self):
@@ -211,6 +209,18 @@ class Telemetry(object):
             self._speed_history.clear()
             return True
         return False
+
+    @synchronized
+    def load_kml_from_file_name(self, kml_file_name):
+        """Loads KML from a file name."""
+        kml_file_name = 'paths' + os.sep + kml_file_name
+        if kml_file_name.endswith('.kmz'):
+            import zipfile
+            with zipfile.ZipFile(kml_file_name) as archive:
+                self._course_m = self._load_kml_from_stream(archive.open('doc.kml'))
+        else:
+            with open(kml_file_name) as stream:
+                self._course_m = self._load_kml_from_stream(stream)
 
     def _update_estimated_drive(self):
         """Updates the estimations of the drive state, e.g. the current
@@ -233,7 +243,7 @@ class Telemetry(object):
             self._estimated_steering * BASE_MAX_TURN_RATE_D_S
         )
 
-    def _load_kml(self, kml_stream):
+    def _load_kml_from_stream(self, kml_stream):
         """Loads the course boundaries from a KML file."""
         course = collections.defaultdict(lambda: [])
 

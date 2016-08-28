@@ -379,7 +379,7 @@ different from the current algorithm.'''
             'course': ((1, 2), (3, 4)),
             'inner': ()
         }
-        with mock.patch.object(Telemetry, '_load_kml', return_value=course):
+        with mock.patch.object(Telemetry, 'load_kml_from_file_name', return_value=course):
             with mock.patch('builtins.open'):
                 Telemetry('file.kml')
 
