@@ -47,7 +47,7 @@ class TelemetryProducer(SingletonMixin):
             latitude_d,
             longitude_d,
             accuracy_m,
-            bearing_d,
+            heading_d,
             speed_m_s,
             timestamp_s,
             device_id
@@ -57,7 +57,7 @@ class TelemetryProducer(SingletonMixin):
             'latitude_d': latitude_d,
             'longitude_d': longitude_d,
             'accuracy_m': accuracy_m,
-            'bearing_d': bearing_d,
+            'heading_d': heading_d,
             'speed_m_s': speed_m_s,
             'timestamp_s': timestamp_s,
             'device_id': device_id,
