@@ -178,7 +178,7 @@ class Telemetry(object):
                 message['x_m'] = \
                     self.longitude_to_m_offset(message['longitude_d'])
                 message['y_m'] = \
-                    self.latitude_to_m_offset(message['longitude_d'])
+                    self.latitude_to_m_offset(message['latitude_d'])
 
                 self._update_estimated_drive()
                 self._location_filter.update_gps(
