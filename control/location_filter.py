@@ -120,12 +120,15 @@ class LocationFilter(object):
         self._last_observation_s = now
 
         if heading_d is None:
+            heading_d = 0.0
             if speed_m_s is None:
                 matrix = self.GPS_NO_HEADING_SPEED_OBSERVER_MATRIX
+                speed_m_s = 0.0
             else:
                 matrix = self.GPS_NO_HEADING_OBSERVER_MATRIX
         elif speed_m_s is None:
             matrix = self.GPS_NO_SPEED_OBSERVER_MATRIX
+            speed_m_s = 0.0
         else:
             matrix = self.GPS_OBSERVER_MATRIX
 
