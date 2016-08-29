@@ -189,7 +189,7 @@ class Telemetry(object):
                     # think any of my sources report both right now.
                     message['accuracy_m'],
                     message['accuracy_m'],
-                    message['gps_d'],
+                    message['heading_d'],
                     message['speed_m_s']
                 )
 
