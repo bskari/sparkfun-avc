@@ -1,7 +1,8 @@
+analysis/location_test/location-test-cert-req.csr
 analysis/location_test/location-test-new-certificate.pem
 analysis/location_test/location-test-private-key.pem
-analysis/location_test/location-test-cert-req.csr
 analysis/location_test/out.json
 analysis/location_test/out.kml
+analysis/out.kml
 control/web_telemetry/cert.pem
 control/web_telemetry/key.pem
