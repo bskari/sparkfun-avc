@@ -383,6 +383,39 @@ different from the current algorithm.'''
             with mock.patch('builtins.open'):
                 Telemetry('file.kml')
 
+    def test_offset_calculations(self):
+        """Tests the latitude/longitude to y_m/x_m offset calculations."""
+        for value in (-2.0, -1.0, 0.0, 1.0, 2.0):
+            self.assertAlmostEqual(
+                value,
+                Telemetry.offset_y_m_to_latitude(
+                    Telemetry.latitude_to_m_offset(value)
+                )
+            )
+            self.assertAlmostEqual(
+                value,
+                Telemetry.latitude_to_m_offset(
+                    Telemetry.offset_y_m_to_latitude(
+                        value
+                    )
+                )
+            )
+            for value_2 in (-0.01, 0.0, 0.01):
+                self.assertAlmostEqual(
+                    value,
+                    Telemetry.offset_x_m_to_longitude(
+                        Telemetry.longitude_to_m_offset(value),
+                        value_2
+                    )
+                )
+                self.assertAlmostEqual(
+                    value,
+                    Telemetry.offset_x_m_to_longitude(
+                        Telemetry.longitude_to_m_offset(value),
+                        value_2
+                    )
+                )
+
 
 if __name__ == '__main__':
     unittest.main()

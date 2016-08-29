@@ -202,15 +202,6 @@ class Sup800fTelemetry(threading.Thread):
         )
         timestamp_s = self._timestamp(datetime_) + seconds
 
-        self._logger.debug(
-            'lat: {}, long: {}, speed: {}, course: {}'.format(
-                round(latitude, 7),
-                round(longitude, 7),
-                round(speed_m_s, 3),
-                round(course, 3),
-            )
-        )
-
         # TODO: Parse other messages to estimate accuracy
         self._telemetry.gps_reading(
             latitude,

@@ -112,13 +112,15 @@ class Telemetry(object):
         values['heading_d'] = self._location_filter.estimated_heading()
         x_m, y_m = self._location_filter.estimated_location()
         values['x_m'], values['y_m'] = x_m, y_m
+        latitude = self.offset_y_m_to_latitude(y_m)
         self._logger.debug(
-            'Estimates: x m {x}, y m {y}, heading d {heading},'
-            ' speed m/s^2 {speed}'.format(
-                x=round(values['x_m'], 3),
-                y=round(values['y_m'], 3),
-                heading=round(values['heading_d'], 3),
-                speed=round(values['speed_m_s'], 3),
+            'Estimates: {}'.format(
+                json.dumps({
+                    'latitude_d': self.offset_y_m_to_latitude(y_m),
+                    'longitude_d': self.offset_x_m_to_longitude(x_m, latitude),
+                    'heading_d': values['heading_d'],
+                    'device_id': 'estimate'
+                })
             )
         )
         return values
@@ -469,6 +471,17 @@ class Telemetry(object):
         if longitude_d > CENTRAL_LONGITUDE:
             return x_m
         return -x_m
+
+    @classmethod
+    def offset_y_m_to_latitude(cls, y_m):
+        """Returns the inverse of latitude_to_m_offset."""
+        return y_m / cls.m_per_d_latitude() + CENTRAL_LATITUDE
+
+    @classmethod
+    def offset_x_m_to_longitude(cls, x_m, latitude_d):
+        """Returns the inverse of longitude_to_m_offset."""
+        distance = cls.latitude_to_m_per_d_longitude(latitude_d)
+        return x_m / distance + CENTRAL_LONGITUDE
 
     @staticmethod
     def distance_to_waypoint(heading_d_1, heading_d_2, distance_travelled):
