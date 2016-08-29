@@ -12,6 +12,26 @@ class LocationFilter(object):
     MAX_SPEED_M_S = 11.0 * 5280 / 60 / 60 / 3.2808399  # 11 MPH
 
     GPS_OBSERVER_MATRIX = numpy.eye(4)  # H
+    # Sometimes the web telemetry doesn't report heading and speed, so these
+    # matrices ignore them
+    GPS_NO_HEADING_OBSERVER_MATRIX = numpy.matrix([
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 1]
+    ])
+    GPS_NO_SPEED_OBSERVER_MATRIX = numpy.matrix([
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 0]
+    ])
+    GPS_NO_HEADING_SPEED_OBSERVER_MATRIX = numpy.matrix([
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
+    ])
     COMPASS_OBSERVER_MATRIX = numpy.matrix([  # H
         [0, 0, 0, 0],
         [0, 0, 0, 0],
@@ -92,10 +112,6 @@ class LocationFilter(object):
             speed_m_s
     ):
         """Update the state estimation using the provided GPS measurement."""
-        measurements = numpy.matrix(
-            [x_m, y_m, heading_d, speed_m_s]
-        ).transpose()  # z
-
         self.GPS_MEASUREMENT_NOISE[0].itemset(0, x_accuracy_m)
         self.GPS_MEASUREMENT_NOISE[1].itemset(1, y_accuracy_m)
 
@@ -103,9 +119,23 @@ class LocationFilter(object):
         time_diff_s = now - self._last_observation_s
         self._last_observation_s = now
 
+        if heading_d is None:
+            if speed_m_s is None:
+                matrix = self.GPS_NO_HEADING_SPEED_OBSERVER_MATRIX
+            else:
+                matrix = self.GPS_NO_HEADING_OBSERVER_MATRIX
+        elif speed_m_s is None:
+            matrix = self.GPS_NO_SPEED_OBSERVER_MATRIX
+        else:
+            matrix = self.GPS_OBSERVER_MATRIX
+
+        measurements = numpy.matrix(
+            [x_m, y_m, heading_d, speed_m_s]
+        ).transpose()  # z
+
         self._update(
             measurements,
-            self.GPS_OBSERVER_MATRIX,
+            matrix,
             self.GPS_MEASUREMENT_NOISE,
             time_diff_s
         )
