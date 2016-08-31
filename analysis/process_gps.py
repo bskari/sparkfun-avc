@@ -45,15 +45,23 @@ def main():
 
 
 def process_streams(in_stream, out_stream, name):
-    run_count = 0
+    run_count = 1
+    runs = []
     for line in in_stream:
         if 'Received run command' in line:
             print('Starting run {}'.format(run_count))
+            runs.append(process_run(in_stream, name, run_count))
             run_count += 1
-            process_run(in_stream, out_stream, name, run_count)
+
+    out_stream.write(
+        KML_TEMPLATE.format(
+            name=name,
+            folders=''.join(runs)
+        )
+    )
 
 
-def process_run(in_stream, out_stream, name, run_count):
+def process_run(in_stream, name, run_count):
     points = collections.defaultdict(lambda: [])
     for line in in_stream:
         if 'Received stop command' in line or 'No waypoints, stopping' in line:
@@ -75,26 +83,21 @@ def process_run(in_stream, out_stream, name, run_count):
         )
     )
 
-    out_stream.write(
-        KML_TEMPLATE.format(
-            name=name,
-            folders=FOLDER_TEMPLATE.format(
-                name=str(run_count),
-                placemark='\n'.join((
-                    PLACEMARK_TEMPLATE.format(
-                        name=device,
-                        coordinates=' '.join((
-                            '{latitude},{longitude},0'.format(
-                                latitude=point[0],
-                                longitude=point[1]
-                            )
-                            for point in points[device]
-                        ))
+    return FOLDER_TEMPLATE.format(
+        name=str(run_count),
+        placemark='\n'.join((
+            PLACEMARK_TEMPLATE.format(
+                name=device,
+                coordinates=' '.join((
+                    '{latitude},{longitude},0'.format(
+                        latitude=point[0],
+                        longitude=point[1]
                     )
-                    for device in points
+                    for point in points[device]
                 ))
             )
-        )
+            for device in points
+        ))
     )
 
 
