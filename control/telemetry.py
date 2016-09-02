@@ -241,9 +241,16 @@ class Telemetry(object):
         BASE_MAX_TURN_RATE_D_S = 150.0
         # We always update the steering change, because we don't have sensors
         # to get estimates for it from other sources for our Kalman filter
-        self._location_filter.manual_steering(
-            self._estimated_steering * BASE_MAX_TURN_RATE_D_S
-        )
+        if self._estimated_throttle > 0:
+            self._location_filter.manual_steering(
+                self._estimated_steering * BASE_MAX_TURN_RATE_D_S
+            )
+        elif self._estimated_throttle < 0:
+            self._location_filter.manual_steering(
+                self._estimated_steering * BASE_MAX_TURN_RATE_D_S
+            )
+        else:
+            self._location_filter.manual_steering(0)
 
     def _load_kml_from_stream(self, kml_stream):
         """Loads the course boundaries from a KML file."""
