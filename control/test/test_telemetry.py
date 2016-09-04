@@ -1,4 +1,5 @@
 """Tests the Telemetry class."""
+import json
 import math
 import mock
 import unittest
@@ -404,17 +405,73 @@ different from the current algorithm.'''
                 self.assertAlmostEqual(
                     value,
                     Telemetry.offset_x_m_to_longitude(
-                        Telemetry.longitude_to_m_offset(value),
+                        Telemetry.longitude_to_m_offset(value, 0.0),
                         value_2
                     )
                 )
                 self.assertAlmostEqual(
                     value,
                     Telemetry.offset_x_m_to_longitude(
-                        Telemetry.longitude_to_m_offset(value),
+                        Telemetry.longitude_to_m_offset(value, 0.0),
                         value_2
                     )
                 )
+
+        rally_parking_lot = (40.020776, -105.248319)
+        self.assertAlmostEqual(
+            Telemetry.offset_x_m_to_longitude(
+                Telemetry.longitude_to_m_offset(
+                    rally_parking_lot[1],
+                    rally_parking_lot[0]
+                ),
+                rally_parking_lot[0]
+            ),
+            rally_parking_lot[1]
+        )
+
+    @mock.patch.object(Telemetry, '_m_point_in_course')
+    def test_handle_telemetry_message(self, mpic):
+        """Tests the handling of telemetry messages received from telemetry
+        sources, such as phones or SUP800F.
+        """
+        telemetry = Telemetry()
+        self.assertEqual(len(telemetry._speed_history), 0)
+        telemetry._handle_message(
+            json.dumps(
+                {'device_id': 'test', 'speed_m_s': 1.0}
+            )
+        )
+        self.assertEqual(len(telemetry._speed_history), 1)
+
+        mpic.return_value = True
+        self.assertEqual(mpic.call_count, 0)
+        telemetry._handle_message(
+            json.dumps({
+                'device_id': 'test',
+                'latitude_d': 1.0,
+                'longitude_d': 1.0,
+                'accuracy_m': 1.0,
+                'speed_m_s': 1.0,
+                'heading_d': 0.0
+            })
+        )
+        self.assertEqual(mpic.call_count, 1)
+
+        mpic.return_value = False
+        self.assertEqual(mpic.call_count, 1)
+        telemetry._handle_message(
+            json.dumps({
+                'device_id': 'test',
+                'latitude_d': 1.0,
+                'longitude_d': 1.0,
+                'accuracy_m': 1.0,
+                'speed_m_s': 1.0,
+                'heading_d': 0.0
+            })
+        )
+        self.assertEqual(mpic.call_count, 2)
+        self.assertEqual(len(telemetry._ignored_points), 1)
+        self.assertEqual(telemetry._ignored_points['test'], 1)
 
 
 if __name__ == '__main__':

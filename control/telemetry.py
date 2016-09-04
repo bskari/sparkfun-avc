@@ -142,8 +142,8 @@ class Telemetry(object):
         """Stores telemetry data from messages received from some source."""
         message = json.loads(message)
         device = message['device_id']
-        if 'speed_m_s' in self._data:
-            self._speed_history.append(self._data['speed_m_s'])
+        if 'speed_m_s' in message:
+            self._speed_history.append(message['speed_m_s'])
             while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
                 self._speed_history.popleft()
 
@@ -155,11 +155,11 @@ class Telemetry(object):
             )
 
         if 'latitude_d' in message:
-            point_d = (
-                Telemetry.latitude_to_m_offset(message['latitude_d']),
-                Telemetry.longitude_to_m_offset(message['longitude_d'])
+            point_m = (
+                Telemetry.longitude_to_m_offset(message['longitude_d'], message['latitude_d']),
+                Telemetry.latitude_to_m_offset(message['latitude_d'])
             )
-            if not self._m_point_in_course(point_d):
+            if not self._m_point_in_course(point_m):
                 self._ignored_points[device] += 1
                 if self._ignored_points[device] > self._ignored_points_thresholds[device]:
                     self._logger.info(
@@ -172,15 +172,13 @@ class Telemetry(object):
                     self._ignored_points_thresholds[device] += 10
                 else:
                     self._logger.debug(
-                        'Ignoring out of bounds point: {}'.format(point_d)
+                        'Ignoring out of bounds point: {}'.format(point_m)
                     )
             else:
                 self._ignored_points[device] = 0
                 self._ignored_points_thresholds[device] = 10
-                message['x_m'] = \
-                    self.longitude_to_m_offset(message['longitude_d'])
-                message['y_m'] = \
-                    self.latitude_to_m_offset(message['latitude_d'])
+                message['x_m'] = point_m[0]
+                message['y_m'] = point_m[1]
 
                 self._update_estimated_drive()
                 self._location_filter.update_gps(
@@ -292,8 +290,8 @@ class Telemetry(object):
                 ) = csv.split(',')
 
                 waypoints.append((
+                    Telemetry.longitude_to_m_offset(float(longitude), float(latitude)),
                     Telemetry.latitude_to_m_offset(float(latitude)),
-                    Telemetry.longitude_to_m_offset(float(longitude)),
                 ))
 
             if str(placemark.name).startswith('course'):
@@ -463,21 +461,17 @@ class Telemetry(object):
             diff_d = 360.0 - diff_d
         return diff_d
 
-    @staticmethod
-    def latitude_to_m_offset(latitude_d):
+    @classmethod
+    def latitude_to_m_offset(cls, latitude_d):
         """Returns the offset in meters for a given coordinate."""
-        y_m = Telemetry.distance_m(latitude_d, 0.0, CENTRAL_LATITUDE, 0.0)
-        if latitude_d > CENTRAL_LATITUDE:
-            return y_m
-        return -y_m
+        y_m = cls.m_per_d_latitude() * (latitude_d - CENTRAL_LATITUDE)
+        return y_m
 
-    @staticmethod
-    def longitude_to_m_offset(longitude_d):
+    @classmethod
+    def longitude_to_m_offset(cls, longitude_d, latitude_d):
         """Returns the offset in meters for a given coordinate."""
-        x_m = Telemetry.distance_m(0.0, longitude_d, 0.0, CENTRAL_LONGITUDE)
-        if longitude_d > CENTRAL_LONGITUDE:
-            return x_m
-        return -x_m
+        x_m = cls.latitude_to_m_per_d_longitude(latitude_d) * (longitude_d - CENTRAL_LONGITUDE)
+        return x_m
 
     @classmethod
     def offset_y_m_to_latitude(cls, y_m):
