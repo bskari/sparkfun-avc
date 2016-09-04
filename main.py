@@ -349,6 +349,11 @@ def main():
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
         concrete_logger.addHandler(file_handler)
+        try:
+            with open(os.path.dirname(args.log), 'a') as last_log:
+                last_log.write(args.log + '\n')
+        except Exception as exc:
+            print('Unable to save last log information: {}'.format(exc))
     except Exception as exception:
         logging.warning('Could not create file log: ' + str(exception))
 
