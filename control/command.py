@@ -297,6 +297,9 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 self._driver.drive(throttle, 0.0)
                 yield True
                 continue
+            # No sharp turns when we are close, to avoid hard swerves
+            elif distance_m < 3.0:
+                turn = 0.25
             elif diff_d > 90.0:
                 turn = 1.0
             elif diff_d > 45.0:
