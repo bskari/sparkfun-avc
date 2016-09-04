@@ -74,7 +74,7 @@ class KmlWaypointGenerator(object):
             return True
         if self._last_distance_m < 3.0 and distance_m > self._last_distance_m:
             # This will get overwritten next time
-            self._last_distance_m = 1000000.0
+            self._last_distance_m = float('inf')
             return True
 
         self._last_distance_m = distance_m
@@ -165,7 +165,7 @@ class KmlWaypointGenerator(object):
             ) = csv.split(',')
 
             waypoints.append((
-                Telemetry.longitude_to_m_offset(float(longitude)),
+                Telemetry.longitude_to_m_offset(float(longitude), float(latitude)),
                 Telemetry.latitude_to_m_offset(float(latitude))
             ))
         return waypoints
