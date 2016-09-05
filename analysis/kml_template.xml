@@ -3,6 +3,7 @@
 <Document>
     <name>{name}</name>
     <open>1</open>
+    {style_maps}
     {folders}
 </Document>
 </kml>
