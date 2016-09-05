@@ -71,6 +71,21 @@ class TelemetryProducer(SingletonMixin):
             'device_id': device_id,
         }))
 
+    def accelerometer_reading(
+            self,
+            acceleration_g_x,
+            acceleration_g_y,
+            acceleration_g_z,
+            device_id
+    ):
+        """Sends an accelerometer reading."""
+        self._producer.publish(json.dumps({
+            'acceleration_g_x': acceleration_g_x,
+            'acceleration_g_y': acceleration_g_y,
+            'acceleration_g_z': acceleration_g_z,
+            'device_id': device_id,
+        }))
+
 
 class CommandForwardProducer(SingletonMixin):
     """Forwards commands to another exchange."""

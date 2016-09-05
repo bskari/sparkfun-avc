@@ -50,6 +50,10 @@ class Sup800fTelemetry(threading.Thread):
         self._magnitude_mean = 353.310
         self._magnitude_std_dev = 117.918
 
+        # TODO(skari): Fill in some defaults
+        self._accelerometer_means = [0, 0, 1]
+        self._accelerometer_std_dev = [0.2, 0.2, 0.2]
+
         self._calibrate_compass_end_time = None
         self._nmea_mode = True
         self._last_compass_heading_d = 0.0
@@ -273,6 +277,13 @@ class Sup800fTelemetry(threading.Thread):
             'sup800f'
         )
 
+        self._telemetry.accelerometer_reading(
+            (self._accelerometer_means[0] - message.acceleration_g_x) / self._accelerometer_std_dev[0],
+            (self._accelerometer_means[1] - message.acceleration_g_y) / self._accelerometer_std_dev[1],
+            (self._accelerometer_means[2] - message.acceleration_g_z) / self._accelerometer_std_dev[2],
+            'sup800f'
+        )
+
     def kill(self):
         """Stops any data collection."""
         self._run = False
@@ -292,9 +303,10 @@ class Sup800fTelemetry(threading.Thread):
         for _ in range(10):
             self._serial.readline()
 
-        maxes = [-1000000.0] * 3
-        mins = [1000000.0] * 3
-        readings = []
+        maxes = [-float('inf')] * 2
+        mins = [float('inf')] * 2
+        flux_readings = []
+        accelerometer_readings = [[]] * 3
         # We should be driving for this long
         while time.time() < self._calibrate_compass_end_time:
             data = get_message(self._serial)
@@ -302,24 +314,26 @@ class Sup800fTelemetry(threading.Thread):
                 binary = parse_binary(data)
             except ValueError as ve:
                 self._logger.info(
-                    'Unable to parse binary message {}'.format(
-                        data
+                    'Unable to parse binary message {}: {}'.format(
+                        data,
+                        ve
                     )
                 )
                 continue
             # TODO: This should never be None, see comment in sup800f.py
             if binary is None:
                 continue
-            values = (
+            flux_values = (
                 binary.magnetic_flux_ut_x,
                 binary.magnetic_flux_ut_y,
             )
-            maxes = [max(a, b) for a, b in zip(maxes, values)]
-            mins = [min(a, b) for a, b in zip(mins, values)]
-            readings.append((
-                binary.magnetic_flux_ut_x,
-                binary.magnetic_flux_ut_y,
-            ))
+            maxes = [max(a, b) for a, b in zip(maxes, flux_values)]
+            mins = [min(a, b) for a, b in zip(mins, flux_values)]
+            flux_readings.append(flux_values)
+
+            accelerometer_readings[0].append(binary.acceleration_g_x)
+            accelerometer_readings[1].append(binary.acceleration_g_y)
+            accelerometer_readings[2].append(binary.acceleration_g_z)
 
         self._compass_offsets = [
             (max_ + min_) * 0.5 for max_, min_ in zip(maxes, mins)
@@ -332,16 +346,33 @@ class Sup800fTelemetry(threading.Thread):
         total_magnitudes = numpy.array([
             (x - self._compass_offsets[0]) ** 2 +
             (y - self._compass_offsets[1]) ** 2
-            for x, y in readings
+            for x, y in flux_readings
         ])
         self._magnitude_mean = total_magnitudes.mean()
         self._magnitude_std_dev = total_magnitudes.std()
         self._logger.info(
-            'Magnitudes mean: {}, standard deviation {}'.format(
+            'Magnitudes mean: {}, standard deviation: {}'.format(
                 round(self._magnitude_mean, 3),
                 round(self._magnitude_std_dev, 3)
             )
         )
+
+        accel_x = numpy.array(accelerometer_readings[0])
+        accel_y = numpy.array(accelerometer_readings[1])
+        accel_z = numpy.array(accelerometer_readings[2])
+        self._accelerometer_means[0] = accel_x.mean()
+        self._accelerometer_means[1] = accel_y.mean()
+        self._accelerometer_means[2] = accel_z.mean()
+        self._accelerometer_std_dev[0] = accel_x.std()
+        self._accelerometer_std_dev[1] = accel_y.std()
+        self._accelerometer_std_dev[2] = accel_z.std()
+        self._logger.info(
+            'Accelerometer means: {}, standard deviations: {}'.format(
+                [round(i, 3) for i in self._accelerometer_means],
+                [round(i, 3) for i in self._accelerometer_std_dev]
+            )
+        )
+
         self._calibrate_compass_end_time = None
         switch_to_nmea_mode(self._serial)
         self._nmea_mode = True

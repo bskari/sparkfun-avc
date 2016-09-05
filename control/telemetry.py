@@ -140,8 +140,8 @@ class Telemetry(object):
 
     def _handle_message(self, message):
         """Stores telemetry data from messages received from some source."""
-        message = json.loads(message)
-        device = message['device_id']
+        original_message = message
+        message = json.loads(original_message)
         if 'speed_m_s' in message:
             self._speed_history.append(message['speed_m_s'])
             while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
@@ -153,69 +153,86 @@ class Telemetry(object):
                 message['compass_d'],
                 message['confidence']
             )
-            self._logger.debug(json.dumps(message))
+            self._logger.debug(original_message)
 
-        if 'latitude_d' in message:
-            point_m = (
-                Telemetry.longitude_to_m_offset(message['longitude_d'], message['latitude_d']),
-                Telemetry.latitude_to_m_offset(message['latitude_d'])
-            )
-            if self._m_point_in_course(point_m):
-                self._ignored_points[device] = 0
-                self._ignored_points_thresholds[device] = 10
-                message['x_m'] = point_m[0]
-                message['y_m'] = point_m[1]
+        elif 'acceleration_g_x' in message:
+            # TODO(skari): Detect if we've run into something
+            self._logger.debug(original_message)
 
-                self._update_estimated_drive()
-                self._location_filter.update_gps(
-                    message['x_m'],
-                    message['y_m'],
-                    # The location filter supports accuracy in both directions,
-                    # but TelemetryProducer only reports one right now. I don't
-                    # think any of my sources report both right now.
-                    message['accuracy_m'],
-                    message['accuracy_m'],
-                    message['heading_d'],
-                    message['speed_m_s']
-                )
-            else:
-                self._ignored_points[device] += 1
-                if self._ignored_points[device] > self._ignored_points_thresholds[device]:
-                    self._logger.info(
-                        'Dropped {} out of bounds points from {} in a row'.format(
-                            self._ignored_points[device],
-                            device
-                        )
-                    )
-                    self._ignored_points[device] = 0
-                    self._ignored_points_thresholds[device] += 10
-                else:
-                    self._logger.debug(
-                        'Ignoring out of bounds point: {}'.format(point_m)
-                    )
-
-                # In general, I've found that speed and heading readings tend
-                # to be fairly accurate, even if the actual coordinates are
-                # off. i.e., GPS readings are usually consistently off by N
-                # meters in the short term and not random all over the place.
-                if  'heading_d' in message and 'speed_m_s' in message:
-                    if message['speed_m_s'] <= MAX_SPEED_M_S:
-                        self._location_filter.update_heading_and_speed(
-                            message['heading_d'],
-                            message['speed_m_s']
-                        )
-                    else:
-                        self._logger.debug(
-                            'Ignoring too high of speed value: {}'.format(
-                                message['speed_m_s']
-                            )
-                        )
+        elif 'latitude_d' in message:
+            self._handle_gps_message(message)
 
             self._data = message
-            self._logger.debug(json.dumps(message))
+            self._logger.debug(original_message)
 
-        if 'load_waypoints' in message:
+        elif 'load_waypoints' in message:
             self.load_kml_from_file_name(message['load_waypoints'])
+
+        else:
+            self._logger.debug(
+                'Unexpected message: {}'.format(original_message)
+            )
+
+    def _handle_gps_message(self, message):
+        """Handles a GPS telemetry message."""
+        device = message['device_id']
+        point_m = (
+            Telemetry.longitude_to_m_offset(
+                message['longitude_d'],
+                message['latitude_d']
+            ),
+            Telemetry.latitude_to_m_offset(message['latitude_d'])
+        )
+        if self._m_point_in_course(point_m):
+            self._ignored_points[device] = 0
+            self._ignored_points_thresholds[device] = 10
+            message['x_m'] = point_m[0]
+            message['y_m'] = point_m[1]
+
+            self._update_estimated_drive()
+            self._location_filter.update_gps(
+                message['x_m'],
+                message['y_m'],
+                # The location filter supports accuracy in both directions,
+                # but TelemetryProducer only reports one right now. I don't
+                # think any of my sources report both right now.
+                message['accuracy_m'],
+                message['accuracy_m'],
+                message['heading_d'],
+                message['speed_m_s']
+            )
+        else:
+            self._ignored_points[device] += 1
+            if self._ignored_points[device] > self._ignored_points_thresholds[device]:
+                self._logger.info(
+                    'Dropped {} out of bounds points from {} in a row'.format(
+                        self._ignored_points[device],
+                        device
+                    )
+                )
+                self._ignored_points[device] = 0
+                self._ignored_points_thresholds[device] += 10
+            else:
+                self._logger.debug(
+                    'Ignoring out of bounds point: {}'.format(point_m)
+                )
+
+            # In general, I've found that speed and heading readings tend
+            # to be fairly accurate, even if the actual coordinates are
+            # off. i.e., GPS readings are usually consistently off by N
+            # meters in the short term and not random all over the place.
+            if  'heading_d' in message and 'speed_m_s' in message:
+                if message['speed_m_s'] <= MAX_SPEED_M_S:
+                    self._location_filter.update_heading_and_speed(
+                        message['heading_d'],
+                        message['speed_m_s']
+                    )
+                else:
+                    self._logger.debug(
+                        'Ignoring too high of speed value: {}'.format(
+                            message['speed_m_s']
+                        )
+                    )
 
     @synchronized
     def is_stopped(self):
