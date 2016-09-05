@@ -8,6 +8,7 @@ sparkfun.status = sparkfun.status || {};
  *  calibrateCompass: Object,
  *  reset: Object,
  *  stop: Object,
+ *  shutDown: Object,
  * } buttons
  * @param {Object} throttle
  * @param {Array<String>} waypointFiles
@@ -48,6 +49,7 @@ sparkfun.status.init = function(
     buttons.stop.click(sparkfun.status.stop);
     buttons.reset.click(sparkfun.status.reset);
     buttons.calibrateCompass.click(sparkfun.status.calibrateCompass);
+    buttons.shutDown.click(sparkfun.status.confirmShutDown);
     throttle.change(sparkfun.status.setThrottle);
     waypointFiles.change(sparkfun.status.setWaypoints);
 
@@ -197,6 +199,14 @@ sparkfun.status.setThrottle = function (evt) {
 sparkfun.status.setWaypoints = function (evt) {
     'use strict';
     sparkfun.status._poke('/set-waypoints', {'kml_file_name': evt.currentTarget.value});
+};
+
+
+sparkfun.status.confirmShutDown = function (evt) {
+    'use strict';
+    if (confirm('Shut down?')) {
+        sparkfun.status._poke('/shut-down');
+    }
 };
 
 

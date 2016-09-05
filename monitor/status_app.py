@@ -3,6 +3,7 @@
 import cherrypy
 import netifaces
 import os
+import signal
 import subprocess
 import sys
 
@@ -172,6 +173,15 @@ class StatusApp(object):
         """Hands off the file to load waypoints to the waypoint exchange."""
         WaypointProducer().load_kml_file(kml_file_name)
         self._telemetry.load_kml_from_file_name(kml_file_name)
+        return {'success': True}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def shut_down(self):
+        """Shuts down the Pi."""
+        self._command.stop()
+        subprocess.Popen(('bash', '-c', 'sleep 10 && sudo shutdown -h now'))
+        os.kill(os.getpid(), signal.SIGINT)
         return {'success': True}
 
     @cherrypy.expose

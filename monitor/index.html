@@ -118,6 +118,9 @@
             </div>
         </div>
 
+        <br>
+        <br>
+        <button id="shut-down-button" type="button" class="btn btn-lg btn-danger">Shut down</button>
     </div> <!-- /container -->
 
     <script src="/static/jquery-2.1.3.min.js"></script>
@@ -130,7 +133,8 @@ $(document).ready(function () {
         run: $('#run-button'),
         calibrateCompass: $('#calibrate-compass-button'),
         reset: $('#reset-button'),
-        stop: $('#stop-button')
+        stop: $('#stop-button'),
+        shutDown: $('#shut-down-button')
     };
     var carFields = {
         x_m: $('#x-m'),
