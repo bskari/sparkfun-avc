@@ -32,6 +32,12 @@ class LocationFilter(object):
         [0, 0, 0, 0],
         [0, 0, 0, 0]
     ])
+    HEADING_SPEED_OBSERVER_MATRIX = numpy.matrix([
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    ])
     COMPASS_OBSERVER_MATRIX = numpy.matrix([  # H
         [0, 0, 0, 0],
         [0, 0, 0, 0],
@@ -71,6 +77,14 @@ class LocationFilter(object):
         # observations, but presumably it will take a few GPS measurements
         # before the speed updates, so maybe it will be more accurate at first?
         [0, 0, 0, 2.0]
+    ])
+    HEADING_SPEED_MEASUREMENT_NOISE = numpy.matrix([  # R
+        # These values are a guess, but because they are coming from GPS
+        # readings that are out of bounds, they are set artificially high
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 20, 0],
+        [0, 0, 0, MAX_SPEED_M_S * 0.5]
     ])
 
     # http://robotsforroboticists.com/kalman-filtering/ is a great reference
@@ -140,6 +154,26 @@ class LocationFilter(object):
             measurements,
             matrix,
             self.GPS_MEASUREMENT_NOISE,
+            time_diff_s
+        )
+
+    def update_heading_and_speed(self, heading_d, speed_m_s):
+        """Updates the heading and speed based on GPS readings. This should be
+        used for out of bounds measurements, where while the coordinates
+        positions may be bad, the heading and speed are usually good.
+        """
+        now = time.time()
+        time_diff_s = now - self._last_observation_s
+        self._last_observation_s = now
+
+        measurements = numpy.matrix(
+            [0, 0, heading_d, speed_m_s]
+        ).transpose()  # z
+
+        self._update(
+            measurements,
+            self.HEADING_SPEED_OBSERVER_MATRIX,
+            self.HEADING_SPEED_MEASUREMENT_NOISE,
             time_diff_s
         )
 

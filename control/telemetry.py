@@ -159,22 +159,7 @@ class Telemetry(object):
                 Telemetry.longitude_to_m_offset(message['longitude_d'], message['latitude_d']),
                 Telemetry.latitude_to_m_offset(message['latitude_d'])
             )
-            if not self._m_point_in_course(point_m):
-                self._ignored_points[device] += 1
-                if self._ignored_points[device] > self._ignored_points_thresholds[device]:
-                    self._logger.info(
-                        'Dropped {} out of bounds points from {} in a row'.format(
-                            self._ignored_points[device],
-                            device
-                        )
-                    )
-                    self._ignored_points[device] = 0
-                    self._ignored_points_thresholds[device] += 10
-                else:
-                    self._logger.debug(
-                        'Ignoring out of bounds point: {}'.format(point_m)
-                    )
-            else:
+            if self._m_point_in_course(point_m):
                 self._ignored_points[device] = 0
                 self._ignored_points_thresholds[device] = 10
                 message['x_m'] = point_m[0]
@@ -192,6 +177,35 @@ class Telemetry(object):
                     message['heading_d'],
                     message['speed_m_s']
                 )
+            else:
+                self._ignored_points[device] += 1
+                if self._ignored_points[device] > self._ignored_points_thresholds[device]:
+                    self._logger.info(
+                        'Dropped {} out of bounds points from {} in a row'.format(
+                            self._ignored_points[device],
+                            device
+                        )
+                    )
+                    self._ignored_points[device] = 0
+                    self._ignored_points_thresholds[device] += 10
+                else:
+                    self._logger.debug(
+                        'Ignoring out of bounds point: {}'.format(point_m)
+                    )
+
+                # In general, I've found that speed and heading readings tend
+                # to be fairly accurate, even if the actual coordinates are
+                # off. i.e., GPS readings are usually consistently off by N
+                # meters in the short term and not random all over the place.
+                if (
+                        'heading_d' in message
+                        and 'speed_m_s' in message
+                        and message['speed_m_s'] < MAX_SPEED_M_S
+                ):
+                    self._location_filter.update_heading_and_speed(
+                        message['heading_d'],
+                        message['speed_m_s']
+                    )
 
             self._data = message
             self._logger.debug(json.dumps(message))
