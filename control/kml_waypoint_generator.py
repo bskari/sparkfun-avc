@@ -33,9 +33,14 @@ class KmlWaypointGenerator(object):
         self._logger = AsyncLogger()
         self._initial_waypoints = None
         self._waypoints = None
-        # This will initialize both _initial_waypoints and _waypoints
-        self._load_from_file(kml_file_name)
-        self._last_distance_m = 1000000.0
+        self._initial_waypoints = self.load_from_file_name(kml_file_name)
+        self._waypoints = copy.deepcopy(self._initial_waypoints)
+        self._logger.info(
+            'Loaded {length} waypoints'.format(
+                length=len(self._waypoints)
+            )
+        )
+        self._last_distance_m = float('inf')
 
         consume = lambda: consume_messages(
             config.WAYPOINT_EXCHANGE,
@@ -102,7 +107,7 @@ class KmlWaypointGenerator(object):
             return
         if message['command'] == 'load' and 'file' in message:
             try:
-                self._load_from_file('paths' + os.sep + message['file'])
+                self.load_from_file_name('paths' + os.sep + message['file'])
             except Exception as exc:  # pylint: disable=broad-except
                 self._logger.error(
                     'Unable to load waypoints from {}: {}'.format(
@@ -115,24 +120,17 @@ class KmlWaypointGenerator(object):
                 'Invalid waypoint exchange message: {}'.format(message)
             )
 
-    def _load_from_file(self, kml_file_name):
+    @classmethod
+    def load_from_file_name(cls, kml_file_name):
         """Loads the KML waypoints from a file."""
         if kml_file_name.endswith('.kmz'):
             import zipfile
             with zipfile.ZipFile(kml_file_name) as archive:
                 kml_stream = archive.open('doc.kml')
-                self._initial_waypoints = self._load_waypoints(kml_stream)
+                return cls._load_waypoints(kml_stream)
         else:
             with open(kml_file_name) as file_:
-                kml_stream = file_
-                self._initial_waypoints = self._load_waypoints(kml_stream)
-
-        self._waypoints = copy.deepcopy(self._initial_waypoints)
-        self._logger.info(
-            'Loaded {length} waypoints'.format(
-                length=len(self._waypoints)
-            )
-        )
+                return cls._load_waypoints(file_)
 
     @staticmethod
     def _load_waypoints(kml_stream):

@@ -16,6 +16,7 @@ import time
 from control.command import Command
 from control.driver import Driver, STEERING_GPIO_PIN, STEERING_NEUTRAL_US, THROTTLE_GPIO_PIN, THROTTLE_NEUTRAL_US
 from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.chase_waypoint_generator import ChaseWaypointGenerator
 from control.sup800f import switch_to_nmea_mode
 from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
@@ -319,6 +320,13 @@ def make_parser():
         type=float,
     )
 
+    parser.add_argument(
+        '--chase',
+        dest='chase',
+        help='Use a chase waypoint generator.',
+        action='store_true'
+    )
+
     return parser
 
 
@@ -350,7 +358,8 @@ def main():
         file_handler.setLevel(logging.DEBUG)
         concrete_logger.addHandler(file_handler)
         try:
-            with open(os.path.dirname(args.log) + os.sep + 'last-log.txt', 'a') as last_log:
+            last_log = os.path.dirname(args.log) + os.sep + 'last-log.txt'
+            with open(last_log, 'a') as last_log:
                 last_log.write(args.log + '\n')
         except Exception as exc:
             print('Unable to save last log information: {}'.format(exc))
@@ -389,7 +398,14 @@ def main():
             'Setting waypoints to Solid State Depot for testing'
         )
         kml_file = 'paths/solid-state-depot.kml'
-    waypoint_generator = KmlWaypointGenerator(kml_file)
+    if args.chase:
+        waypoint_generator = ChaseWaypointGenerator(
+            KmlWaypointGenerator.load_from_file_name(
+                kml_file
+            )
+        )
+    else:
+        waypoint_generator = KmlWaypointGenerator(kml_file)
 
     logger.debug('Calling start_threads')
 
