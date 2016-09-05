@@ -1,4 +1,7 @@
 """Tests the Sup800fTelemetry class."""
+
+# pylint: disable=protected-access
+
 import unittest
 
 # Patch out the logger
@@ -46,6 +49,14 @@ class TestSup800fTelemetry(unittest.TestCase):
             1428064496.789,
             3
         )
+
+    def test_handle_gpgsa(self):
+        """Tests the GPGSA message parsing."""
+        sup800f = Sup800fTelemetry(None)
+        sup800f._handle_gpgsa(
+            '$GPGSA,A,3,23,03,26,09,27,16,22,31,,,,,1.9,1.1,1.5*31\r\n'
+        )
+        self.assertEqual(sup800f._hdop, 1.1)
 
 
 if __name__ == '__main__':

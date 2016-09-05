@@ -56,6 +56,8 @@ class Sup800fTelemetry(threading.Thread):
         self._dropped_compass_messages = 0
         self._dropped_threshold = 10
 
+        self._hdop = 5.0
+
         def handle_message(message):
             """Handles command messages. Only cares about calibrate compass;
             other messages are ignored.
@@ -130,6 +132,9 @@ class Sup800fTelemetry(threading.Thread):
         if line.startswith('$GPRMC'):
             self._handle_gprmc(line)
             return True
+        elif line.startswith('$GPGSA'):
+            self._handle_gpgsa(line)
+            return True
         return False
 
     def _get_binary(self):
@@ -202,16 +207,26 @@ class Sup800fTelemetry(threading.Thread):
         )
         timestamp_s = self._timestamp(datetime_) + seconds
 
-        # TODO: Parse other messages to estimate accuracy
         self._telemetry.gps_reading(
             latitude,
             longitude,
-            1.0,
+            self._hdop * 5.0,  # This is a guess. Smaller HDOP is more precise.
             course,
             speed_m_s,
             timestamp_s,
             'sup800f'
         )
+
+    def _handle_gpgsa(self, gpgsa_message):
+        """Handles GSA (GNSS DOP and active satellites) messages."""
+        # $GPGSA,A,3,23,03,26,09,27,16,22,31,,,,,1.9,1.1,1.5*31\r\n
+        # type, mode M=manual or A=automatic, fix type 1=N/A 2=2D 3=3D,
+        # satellites used 1-12, PDOP, HDOP, VDOP + checksum
+        parts = gpgsa_message.split(',')
+        #pdop = float(parts[-3])
+        hdop = float(parts[-2])
+        #vdop = float(parts[-1].split('*')[0])
+        self._hdop = hdop
 
     def _handle_binary(self, message):
         """Handles properietary SUP800F binary messages."""
