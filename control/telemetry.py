@@ -153,6 +153,7 @@ class Telemetry(object):
                 message['compass_d'],
                 message['confidence']
             )
+            self._logger.debug(json.dumps(message))
 
         if 'latitude_d' in message:
             point_m = (
