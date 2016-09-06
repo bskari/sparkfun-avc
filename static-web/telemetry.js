@@ -177,21 +177,6 @@ sparkfun.telemetry._poke = function(url, data) {
 
 
 /**
- * @param {string} message
- */
-sparkfun.telemetry.addAlert = function (message) {
-    if ($('#alerts').children().length > 3) {
-        // Delete the oldest one
-        $('#alerts').children().first().remove();
-    }
-    $('#alerts').append(
-        '<div class="alert alert-danger">' +
-            '<button type="button" class="close" data-dismiss="alert">' +
-            '&times;</button>' + message + '</div>');
-};
-
-
-/**
  * Returns true if running on a mobile device.
  */
 sparkfun.telemetry.isMobile = function() {
@@ -272,6 +257,10 @@ sparkfun.telemetry.stopSending = function () {
 sparkfun.telemetry.addAlert = function (message, level) {
     if (level === undefined) {
         level = 'alert-danger';
+    }
+    if ($('#alerts').children().length > 3) {
+        // Delete the oldest one
+        $('#alerts').children().first().remove();
     }
     $('#alerts').append(
         '<div class="alert ' + level + '">' +
