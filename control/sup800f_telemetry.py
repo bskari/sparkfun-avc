@@ -80,11 +80,16 @@ class Sup800fTelemetry(threading.Thread):
         """Run in a thread, hands raw telemetry readings to telemetry
         instance.
         """
+        failed_to_switch_mode = False
         while self._run:
             try:
                 self._run_inner()
             except EnvironmentError as env:
                 self._logger.debug('Failed to switch mode: {}'.format(env))
+                if not failed_to_switch_mode:
+                    failed_to_switch_mode = True
+                    import traceback
+                    self._logger.debug(traceback.format_exc())
                 # Maybe resetting the module mode will help
                 try:
                     if self._nmea_mode:
