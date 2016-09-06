@@ -22,11 +22,11 @@ class MessageProducer(object):
 
     def publish(self, message):
         """Publishes a message."""
-        self._socket.send(message.encode('utf-8'))
+        self._socket.sendall(message.encode('utf-8'))
 
     def kill(self):
         """Kills all listening consumers."""
         try:
-            self._socket.send(b'QUIT')
+            self._socket.sendall(b'QUIT')
         except ConnectionRefusedError:  # pylint: disable=undefined-variable
             pass
