@@ -162,6 +162,8 @@ class LocationFilter(object):
         used for out of bounds measurements, where while the coordinates
         positions may be bad, the heading and speed are usually good.
         """
+        if heading_d is None or speed_m_s is None:
+            return
         now = time.time()
         time_diff_s = now - self._last_observation_s
         self._last_observation_s = now
