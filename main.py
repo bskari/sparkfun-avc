@@ -399,7 +399,7 @@ def main():
         logger.info(
             'Setting waypoints to Solid State Depot for testing'
         )
-        kml_file = 'paths/solid-state-depot.kml'
+        kml_file = 'solid-state-depot.kml'
     if args.chase:
         waypoint_generator = ChaseWaypointGenerator(
             KmlWaypointGenerator.load_from_file_name(

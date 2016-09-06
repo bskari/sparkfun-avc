@@ -107,7 +107,7 @@ class KmlWaypointGenerator(object):
             return
         if message['command'] == 'load' and 'file' in message:
             try:
-                self.load_from_file_name('paths' + os.sep + message['file'])
+                self.load_from_file_name(message['file'])
             except Exception as exc:  # pylint: disable=broad-except
                 self._logger.error(
                     'Unable to load waypoints from {}: {}'.format(
@@ -123,6 +123,9 @@ class KmlWaypointGenerator(object):
     @classmethod
     def load_from_file_name(cls, kml_file_name):
         """Loads the KML waypoints from a file."""
+        directory = 'paths' + os.sep
+        if not kml_file_name.startswith(directory):
+            kml_file_name = directory + kml_file_name
         if kml_file_name.endswith('.kmz'):
             import zipfile
             with zipfile.ZipFile(kml_file_name) as archive:
