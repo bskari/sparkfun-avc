@@ -353,6 +353,8 @@ def main():
 
     file_handler = None
     try:
+        if os.path.exists(args.log):
+            os.remove(args.log)
         file_handler = logging.FileHandler(args.log)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
