@@ -56,7 +56,6 @@ sparkfun.telemetry.init = function(
         sparkfun.telemetry.deviceId = 'web-telemetry';
     }
     sparkfun.telemetry.deviceId += '-' + String(Math.round(Math.random() * 10000));
-    sparkfun.telemetry.addAlert(sparkfun.telemetry.deviceId, 'alert-info');
     sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
     webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
@@ -181,6 +180,10 @@ sparkfun.telemetry._poke = function(url, data) {
  * @param {string} message
  */
 sparkfun.telemetry.addAlert = function (message) {
+    if ($('#alerts').children().length > 3) {
+        // Delete the oldest one
+        $('#alerts').children().first().remove();
+    }
     $('#alerts').append(
         '<div class="alert alert-danger">' +
             '<button type="button" class="close" data-dismiss="alert">' +
