@@ -127,6 +127,9 @@ def process_run(in_stream, name, run_count):
             break
         elif '"device_id"' in line:
             parts = json.loads(line[line.find('{'):line.rfind('}') + 1])
+            if 'latitude_d' not in parts:
+                # Probably an accelerometer message
+                continue
             latitude = parts['latitude_d']
             longitude = parts['longitude_d']
             # Ignore early bad estimates
