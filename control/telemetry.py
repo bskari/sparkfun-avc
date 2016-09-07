@@ -248,7 +248,9 @@ class Telemetry(object):
     @synchronized
     def load_kml_from_file_name(self, kml_file_name):
         """Loads KML from a file name."""
-        kml_file_name = 'paths' + os.sep + kml_file_name
+        directory = 'paths' + os.sep
+        if not kml_file_name.startswith(directory):
+            kml_file_name = directory + kml_file_name
         if kml_file_name.endswith('.kmz'):
             import zipfile
             with zipfile.ZipFile(kml_file_name) as archive:

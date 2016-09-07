@@ -171,6 +171,11 @@ class StatusApp(object):
     @cherrypy.tools.json_out()
     def set_waypoints(self, kml_file_name):  # pylint: disable=no-self-use
         """Hands off the file to load waypoints to the waypoint exchange."""
+        self._logger.info(
+            'Received set waypoints: {} command from web'.format(
+                kml_file_name
+            )
+        )
         WaypointProducer().load_kml_file(kml_file_name)
         self._telemetry.load_kml_from_file_name(kml_file_name)
         return {'success': True}
