@@ -182,7 +182,8 @@ class TestKmlWaypointGenerator(unittest.TestCase):
     @staticmethod
     def test_zipped_files_smoke():
         """The generator should also support zipped KML files (KMZ)."""
-        archive_file_name = '/tmp/test.kmz'
+        # The generator always prepends 'paths/', so force it to drop to /tmp
+        archive_file_name = '../../../../../tmp/test.kmz'
         with zipfile.ZipFile(archive_file_name, 'w') as archive:
             archive.write('paths/solid-state-depot.kml', 'doc.kml')
         KmlWaypointGenerator(archive_file_name)
