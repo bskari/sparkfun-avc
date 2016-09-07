@@ -221,18 +221,22 @@ class Telemetry(object):
             # to be fairly accurate, even if the actual coordinates are
             # off. i.e., GPS readings are usually consistently off by N
             # meters in the short term and not random all over the place.
-            if  'heading_d' in message and 'speed_m_s' in message:
-                if message['speed_m_s'] <= MAX_SPEED_M_S:
-                    self._location_filter.update_heading_and_speed(
-                        message['heading_d'],
-                        message['speed_m_s']
-                    )
-                else:
-                    self._logger.debug(
-                        'Ignoring too high of speed value: {}'.format(
-                            message['speed_m_s']
+            if 'heading_d' in message and 'speed_m_s' in message:
+                heading_d = message['heading_d']
+                speed_m_s = message['speed_m_s']
+                # iPhone sometimes produces null if there is no speed fix yet
+                if heading_d is not None and speed_m_s is not None:
+                    if speed_m_s <= MAX_SPEED_M_S:
+                        self._location_filter.update_heading_and_speed(
+                            heading_d,
+                            speed_m_s
                         )
-                    )
+                    else:
+                        self._logger.debug(
+                            'Ignoring too high of speed value: {}'.format(
+                                speed_m_s
+                            )
+                        )
 
     @synchronized
     def is_stopped(self):
