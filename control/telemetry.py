@@ -100,9 +100,12 @@ class Telemetry(object):
         return self._data
 
     @synchronized
-    def get_data(self):
+    def get_data(self, update=None):
         """Returns the approximated telemetry data."""
-        self._location_filter.update_dead_reckoning()
+        if update is None:
+            update = True
+        if update:
+            self._location_filter.update_dead_reckoning()
         values = {}
         for key in ('accelerometer_m_s_s',):  # Left as a loop if we want more later
             if key in self._data:
@@ -123,6 +126,8 @@ class Telemetry(object):
                 })
             )
         )
+        values['throttle'] = self._estimated_throttle
+        values['steering'] = self._estimated_steering
         return values
 
     @synchronized

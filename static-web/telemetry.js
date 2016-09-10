@@ -59,9 +59,10 @@ sparkfun.telemetry.init = function(
     sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
     webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
-    if (!navigator.userAgent.match('iPhone OS 7') && window.WebSocket) {
+    // Safari won't connect websockets over secure self-signed connections
+    if (!navigator.userAgent.match('Mac OS X') && window.WebSocket) {
         sparkfun.telemetry.webSocket = new WebSocket(webSocketAddress);
-    } else if (!navigator.userAgent.match('iPhone OS 7') && window.MozWebSocket) {
+    } else if (!navigator.userAgent.match('Mac OS X') && window.MozWebSocket) {
         sparkfun.telemetry.webSocket = new MozWebSocket(webSocketAddress);
     } else {
         sparkfun.telemetry.addAlert(

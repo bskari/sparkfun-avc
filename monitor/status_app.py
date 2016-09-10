@@ -20,11 +20,12 @@ MONITOR_DIR = 'monitor' + os.sep
 class StatusApp(object):
     """Status page for the vehicle."""
 
-    def __init__(self, telemetry, port):
+    def __init__(self, telemetry, waypoint_generator, port):
         self._command = CommandProducer()
         self._telemetry = telemetry
         self._logger = AsyncLogger()
         self._port = port
+        self._waypoint_generator = waypoint_generator
 
         def get_ip(interface):
             """Returns the IPv4 address of a given interface."""
@@ -119,9 +120,15 @@ class StatusApp(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def telemetry(self):
+    def telemetry_json(self):
         """Returns the telemetry data of the car."""
-        return self._telemetry.get_data()
+        telemetry = self._telemetry.get_data(update=False)
+        waypoint_x_m, waypoint_y_m = self._waypoint_generator.get_raw_waypoint()
+        telemetry.update({
+            'waypoint_x_m': waypoint_x_m,
+            'waypoint_y_m': waypoint_y_m,
+        })
+        return telemetry
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

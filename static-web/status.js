@@ -74,92 +74,101 @@ sparkfun.status.init = function(
     sparkfun.status.logs = logs;
 
     sparkfun.status.heading = null;
-    // Safari only?
-    window.addEventListener('deviceorientation', function(e) {
-        sparkfun.status.heading = e.webkitCompassHeading;
-    }, false);
-    sparkfun.status.followInterval = null;
 
     sparkfun.status.webSocket = null;
     webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
-    if (window.WebSocket) {
+    if (!navigator.userAgent.match('Mac OS X') && window.WebSocket) {
         sparkfun.status.webSocket = new WebSocket(webSocketAddress);
-    } else if (window.MozWebSocket) {
+    } else if (!navigator.userAgent.match('Mac OS X') && window.MozWebSocket) {
         sparkfun.status.webSocket = new MozWebSocket(webSocketAddress);
     }
     if (sparkfun.status.webSocket === null) {
-        sparkfun.status.addAlert('Your browser does not support websockets, monitoring disabled');
-        return;
+        sparkfun.status.addAlert(
+            'Your browser does not support websockets, disabling logging and reverting to GET'
+        );
     }
 
     window.onbeforeunload = function(e) {
-         sparkfun.status.webSocket.close(1000);
-         if (!e) {
-             e = window.event;
-         }
-         e.stopPropogation();
-         e.preventDefault();
-    };
-
-    sparkfun.status.webSocket.onmessage = function (evt) {
-        console.log(evt.data);
-        var data = JSON.parse(evt.data);
-        if (data.type === 'log') {
-            sparkfun.status.logs.text(
-                data.message + '\n' + sparkfun.status.logs.text());
-        } else if (data.type === 'telemetry') {
-            console.log(data.message);
-            var telemetry = JSON.parse(data.message);
-            // Do some processing here to offload the burden from Python
-            telemetry['waypoint_distance'] = Math.sqrt(
-                sparkfun.status.square(
-                    Math.abs(
-                        telemetry['x_m'] - telemetry['waypoint_x_m']))
-                + sparkfun.status.square(
-                    Math.abs(
-                        telemetry['y_m'] - telemetry['waypoint_y_m'])));
-
-            telemetry['waypoint_heading'] = sparkfun.status.relativeDegrees(
-                telemetry['x_m'],
-                telemetry['y_m'],
-                telemetry['waypoint_x_m'],
-                telemetry['waypoint_y_m']);
-
-            var typeToField = {
-                'x_m': sparkfun.status.carX_m,
-                'y_m': sparkfun.status.carY_m,
-                'speed_m_s': sparkfun.status.carSpeed,
-                'heading_d': sparkfun.status.carHeading,
-                'throttle': sparkfun.status.carThrottle,
-                'steering': sparkfun.status.carSteering,
-                'waypoint_x_m': sparkfun.status.waypointX_m,
-                'waypoint_y_m': sparkfun.status.waypointY_m,
-                'waypoint_distance': sparkfun.status.waypointDistance,
-                'waypoint_heading': sparkfun.status.waypointHeading,
-                'satellites': sparkfun.status.satellites,
-                'accuracy': sparkfun.status.accuracy,
-                'compass': sparkfun.status.compass,
-                'gps': sparkfun.status.gps,
-                'accelerometer': sparkfun.status.accelerometer,
-                'compass_calibrated': sparkfun.status.compassCalibrated};
-            for (var key in telemetry) {
-                if (telemetry.hasOwnProperty(key)) {
-                    if (typeof(telemetry[key]) === 'number') {
-                        telemetry[key] = sparkfun.status.round(telemetry[key], 3);
-                    }
-                    if (typeToField[key] !== undefined) {
-                        typeToField[key].text(telemetry[key]);
-                    }
-                }
-            }
-        } else {
-            sparkfun.status.addAlert('Unknown message type: ' + data.type);
+        if (sparkfun.status.webSocket) {
+            sparkfun.status.webSocket.close(1000);
         }
+        if (!e) {
+            e = window.event;
+        }
+        e.stopPropogation();
+        e.preventDefault();
     };
 
-    sparkfun.status.webSocket.onclose = function (evt) {
-        sparkfun.status.addAlert('Connection closed by server');
-    };
+    if (sparkfun.status.webSocket) {
+        sparkfun.status.webSocket.onmessage = function(evt) {
+            var data = JSON.parse(evt.data);
+            if (data.type === 'log') {
+                sparkfun.status.logs.text(
+                    data.message + '\n' + sparkfun.status.logs.text());
+            } else if (data.type === 'telemetry') {
+                sparkfun.status.handleTelemetryMessage(JSON.parse(data.message));
+            } else {
+                sparkfun.status.addAlert('Unknown message type: ' + data.type);
+            }
+        };
+
+        sparkfun.status.webSocket.onclose = function (evt) {
+            sparkfun.status.addAlert('Connection closed by server');
+        };
+    } else {
+        var url = document.location + '/telemetry-json';
+        window.setInterval(function () {
+            $.getJSON(url, function(data) {
+                sparkfun.status.handleTelemetryMessage(data);
+            });
+        }, 1000);
+    }
+};
+
+
+sparkfun.status.handleTelemetryMessage = function(telemetry) {
+    // Do some processing here to offload the burden from Python
+    var xSquare = sparkfun.status.square(
+        Math.abs(
+            telemetry.x_m - telemetry.waypoint_x_m));
+    var ySquare = sparkfun.status.square(
+        Math.abs(
+            telemetry.y_m - telemetry.waypoint_y_m));
+    telemetry.waypoint_distance_m = Math.sqrt(xSquare + ySquare);
+
+    telemetry.waypoint_heading_d = sparkfun.status.relativeDegrees(
+        telemetry.x_m,
+        telemetry.y_m,
+        telemetry.waypoint_x_m,
+        telemetry.waypoint_y_m);
+
+    var typeToField = {
+        'x_m': sparkfun.status.carX_m,
+        'y_m': sparkfun.status.carY_m,
+        'speed_m_s': sparkfun.status.carSpeed,
+        'heading_d': sparkfun.status.carHeading,
+        'throttle': sparkfun.status.carThrottle,
+        'steering': sparkfun.status.carSteering,
+        'waypoint_x_m': sparkfun.status.waypointX_m,
+        'waypoint_y_m': sparkfun.status.waypointY_m,
+        'waypoint_distance_m': sparkfun.status.waypointDistance,
+        'waypoint_heading_d': sparkfun.status.waypointHeading,
+        'satellites': sparkfun.status.satellites,
+        'accuracy': sparkfun.status.accuracy,
+        'compass': sparkfun.status.compass,
+        'gps': sparkfun.status.gps,
+        'accelerometer': sparkfun.status.accelerometer,
+        'compass_calibrated': sparkfun.status.compassCalibrated};
+    for (var key in telemetry) {
+        if (telemetry.hasOwnProperty(key)) {
+            if (typeof(telemetry[key]) === 'number') {
+                telemetry[key] = sparkfun.status.round(telemetry[key], 3);
+            }
+            if (typeToField[key] !== undefined) {
+                typeToField[key].text(telemetry[key]);
+            }
+        }
+    }
 };
 
 
@@ -171,9 +180,6 @@ sparkfun.status.run = function () {
 
 sparkfun.status.stop = function () {
     'use strict';
-    if (sparkfun.status.followInterval !== null) {
-        clearInterval(sparkfun.status.followInterval);
-    }
     sparkfun.status._poke('/stop');
 };
 
