@@ -33,7 +33,7 @@ class KmlWaypointGenerator(object):
         self._logger = AsyncLogger()
         self._initial_waypoints = None
         self._waypoints = None
-        self._initial_waypoints = self.load_from_file_name(kml_file_name)
+        self._initial_waypoints = self.get_waypoints_from_file_name(kml_file_name)
         self._waypoints = copy.deepcopy(self._initial_waypoints)
         self._logger.info(
             'Loaded {length} waypoints'.format(
@@ -107,7 +107,8 @@ class KmlWaypointGenerator(object):
             return
         if message['command'] == 'load' and 'file' in message:
             try:
-                self.load_from_file_name(message['file'])
+                self._initial_waypoints = self.get_waypoints_from_file_name(message['file'])
+                self._waypoints = copy.deepcopy(self._initial_waypoints)
             except Exception as exc:  # pylint: disable=broad-except
                 self._logger.error(
                     'Unable to load waypoints from {}: {}'.format(
@@ -121,7 +122,7 @@ class KmlWaypointGenerator(object):
             )
 
     @classmethod
-    def load_from_file_name(cls, kml_file_name):
+    def get_waypoints_from_file_name(cls, kml_file_name):
         """Loads the KML waypoints from a file."""
         directory = 'paths' + os.sep
         if not kml_file_name.startswith(directory):
