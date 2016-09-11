@@ -24,6 +24,7 @@ def main():
             newer('sshd_config', '/etc/ssh/sshd_config'),
             (
                 'cp sshd_config /etc/ssh/sshd_config',
+                'cp banner /etc/banner',
                 'service ssh restart',
             )
         ),

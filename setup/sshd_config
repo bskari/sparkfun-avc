@@ -88,3 +88,5 @@ Subsystem sftp /usr/lib/openssh/sftp-server
 UsePAM yes
 
 KexAlgorithms diffie-hellman-group-exchange-sha256
+
+Banner /etc/banner

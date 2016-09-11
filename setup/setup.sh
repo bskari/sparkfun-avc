@@ -4,8 +4,7 @@
 
 # First, download Minibian and burn it to an SD card:
 #   wget http://sourceforge.net/projects/minibian/files/2014-11-24-wheezy-minibian.tar.gz/download -o minibian.tar.gz
-#   tar -xvzf minibian.tar.gz
-#   dd if=*minibian*img of=/dev/sdb bs=1M
+#   sudo burn.sh minibian.tar.gz /dev/mmcblk0
 # Install git and clone the repo:
 #   (root password is raspberry)
 #   apt-get update
