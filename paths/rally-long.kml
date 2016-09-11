@@ -25,6 +25,9 @@
 			<color>ff0000ff</color>
 			<width>3</width>
 		</LineStyle>
+        <PolyStyle>
+            <fill>0</fill>
+        </PolyStyle>
 	</Style>
 	<Style id="sn_ylw-pushpin1">
 		<IconStyle>
@@ -47,6 +50,9 @@
 			<color>ff00ff00</color>
 			<width>3</width>
 		</LineStyle>
+        <PolyStyle>
+            <fill>0</fill>
+        </PolyStyle>
 	</Style>
 	<Style id="sh_ylw-pushpin1">
 		<IconStyle>
@@ -79,6 +85,9 @@
 			<color>ff0000ff</color>
 			<width>3</width>
 		</LineStyle>
+        <PolyStyle>
+            <fill>0</fill>
+        </PolyStyle>
 	</Style>
 	<Style id="sn_ylw-pushpin">
 		<IconStyle>
@@ -92,6 +101,9 @@
 			<color>ff00ff00</color>
 			<width>3</width>
 		</LineStyle>
+        <PolyStyle>
+            <fill>0</fill>
+        </PolyStyle>
 	</Style>
 	<StyleMap id="msn_ylw-pushpin">
 		<Pair>

@@ -34,6 +34,9 @@
 			<color>ff00ff00</color>
 			<width>3</width>
 		</LineStyle>
+        <PolyStyle>
+            <fill>0</fill>
+        </PolyStyle>
 	</Style>
 	<Style id="sn_ylw-pushpin0">
 		<IconStyle>
@@ -47,6 +50,9 @@
 			<color>ff00ff00</color>
 			<width>3</width>
 		</LineStyle>
+        <PolyStyle>
+            <fill>0</fill>
+        </PolyStyle>
 	</Style>
 	<StyleMap id="msn_ylw-pushpin0">
 		<Pair>
