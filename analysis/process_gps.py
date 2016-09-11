@@ -69,19 +69,19 @@ def main():
         KML_TEMPLATE = file_.read()
 
     in_file_name = sys.argv[1]
-    date = in_file_name[in_file_name.find('-') + 1:in_file_name.rfind('.')]
+    name = in_file_name[:in_file_name.rfind('.')]
     out_file_name = sys.argv[2] if len(sys.argv) > 2 else 'out.kml'
     with open(in_file_name) as in_stream:
         build_color_map(in_stream)
     with open(in_file_name) as in_stream:
         with open(out_file_name, 'w') as out_stream:
-            process_streams(in_stream, out_stream, date)
+            process_streams(in_stream, out_stream, name)
 
 
 def build_color_map(in_stream):
     global COLOR_MAP
     # ABGR
-    preferred_colors = ['ff0000ff', 'ff00ff00', 'ff0000ff']
+    preferred_colors = ['ff0000ff', 'ff00ff00', 'ffff0000']
     for line in in_stream:
         if '"device_id"' in line:
             parts = json.loads(line[line.find('{'):line.rfind('}') + 1])
