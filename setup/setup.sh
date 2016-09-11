@@ -21,6 +21,27 @@ then
     exit 1
 fi
 
+apt-get update -y
+apt-get install -y \
+    alsa-utils  \
+    libasound2 \
+    libasound2-data \
+    libnewt0.52 \
+    libparted2 \
+    libsamplerate0 \
+    lua5.1 \
+    parted \
+    whiptail \
+    ;
+if [ ! -f 'raspi-config_20160527_all.deb' ];
+then
+    wget http://archive.raspberrypi.org/debian/pool/main/r/raspi-config/raspi-config_20160527_all.deb
+    dpkg -i raspi-config_20160527_all.deb
+fi
+echo 'Get ready to expand the root FS and enable the camera (press enter)'
+read
+raspi-config  # Expand the root FS, enable the camera
+
 echo -n 'Want to update the firmware? (y/n) '
 read firmware
 if [ "${firmware}" == 'y' ];
@@ -34,16 +55,6 @@ then
     exit 0
 fi
 
-apt-get update -y
-apt-get install -y libparted0debian1 parted lua5.1 triggerhappy whiptail libnewt0.52
-if [ ! -f 'raspi-config_20140902-1_all.deb' ];
-then
-    wget http://archive.raspberrypi.org/debian/pool/main/r/raspi-config/raspi-config_20140902-1_all.deb
-    dpkg -i raspi-config_20140902-1_all.deb
-fi
-echo 'Get ready to expand the root FS and enable the camera (press enter)'
-read
-raspi-config  # Expand the root FS, enable the camera
 
 set +e
 adduser --disabled-password --gecos '' pi
