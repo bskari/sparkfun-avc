@@ -77,6 +77,15 @@ class TestExtensionWaypointGenerator(unittest.TestCase):
             )
         )
 
+        # Triangle inequality
+        self.assertLess(
+            math.sqrt(
+                (points[0][0] - waypoint[0]) ** 2 +
+                (points[0][1] - waypoint[1]) ** 2
+            ),
+            ExtensionWaypointGenerator.BEYOND_M
+        )
+
     def test_reached(self):
         """Tests the reached waypoint algorithm."""
         points = ((19, 7), (20, 21), (-10, 20))
