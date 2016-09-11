@@ -10,7 +10,7 @@ from messaging import async_logger
 from control.test.dummy_logger import DummyLogger
 async_logger.AsyncLogger = DummyLogger
 
-from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.simple_waypoint_generator import SimpleWaypointGenerator
 from control.telemetry import Telemetry
 
 # pylint: disable=protected-access
@@ -38,8 +38,8 @@ KML_TEMPLATE = \
 </kml>
 '''
 
-class TestKmlWaypointGenerator(unittest.TestCase):
-    """Tests the KmlWaypointGenerator class."""
+class TestSimpleWaypointGenerator(unittest.TestCase):
+    """Tests the SimpleWaypointGenerator class."""
 
     def test_load_waypoints(self):
         """Tests loading waypoints from a KML format file."""
@@ -49,7 +49,7 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         ))
         kml = KML_TEMPLATE.format(coordinates_str).encode('utf-8')
         kml_buffer = io.BytesIO(kml)
-        waypoints = KmlWaypointGenerator._load_waypoints(kml_buffer)
+        waypoints = SimpleWaypointGenerator._load_waypoints(kml_buffer)
         for m_offset, long_lat in zip(waypoints, coordinates_long_lat):
             x_m_1, y_m_1 = m_offset
             long_, lat = long_lat
@@ -186,9 +186,13 @@ class TestKmlWaypointGenerator(unittest.TestCase):
         archive_file_name = '../../../../../tmp/test.kmz'
         with zipfile.ZipFile(archive_file_name, 'w') as archive:
             archive.write('paths/solid-state-depot.kml', 'doc.kml')
-        KmlWaypointGenerator(archive_file_name)
+        SimpleWaypointGenerator.get_waypoints_from_file_name(archive_file_name)
 
     @staticmethod
     def make_generator():
         """Returns a KML waypoint generator."""
-        return KmlWaypointGenerator('paths/solid-state-depot.kml')
+        return SimpleWaypointGenerator(
+            SimpleWaypointGenerator.get_waypoints_from_file_name(
+                'paths/solid-state-depot.kml'
+            )
+        )

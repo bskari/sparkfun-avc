@@ -13,6 +13,7 @@ from messaging.message_consumer import consume_messages
 
 class TestTelemetry(unittest.TestCase):
     """Tests the Telemetry class."""
+
     def test_rotate_radians_clockwise(self):
         """Tests rotating a vector radians clockwise."""
         base = (1.0, 0.0)
@@ -49,6 +50,46 @@ class TestTelemetry(unittest.TestCase):
         negative_ninety = Telemetry.rotate_radians_clockwise(
             base,
             math.radians(-90.0)
+        )
+        self.assertAlmostEqual(negative_ninety[0], two_seventy[0])
+        self.assertAlmostEqual(negative_ninety[1], two_seventy[1])
+
+    def test_rotate_degrees_clockwise(self):
+        """Tests rotating a vector degrees clockwise."""
+        base = (1.0, 0.0)
+
+        not_rotated = Telemetry.rotate_degrees_clockwise(base, 0.0)
+        self.assertAlmostEqual(not_rotated[0], base[0])
+        self.assertAlmostEqual(not_rotated[1], base[1])
+
+        ninety = Telemetry.rotate_degrees_clockwise(base, 90.0)
+        self.assertAlmostEqual(ninety[0], 0.0)
+        self.assertAlmostEqual(ninety[1], -1.0)
+
+        one_eighty = Telemetry.rotate_degrees_clockwise(
+            base,
+            180.0
+        )
+        self.assertAlmostEqual(one_eighty[0], -base[0])
+        self.assertAlmostEqual(one_eighty[1], base[1])
+
+        two_seventy = Telemetry.rotate_degrees_clockwise(
+            base,
+            270.0
+        )
+        self.assertAlmostEqual(two_seventy[0], 0.0)
+        self.assertAlmostEqual(two_seventy[1], 1.0)
+
+        three_sixty = Telemetry.rotate_degrees_clockwise(
+            base,
+            360.0
+        )
+        self.assertAlmostEqual(three_sixty[0], base[0])
+        self.assertAlmostEqual(three_sixty[1], base[1])
+
+        negative_ninety = Telemetry.rotate_degrees_clockwise(
+            base,
+            -90.0
         )
         self.assertAlmostEqual(negative_ninety[0], two_seventy[0])
         self.assertAlmostEqual(negative_ninety[1], two_seventy[1])

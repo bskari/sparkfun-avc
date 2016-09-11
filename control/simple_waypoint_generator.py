@@ -26,14 +26,12 @@ from messaging.async_logger import AsyncLogger
 from messaging.message_consumer import consume_messages
 
 
-class KmlWaypointGenerator(object):
+class SimpleWaypointGenerator(object):
     """Loads and returns waypoints from a KML file."""
 
-    def __init__(self, kml_file_name):
+    def __init__(self, waypoints):
         self._logger = AsyncLogger()
-        self._initial_waypoints = None
-        self._waypoints = None
-        self._initial_waypoints = self.get_waypoints_from_file_name(kml_file_name)
+        self._initial_waypoints = collections.deque(waypoints)
         self._waypoints = copy.deepcopy(self._initial_waypoints)
         self._logger.info(
             'Loaded {length} waypoints'.format(

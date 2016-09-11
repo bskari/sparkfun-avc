@@ -15,8 +15,9 @@ import time
 
 from control.command import Command
 from control.driver import Driver, STEERING_GPIO_PIN, STEERING_NEUTRAL_US, THROTTLE_GPIO_PIN, THROTTLE_NEUTRAL_US
-from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.simple_waypoint_generator import SimpleWaypointGenerator
 from control.chase_waypoint_generator import ChaseWaypointGenerator
+from control.extension_waypoint_generator import ExtensionWaypointGenerator
 from control.sup800f import switch_to_nmea_mode
 from control.sup800f_telemetry import Sup800fTelemetry
 from control.telemetry import Telemetry
@@ -407,12 +408,16 @@ def main():
         kml_file = 'solid-state-depot.kml'
     if args.chase:
         waypoint_generator = ChaseWaypointGenerator(
-            KmlWaypointGenerator.load_from_file_name(
+            SimpleWaypointGenerator.get_waypoints_from_file_name(
                 kml_file
             )
         )
     else:
-        waypoint_generator = KmlWaypointGenerator(kml_file)
+        waypoint_generator = ExtensionWaypointGenerator(
+            SimpleWaypointGenerator.get_waypoints_from_file_name(
+                kml_file
+            )
+        )
 
     logger.debug('Calling start_threads')
 

@@ -20,6 +20,10 @@ class ChaseWaypointGenerator(object):
     """Generates waypoints using the 'rabbit chase' algorithm."""
 
     def __init__(self, waypoints, distance_m=None):
+        raise NotImplementedError(
+            'ChaseWaypointGenerator needs to be updated to inherit from'
+            ' SimpleWaypointGenerator'
+        )
         self._logger = AsyncLogger()
 
         if distance_m is None:

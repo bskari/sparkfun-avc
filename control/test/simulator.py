@@ -3,7 +3,7 @@
 import time
 
 from control.command import Command
-from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.simple_waypoint_generator import SimpleWaypointGenerator
 from control.test.dummy_driver import DummyDriver
 from control.test.dummy_logger import DummyLogger
 from control.test.dummy_telemetry import DummyTelemetry
@@ -18,9 +18,10 @@ def main():
     """Main function."""
     logger = DummyLogger()
     box = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
-    waypoint_generator = KmlWaypointGenerator(
-        logger,
-        'control/paths/solid-state-depot.kmz'
+    waypoint_generator = SimpleWaypointGenerator(
+        SimpleWaypointGenerator.get_waypoints_from_file_name(
+            'control/paths/solid-state-depot.kmz'
+        )
     )
     waypoint_generator._waypoints.clear()
     for x, y in ((x_ * .005 + 10, y_ * .005 + 10) for x_, y_ in box):

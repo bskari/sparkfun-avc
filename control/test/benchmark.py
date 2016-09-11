@@ -3,7 +3,7 @@
 import time
 
 from control.command import Command
-from control.kml_waypoint_generator import KmlWaypointGenerator
+from control.simple_waypoint_generator import SimpleWaypointGenerator
 from control.location_filter import LocationFilter
 from control.telemetry import Telemetry
 from control.test.dummy_driver import DummyDriver
@@ -66,9 +66,10 @@ def benchmark_command_run_course_iterator():
     """Benchmark the logic for driving the car."""
     logger = DummyLogger()
     telemetry = Telemetry(logger)
-    waypoint_generator = KmlWaypointGenerator(
-        logger,
-        'paths/solid-state-depot.kmz'
+    waypoint_generator = SimpleWaypointGenerator(
+        SimpleWaypointGenerator.get_waypoints_from_file_name(
+            'paths/solid-state-depot.kmz'
+        )
     )
     driver = DummyDriver(telemetry, logger)
     command = Command(telemetry, driver, waypoint_generator, logger)

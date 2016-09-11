@@ -368,6 +368,17 @@ class Telemetry(object):
             pt_x * sine + pt_y * cosine
         )
 
+    @staticmethod
+    def rotate_degrees_clockwise(point, degrees):
+        """Rotates the point by degrees."""
+        pt_x, pt_y = point
+        cosine = math.cos(math.radians(-degrees))
+        sine = math.sin(math.radians(-degrees))
+        return (
+            pt_x * cosine - pt_y * sine,
+            pt_x * sine + pt_y * cosine
+        )
+
     @classmethod
     def m_per_d_latitude(cls):
         """Returns the numbers of meters per degree of latitude."""
@@ -426,13 +437,13 @@ class Telemetry(object):
         """Determines if the vehicle facing a heading in degrees needs to turn
         left to reach a goal heading in degrees.
         """
-        pt_1 = Telemetry.rotate_radians_clockwise(
+        pt_1 = Telemetry.rotate_degrees_clockwise(
             (1, 0),
-            math.radians(heading_d)
+            heading_d
         )
-        pt_2 = Telemetry.rotate_radians_clockwise(
+        pt_2 = Telemetry.rotate_degrees_clockwise(
             (1, 0),
-            math.radians(goal_heading_d)
+            goal_heading_d
         )
         pt_1 = list(pt_1) + [0]
         pt_2 = list(pt_2) + [0]
@@ -549,9 +560,9 @@ class Telemetry(object):
         the distance to the waypoint.
         """
         angle = Telemetry.wrap_degrees(180.0 + heading_d + offset_to_waypoint_d)
-        return Telemetry.rotate_radians_clockwise(
+        return Telemetry.rotate_degrees_clockwise(
             (0.0, distance),
-            math.radians(angle)
+            angle
         )
 
     @staticmethod
