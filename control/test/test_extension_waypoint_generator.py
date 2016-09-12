@@ -86,6 +86,43 @@ class TestExtensionWaypointGenerator(unittest.TestCase):
             ExtensionWaypointGenerator.BEYOND_M
         )
 
+        # More project through tests
+        points = ((0, 0), (0, 10), (10, 10), (10, 0), (0, 0))
+        generator = ExtensionWaypointGenerator(points)
+        i = 0
+        while i < len(points) - 1:
+            point = points[i]
+            waypoint = generator.get_current_waypoint(
+                point[0] - 1.0,
+                point[1] - 1.0
+            )
+            self.assertAlmostEqual(waypoint[0], point[0])
+            print(point)
+            print(waypoint)
+            print(points[i + 1])
+            self.assertTrue(
+                (point[1] < waypoint[1] < points[i + 1][1])
+                or (points[i + 1][1] < waypoint[1] < point[1])
+            )
+            i += 1
+            generator.next()
+
+            point = points[i]
+            waypoint = generator.get_current_waypoint(
+                point[0] - 1.0,
+                point[1] - 1.0
+            )
+            self.assertAlmostEqual(waypoint[1], point[1])
+            print(point)
+            print(waypoint)
+            print(points[i + 1])
+            self.assertTrue(
+                (point[0] < waypoint[0] < points[i + 0][1])
+                or (points[i + 1][0] < waypoint[0] < point[0])
+            )
+            i += 1
+            generator.next()
+
     def test_reached(self):
         """Tests the reached waypoint algorithm."""
         points = ((19, 7), (20, 21), (-10, 20))
