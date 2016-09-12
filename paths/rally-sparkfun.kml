@@ -156,75 +156,71 @@
 			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
 		</IconStyle>
 	</Style>
-	<Folder>
-		<name>rally-sparkfun</name>
-		<open>1</open>
-		<Placemark>
-			<name>path</name>
-			<styleUrl>#msn_ylw-pushpin1</styleUrl>
-			<LineString>
-				<tessellate>1</tessellate>
-				<coordinates>
-					-105.2473799743693,40.02044690764086,0 -105.2473797953664,40.02032391584316,0 -105.2473975295584,40.02030496256765,0 -105.2476160442558,40.0203046873695,0 -105.2476384319654,40.02031918963246,0 -105.24764200738,40.02051843288844,0 -105.2476549522004,40.0205292486031,0 -105.2478442935835,40.02052755131219,0 -105.2478630883559,40.02054283272878,0 -105.247865490203,40.02067837155485,0 -105.2478467252766,40.02069633830358,0 -105.2477033126049,40.02069385432871,0 -105.2474755169867,40.02069326056085,0 -105.2473948946808,40.02069248535047,0 -105.2473758865674,40.02067807598844,0 -105.247381386771,40.02045775537255,0 -105.2473834078176,40.02032250034943,0 -105.2473928659553,40.02030714153198,0 
-				</coordinates>
-			</LineString>
-		</Placemark>
-		<Placemark>
-			<name>course</name>
-			<styleUrl>#msn_ylw-pushpin2</styleUrl>
-			<Polygon>
-				<tessellate>1</tessellate>
-				<outerBoundaryIs>
-					<LinearRing>
-						<coordinates>
-							-105.2473610944293,40.02029471737296,0 -105.2473593804601,40.02070921945676,0 -105.2478858868737,40.02070972472924,0 -105.2478823855366,40.02051482671013,0 -105.2476650510038,40.02051671181915,0 -105.2476598106844,40.02029177039701,0 -105.2473610944293,40.02029471737296,0 
-						</coordinates>
-					</LinearRing>
-				</outerBoundaryIs>
-			</Polygon>
-		</Placemark>
-		<Placemark>
-			<name>fake-1</name>
-			<styleUrl>#msn_ylw-pushpin0</styleUrl>
-			<Polygon>
-				<tessellate>1</tessellate>
-				<outerBoundaryIs>
-					<LinearRing>
-						<coordinates>
-							-105.2476144987516,40.02067845220854,0 -105.2476122614612,40.02048625870316,0 -105.2474031900417,40.020407818024,0 -105.2474045703878,40.02067716062849,0 -105.2476144987516,40.02067845220854,0 
-						</coordinates>
-					</LinearRing>
-				</outerBoundaryIs>
-			</Polygon>
-		</Placemark>
-		<Placemark>
-			<name>fake-2</name>
-			<styleUrl>#msn_ylw-pushpin0</styleUrl>
-			<Polygon>
-				<tessellate>1</tessellate>
-				<outerBoundaryIs>
-					<LinearRing>
-						<coordinates>
-							-105.247404253712,40.0203732643188,0 -105.2476188411858,40.02045853540201,0 -105.2476166265347,40.02032233092878,0 -105.2474030828912,40.02032013804622,0 -105.247404253712,40.0203732643188,0 
-						</coordinates>
-					</LinearRing>
-				</outerBoundaryIs>
-			</Polygon>
-		</Placemark>
-		<Placemark>
-			<name>fake-3</name>
-			<styleUrl>#msn_ylw-pushpin</styleUrl>
-			<Polygon>
-				<tessellate>1</tessellate>
-				<outerBoundaryIs>
-					<LinearRing>
-						<coordinates>
-							-105.2478434037643,40.02054271823906,0 -105.2476611402509,40.02054367910122,0 -105.2476585510691,40.02068042024611,0 -105.2478420097077,40.02068018727996,0 -105.2478434037643,40.02054271823906,0 
-						</coordinates>
-					</LinearRing>
-				</outerBoundaryIs>
-			</Polygon>
-		</Placemark>
-	</Folder>
+    <Placemark>
+        <name>path</name>
+        <styleUrl>#msn_ylw-pushpin1</styleUrl>
+        <LineString>
+            <tessellate>1</tessellate>
+            <coordinates>
+                -105.2473799743693,40.02044690764086,0 -105.2473797953664,40.02032391584316,0 -105.2473975295584,40.02030496256765,0 -105.2476160442558,40.0203046873695,0 -105.2476384319654,40.02031918963246,0 -105.24764200738,40.02051843288844,0 -105.2476549522004,40.0205292486031,0 -105.2478442935835,40.02052755131219,0 -105.2478630883559,40.02054283272878,0 -105.247865490203,40.02067837155485,0 -105.2478467252766,40.02069633830358,0 -105.2477033126049,40.02069385432871,0 -105.2474755169867,40.02069326056085,0 -105.2473948946808,40.02069248535047,0 -105.2473758865674,40.02067807598844,0 -105.247381386771,40.02045775537255,0 -105.2473834078176,40.02032250034943,0 -105.2473928659553,40.02030714153198,0 
+            </coordinates>
+        </LineString>
+    </Placemark>
+    <Placemark>
+        <name>course</name>
+        <styleUrl>#msn_ylw-pushpin2</styleUrl>
+        <Polygon>
+            <tessellate>1</tessellate>
+            <outerBoundaryIs>
+                <LinearRing>
+                    <coordinates>
+                        -105.2473610944293,40.02029471737296,0 -105.2473593804601,40.02070921945676,0 -105.2478858868737,40.02070972472924,0 -105.2478823855366,40.02051482671013,0 -105.2476650510038,40.02051671181915,0 -105.2476598106844,40.02029177039701,0 -105.2473610944293,40.02029471737296,0 
+                    </coordinates>
+                </LinearRing>
+            </outerBoundaryIs>
+        </Polygon>
+    </Placemark>
+    <Placemark>
+        <name>fake-1</name>
+        <styleUrl>#msn_ylw-pushpin0</styleUrl>
+        <Polygon>
+            <tessellate>1</tessellate>
+            <outerBoundaryIs>
+                <LinearRing>
+                    <coordinates>
+                        -105.2476144987516,40.02067845220854,0 -105.2476122614612,40.02048625870316,0 -105.2474031900417,40.020407818024,0 -105.2474045703878,40.02067716062849,0 -105.2476144987516,40.02067845220854,0 
+                    </coordinates>
+                </LinearRing>
+            </outerBoundaryIs>
+        </Polygon>
+    </Placemark>
+    <Placemark>
+        <name>fake-2</name>
+        <styleUrl>#msn_ylw-pushpin0</styleUrl>
+        <Polygon>
+            <tessellate>1</tessellate>
+            <outerBoundaryIs>
+                <LinearRing>
+                    <coordinates>
+                        -105.247404253712,40.0203732643188,0 -105.2476188411858,40.02045853540201,0 -105.2476166265347,40.02032233092878,0 -105.2474030828912,40.02032013804622,0 -105.247404253712,40.0203732643188,0 
+                    </coordinates>
+                </LinearRing>
+            </outerBoundaryIs>
+        </Polygon>
+    </Placemark>
+    <Placemark>
+        <name>fake-3</name>
+        <styleUrl>#msn_ylw-pushpin</styleUrl>
+        <Polygon>
+            <tessellate>1</tessellate>
+            <outerBoundaryIs>
+                <LinearRing>
+                    <coordinates>
+                        -105.2478434037643,40.02054271823906,0 -105.2476611402509,40.02054367910122,0 -105.2476585510691,40.02068042024611,0 -105.2478420097077,40.02068018727996,0 -105.2478434037643,40.02054271823906,0 
+                    </coordinates>
+                </LinearRing>
+            </outerBoundaryIs>
+        </Polygon>
+    </Placemark>
 </Document>
 </kml>
