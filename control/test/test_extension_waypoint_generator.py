@@ -41,87 +41,53 @@ class TestExtensionWaypointGenerator(unittest.TestCase):
         self.assertEqual(points[0], generator.get_current_waypoint(21, 21))
         self.assertEqual(points[0], generator.get_current_waypoint(19, 21))
 
-        points = ((19, 19), (20, 21), (-10, 20))
-        generator = ExtensionWaypointGenerator(points)
-        # If we are far away, just return the point
-        self.assertEqual(points[0], generator.get_current_waypoint(-100, -100))
-        self.assertEqual(points[0], generator.get_current_waypoint(100, -100))
-        self.assertEqual(points[0], generator.get_current_waypoint(100, 100))
-        self.assertEqual(points[0], generator.get_current_waypoint(-100, 100))
-        generator.next()
-        self.assertEqual(points[1], generator.get_current_waypoint(-100, -100))
-        self.assertEqual(points[1], generator.get_current_waypoint(100, -100))
-        self.assertEqual(points[1], generator.get_current_waypoint(100, 100))
-        self.assertEqual(points[1], generator.get_current_waypoint(-100, 100))
-        # If we are close, project through
-        waypoint = generator.get_current_waypoint(points[1][0], points[1][1])
-        self.assertAlmostEqual(
-            math.sqrt(
-                (points[1][0] - waypoint[0]) ** 2 +
-                (points[1][1] - waypoint[1]) ** 2
-            ),
-            ExtensionWaypointGenerator.BEYOND_M
-        )
-        self.assertAlmostEqual(
-            Telemetry.relative_degrees(
-                points[1][0],
-                points[1][1],
-                points[2][0],
-                points[2][1]
-            ),
-            Telemetry.relative_degrees(
-                points[1][0],
-                points[1][1],
-                waypoint[0],
-                waypoint[1]
-            )
-        )
-
-        # Triangle inequality
-        self.assertLess(
-            math.sqrt(
-                (points[0][0] - waypoint[0]) ** 2 +
-                (points[0][1] - waypoint[1]) ** 2
-            ),
-            ExtensionWaypointGenerator.BEYOND_M
-        )
-
-        # More project through tests
-        points = ((0, 0), (0, 10), (10, 10), (10, 0), (0, 0))
-        generator = ExtensionWaypointGenerator(points)
-        i = 0
-        while i < len(points) - 1:
-            point = points[i]
-            waypoint = generator.get_current_waypoint(
-                point[0] - 1.0,
-                point[1] - 1.0
-            )
-            self.assertAlmostEqual(waypoint[0], point[0])
-            print(point)
-            print(waypoint)
-            print(points[i + 1])
-            self.assertTrue(
-                (point[1] < waypoint[1] < points[i + 1][1])
-                or (points[i + 1][1] < waypoint[1] < point[1])
-            )
-            i += 1
+        # Project through tests
+        points = ((0, 0), (0, 10), (10, 10), (10, 0), (0, 0), (5, 5), (5, 0), (5, -5), (0, 0))
+        for partial in zip(points[:-1], points[1:]):
+            generator = ExtensionWaypointGenerator(partial + (-100, -100))
             generator.next()
-
-            point = points[i]
+            position = partial[0]
+            true_waypoint = partial[1]
             waypoint = generator.get_current_waypoint(
-                point[0] - 1.0,
-                point[1] - 1.0
+                partial[0][0],
+                partial[0][1]
             )
-            self.assertAlmostEqual(waypoint[1], point[1])
-            print(point)
-            print(waypoint)
-            print(points[i + 1])
-            self.assertTrue(
-                (point[0] < waypoint[0] < points[i + 0][1])
-                or (points[i + 1][0] < waypoint[0] < point[0])
+            self.assertAlmostEqual(
+                Telemetry.relative_degrees(
+                    position[0],
+                    position[1],
+                    true_waypoint[0],
+                    true_waypoint[1]
+                ),
+                Telemetry.relative_degrees(
+                    position[0],
+                    position[1],
+                    waypoint[0],
+                    waypoint[1]
+                )
             )
-            i += 1
-            generator.next()
+
+            def distance(x1, y1, x2, y2):
+                """Returns distance between 2 points."""
+                return math.sqrt(
+                    (x1 - x2) ** 2 + (y1 - y2) ** 2
+                )
+
+            self.assertLess(
+                distance(
+                    position[0],
+                    position[1],
+                    true_waypoint[0],
+                    true_waypoint[1]
+                ) + 1.0,
+                distance(
+                    position[0],
+                    position[1],
+                    waypoint[0],
+                    waypoint[1]
+                )
+            )
+
 
     def test_reached(self):
         """Tests the reached waypoint algorithm."""

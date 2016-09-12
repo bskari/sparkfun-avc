@@ -21,34 +21,26 @@ class ExtensionWaypointGenerator(SimpleWaypointGenerator):
     reduce oscillating.
     """
 
-    BEYOND_M = 5.0
+    BEYOND_M = 10.0
 
     def __init__(self, waypoints):
         super(ExtensionWaypointGenerator, self).__init__(waypoints)
 
     def get_current_waypoint(self, x_m, y_m):
-        """Returns the current waypoint."""
+        """Returns the current waypoint as projected BEYOND_M past."""
         if len(self._waypoints) == 1:
             return self._waypoints[0]
         elif len(self._waypoints) > 1:
             current_waypoint_m = self._waypoints[0]
-            distance_m = math.sqrt(
-                (current_waypoint_m[0] - x_m) ** 2
-                + (current_waypoint_m[1] - y_m) ** 2
-            )
-            if distance_m > self.BEYOND_M:
-                return current_waypoint_m
-            past_m = self.BEYOND_M - distance_m
-            next_waypoint_m = self._waypoints[1]
 
             degrees = Telemetry.relative_degrees(
+                x_m,
+                y_m,
                 current_waypoint_m[0],
-                current_waypoint_m[1],
-                next_waypoint_m[0],
-                next_waypoint_m[1]
+                current_waypoint_m[1]
             )
             offset_m = Telemetry.rotate_degrees_clockwise(
-                (0.0, past_m),
+                (0.0, self.BEYOND_M),
                 degrees
             )
             return (
