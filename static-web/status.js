@@ -45,13 +45,23 @@ sparkfun.status.init = function(
         webSocketAddress
 ) {
     'use strict';
-    buttons.run.click(sparkfun.status.run);
-    buttons.stop.click(sparkfun.status.stop);
-    buttons.reset.click(sparkfun.status.reset);
-    buttons.calibrateCompass.click(sparkfun.status.calibrateCompass);
-    buttons.shutDown.click(sparkfun.status.confirmShutDown);
-    throttle.change(sparkfun.status.setThrottle);
-    waypointFiles.change(sparkfun.status.setWaypoints);
+    $(document).ready(function () {
+        // iPad treats single clicks as a hover, we need to bind to a different
+        // event
+        var eventType;
+        if (navigator.userAgent.match('iPad')) {
+            eventType = 'touchstart';
+        } else {
+            eventType = 'click';
+        }
+        buttons.run.bind(eventType, sparkfun.status.run);
+        buttons.stop.bind(eventType, sparkfun.status.stop);
+        buttons.reset.bind(eventType, sparkfun.status.reset);
+        buttons.calibrateCompass.bind(eventType, sparkfun.status.calibrateCompass);
+        buttons.shutDown.bind(eventType, sparkfun.status.confirmShutDown);
+        throttle.change(sparkfun.status.setThrottle);
+        waypointFiles.change(sparkfun.status.setWaypoints);
+    });
 
     sparkfun.status.carX_m = carFields.x_m;
     sparkfun.status.carY_m = carFields.y_m;

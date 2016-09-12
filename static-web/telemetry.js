@@ -28,10 +28,20 @@ sparkfun.telemetry.init = function(
         postAddress
 ) {
     'use strict';
-    buttons.run.click(sparkfun.telemetry.run);
-    buttons.stop.click(sparkfun.telemetry.stop);
-    buttons.send.click(sparkfun.telemetry.send);
-    buttons.stopSending.click(sparkfun.telemetry.stopSending);
+    $(document).ready(function () {
+        // iPad treats single clicks as a hover, we need to bind to a different
+        // event
+        var eventType;
+        if (navigator.userAgent.match('iPad')) {
+            eventType = 'touchstart';
+        } else {
+            eventType = 'click';
+        }
+        buttons.run.bind(eventType, sparkfun.telemetry.run);
+        buttons.stop.click(eventType, sparkfun.telemetry.stop);
+        buttons.send.click(eventType, sparkfun.telemetry.send);
+        buttons.stopSending.click(eventType, sparkfun.telemetry.stopSending);
+    });
 
     sparkfun.telemetry.latitude = telemetryFields.latitude;
     sparkfun.telemetry.longitude = telemetryFields.longitude;
