@@ -12,7 +12,6 @@ such as the "rabbit chase" method.
 """
 
 from pykml import parser
-import collections
 import copy
 import json
 import math
@@ -31,8 +30,8 @@ class SimpleWaypointGenerator(object):
 
     def __init__(self, waypoints):
         self._logger = AsyncLogger()
-        self._initial_waypoints = collections.deque(waypoints)
-        self._waypoints = copy.deepcopy(self._initial_waypoints)
+        self._waypoints = copy.deepcopy(waypoints)
+        self._current_waypoint_index = 0
         self._logger.info(
             'Loaded {length} waypoints'.format(
                 length=len(self._waypoints)
@@ -53,14 +52,15 @@ class SimpleWaypointGenerator(object):
 
     def get_current_waypoint(self, x_m, y_m):  # pylint: disable=unused-argument
         """Returns the current waypoint."""
-        if len(self._waypoints) > 0:
-            return self._waypoints[0]
+        if self._current_waypoint_index < len(self._waypoints):
+            return self._waypoints[self._current_waypoint_index]
         raise ValueError('No waypoints left')
 
     def get_raw_waypoint(self):
         """Returns the raw waypoint. Should only be used with monitors."""
-        if len(self._waypoints) > 0:
-            return self._waypoints[0]
+        if self._current_waypoint_index < len(self._waypoints):
+            return self._waypoints[self._current_waypoint_index]
+        # Return dummy data for the monitor
         return (0.0, 0.0)
 
     def reached(self, x_m, y_m):
@@ -85,17 +85,17 @@ class SimpleWaypointGenerator(object):
 
     def next(self):
         """Goes to the next waypoint."""
-        self._waypoints.popleft()
+        self._current_waypoint_index += 1
 
     def done(self):
         """Returns True if the course is done and there are no remaining
         waypoints.
         """
-        return len(self._waypoints) == 0
+        return self._current_waypoint_index >= len(self._waypoints)
 
     def reset(self):
         """Resets the waypoints."""
-        self._waypoints = copy.deepcopy(self._initial_waypoints)
+        self._current_waypoint_index = 0
 
     def _handle_message(self, message):
         """Handles a message from the waypoint exchange."""
@@ -105,8 +105,8 @@ class SimpleWaypointGenerator(object):
             return
         if message['command'] == 'load' and 'file' in message:
             try:
-                self._initial_waypoints = self.get_waypoints_from_file_name(message['file'])
-                self._waypoints = copy.deepcopy(self._initial_waypoints)
+                self._waypoints = self.get_waypoints_from_file_name(message['file'])
+                self._current_waypoint_index = 0
             except Exception as exc:  # pylint: disable=broad-except
                 self._logger.error(
                     'Unable to load waypoints from {}: {}'.format(
@@ -155,7 +155,7 @@ class SimpleWaypointGenerator(object):
         # Unlike all of the other tag names, "coordinates" is not capitalized
         coordinates = get_child(line_string, 'coordinates')
 
-        waypoints = collections.deque()
+        waypoints = []
         text = coordinates.text.strip()
         for csv in re.split(r'\s', text):
             (

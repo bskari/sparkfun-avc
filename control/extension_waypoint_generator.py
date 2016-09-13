@@ -28,14 +28,20 @@ class ExtensionWaypointGenerator(SimpleWaypointGenerator):
 
     def get_current_waypoint(self, x_m, y_m):
         """Returns the current waypoint as projected BEYOND_M past."""
-        if len(self._waypoints) == 1:
+        if self._current_waypoint_index == 0:
             return self._waypoints[0]
-        elif len(self._waypoints) > 1:
-            current_waypoint_m = self._waypoints[0]
+        elif (
+                self._current_waypoint_index >= 1
+                and self._current_waypoint_index < len(self._waypoints)
+        ):
+            previous_waypoint_m = self._waypoints[
+                self._current_waypoint_index - 1
+            ]
+            current_waypoint_m = self._waypoints[self._current_waypoint_index]
 
             degrees = Telemetry.relative_degrees(
-                x_m,
-                y_m,
+                previous_waypoint_m[0],
+                previous_waypoint_m[1],
                 current_waypoint_m[0],
                 current_waypoint_m[1]
             )

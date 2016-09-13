@@ -42,26 +42,38 @@ class TestExtensionWaypointGenerator(unittest.TestCase):
         self.assertEqual(points[0], generator.get_current_waypoint(19, 21))
 
         # Project through tests
+        position = (-100, 20)
         points = ((0, 0), (0, 10), (10, 10), (10, 0), (0, 0), (5, 5), (5, 0), (5, -5), (0, 0))
-        for partial in zip(points[:-1], points[1:]):
-            generator = ExtensionWaypointGenerator(partial + (-100, -100))
-            generator.next()
-            position = partial[0]
-            true_waypoint = partial[1]
+        generator = ExtensionWaypointGenerator(points)
+        self.assertEqual(
+            generator.get_current_waypoint(
+                position[0],
+                position[1]
+            ),
+            points[0]
+        )
+
+        generator.next()
+        self.assertTrue(position not in points)
+
+        for index in range(1, len(points)):
+            point = points[index]
+            previous_point = points[index - 1]
+            true_waypoint = point
             waypoint = generator.get_current_waypoint(
-                partial[0][0],
-                partial[0][1]
+                position[0],
+                position[1]
             )
             self.assertAlmostEqual(
                 Telemetry.relative_degrees(
-                    position[0],
-                    position[1],
+                    previous_point[0],
+                    previous_point[1],
                     true_waypoint[0],
                     true_waypoint[1]
                 ),
                 Telemetry.relative_degrees(
-                    position[0],
-                    position[1],
+                    previous_point[0],
+                    previous_point[1],
                     waypoint[0],
                     waypoint[1]
                 )
@@ -75,19 +87,20 @@ class TestExtensionWaypointGenerator(unittest.TestCase):
 
             self.assertLess(
                 distance(
-                    position[0],
-                    position[1],
+                    previous_point[0],
+                    previous_point[1],
                     true_waypoint[0],
                     true_waypoint[1]
                 ) + 1.0,
                 distance(
-                    position[0],
-                    position[1],
+                    previous_point[0],
+                    previous_point[1],
                     waypoint[0],
                     waypoint[1]
                 )
             )
 
+            generator.next()
 
     def test_reached(self):
         """Tests the reached waypoint algorithm."""
