@@ -73,7 +73,7 @@ def build_color_map(runs):
         'estimate': 'ff00ffff'
     }
     # ABGR
-    preferred_colors = ['ff0000ff', 'ff00ff00', 'ffff0000']
+    preferred_colors = ['ff0000ff', 'ff00ff00', 'ffff0000', 'ffff00ff', 'ff654321']
     for run in runs:
         for device in run:
             if device in color_map:
