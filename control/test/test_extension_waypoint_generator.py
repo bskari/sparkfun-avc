@@ -114,17 +114,6 @@ class TestExtensionWaypointGenerator(unittest.TestCase):
         self.assertTrue(generator.reached(points[0][0] - 0.5, points[0][1] + 0.5))
         self.assertTrue(generator.reached(points[0][0] + 0.5, points[0][1] + 0.5))
 
-        # Getting close, then pulling away should count too
-        offset = 4.0
-        while offset > 1.0:
-            self.assertFalse(generator.reached(points[0][0] - offset, points[0][1] - offset))
-            offset -= 0.25
-        self.assertTrue(generator.reached(points[0][0] - offset - 1.0, points[0][1] - offset))
-
-        # But pulling away should not count if we are a long way away
-        generator.next()
-        offset = 20.0
-        while offset > 10.0:
-            self.assertFalse(generator.reached(points[1][0] - offset, points[1][1] - offset))
-            offset -= 0.25
-        self.assertFalse(generator.reached(points[1][0] - offset - 1.0, points[1][1] - offset))
+        # And reaching the beyond point should count too
+        waypoint = generator.get_current_waypoint(points[0][0], points[0][1])
+        self.assertTrue(generator.reached(waypoint[0], waypoint[1]))
