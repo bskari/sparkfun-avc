@@ -89,69 +89,84 @@ class TestSimpleWaypointGenerator(unittest.TestCase):
     def test_reached(self):
         """Tests waypoints being reached."""
         waypoint_generator = self.make_generator()
-        waypoint = (50, 50)
-        waypoint_generator._waypoints = [waypoint, (200.0, 200.0)]
+        waypoints = ((50, 50), (100, 100))
+        waypoint_generator._waypoints = waypoints
 
         # Still a long ways away
         self.assertFalse(
             waypoint_generator.reached(
-                waypoint[0] + 100.0,
-                waypoint[1] + 100.0,
+                waypoints[0][0] + 100.0,
+                waypoints[0][1] + 100.0,
             )
         )
         self.assertFalse(
             waypoint_generator.reached(
-                waypoint[0],
-                waypoint[1] + 100.0,
+                waypoints[0][0],
+                waypoints[0][1] + 100.0,
             )
         )
         self.assertFalse(
             waypoint_generator.reached(
-                waypoint[0] + 100.0,
-                waypoint[1]
+                waypoints[0][0] + 100.0,
+                waypoints[0][1]
             )
         )
 
         # If we are close, then it counts
         self.assertTrue(
             waypoint_generator.reached(
-                waypoint[0],
-                waypoint[1]
+                waypoints[0][0],
+                waypoints[0][1]
             )
         )
         self.assertTrue(
             waypoint_generator.reached(
-                waypoint[0] + 0.5,
-                waypoint[1]
+                waypoints[0][0] + 0.5,
+                waypoints[0][1]
             )
         )
         self.assertTrue(
             waypoint_generator.reached(
-                waypoint[0],
-                waypoint[1] + 0.5
+                waypoints[0][0],
+                waypoints[0][1] + 0.5
             )
         )
         self.assertTrue(
             waypoint_generator.reached(
-                waypoint[0] + 0.5,
-                waypoint[1] + 0.5
+                waypoints[0][0] + 0.5,
+                waypoints[0][1] + 0.5
             )
         )
 
         # If we get within a certain range, and keep getting closer, then start
         # getting farther away, then that counts
         distances = [math.sqrt(2.0 + i * 0.1) for i in range(30, 0, -1)]
-        for d in distances:
+        for distance in distances:
             self.assertFalse(
                 waypoint_generator.reached(
-                    waypoint[0] + d,
-                    waypoint[1] + d
+                    waypoints[0][0] + distance,
+                    waypoints[0][1] + distance
                 )
             )
         self.assertTrue(
             waypoint_generator.reached(
-                waypoint[0] + distances[-2],
-                waypoint[1] + distances[-2],
+                waypoints[0][0] + distances[-2],
+                waypoints[0][1] + distances[-2],
+            )
+        )
+
+        # Next waypoint shouldn't be reached
+        self.assertTrue(
+            waypoint_generator.reached(
+                waypoints[0][0],
+                waypoints[0][1]
+            )
+        )
+        waypoint_generator.next()
+        self.assertFalse(
+            waypoint_generator.reached(
+                waypoints[0][0],
+                waypoints[0][1]
             )
         )
 
@@ -173,8 +188,7 @@ class TestSimpleWaypointGenerator(unittest.TestCase):
 
     def test_done(self):
         """Tests the done method."""
-        waypoint_generator = self.make_generator()
-        waypoint_generator._waypoints = collections.deque([(5, 5)])
+        waypoint_generator = self.make_generator([(5, 5)])
         self.assertFalse(waypoint_generator.done())
         waypoint_generator.next()
         self.assertTrue(waypoint_generator.done())
@@ -189,10 +203,8 @@ class TestSimpleWaypointGenerator(unittest.TestCase):
         SimpleWaypointGenerator.get_waypoints_from_file_name(archive_file_name)
 
     @staticmethod
-    def make_generator():
+    def make_generator(waypoints=None):
         """Returns a KML waypoint generator."""
-        return SimpleWaypointGenerator(
-            SimpleWaypointGenerator.get_waypoints_from_file_name(
-                'paths/solid-state-depot.kml'
-            )
-        )
+        if waypoints is None:
+            waypoints = [(1, 1), (5, 10)]
+        return SimpleWaypointGenerator(waypoints)

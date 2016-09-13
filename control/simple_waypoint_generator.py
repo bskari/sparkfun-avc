@@ -70,8 +70,8 @@ class SimpleWaypointGenerator(object):
         # waypoint as reached if the distance is < 3m and either the distance
         # starts increasing, or the car gets within 1m
         distance_m = math.sqrt(
-            (x_m - self._waypoints[0][0]) ** 2
-            + (y_m - self._waypoints[0][1]) ** 2
+            (x_m - self._waypoints[self._current_waypoint_index][0]) ** 2
+            + (y_m - self._waypoints[self._current_waypoint_index][1]) ** 2
         )
         if distance_m < 1.0:
             return True
