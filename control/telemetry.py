@@ -39,11 +39,13 @@ class Telemetry(object):
     EQUATORIAL_RADIUS_M = 6378.1370 * 1000
     M_PER_D_LATITUDE = EQUATORIAL_RADIUS_M * 2.0 * math.pi / 360.0
     HISTORICAL_SPEED_READINGS_COUNT = 10
+    HISTORICAL_ACCELEROMETER_READINGS_COUNT = 5
 
     def __init__(self, kml_file_name=None):
         self._data = {}
         self._logger = AsyncLogger()
         self._speed_history = collections.deque()
+        self._z_acceleration_g = collections.deque()
         self._lock = threading.Lock()
 
         # TODO: For the competition, just hard code the compass. For now, the
@@ -160,8 +162,12 @@ class Telemetry(object):
             )
             self._logger.debug(original_message)
 
-        elif 'acceleration_g_x' in message:
+        elif 'acceleration_g_z' in message:
             # TODO(skari): Detect if we've run into something
+            self._z_acceleration_g.append(message['acceleration_g_z'])
+            while len(self._z_acceleration_g) > self.HISTORICAL_ACCELEROMETER_READINGS_COUNT:
+                self._z_acceleration_g.popleft()
+
             self._logger.debug(original_message)
 
         elif 'latitude_d' in message:
@@ -251,6 +257,17 @@ class Telemetry(object):
 
         if all((speed == 0.0 for speed in self._speed_history)):
             self._speed_history.clear()
+            return True
+        return False
+
+    @synchronized
+    def is_inverted(self):
+        """Determines if the RC car is inverted."""
+        if len(self._z_acceleration_g) < self.HISTORICAL_ACCELEROMETER_READINGS_COUNT:
+            return False
+
+        if all((z_acceleration_g < 0.0 for z_acceleration_g in self._z_acceleration_g)):
+            self._z_acceleration_g.clear()
             return True
         return False
 
