@@ -127,8 +127,11 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                         self._logger.info('Car is inverted, starting in 3')
 
                         def inverted_start():
+                            while self._telemetry.is_inverted():
+                                time.sleep(0.25)
+                            self._logger.info('Starting in 3 seconds')
                             time.sleep(3)
-                            if not self._telemetry.is_inverted() and not self._run_course:
+                            if not self._run_course:
                                 self._handle_message('start')
                             else:
                                 self._logger.info('Inverted start aborted')
