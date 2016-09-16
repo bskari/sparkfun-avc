@@ -16,10 +16,12 @@ def main():
     thread.daemon = True
     thread.start()
     for _ in range(10):
-        if thread.is_alive():
+        if not thread.is_alive():
             break
         time.sleep(1)
 
+    if thread.is_alive():
+        print('Unable to set time')
     sys.exit(0)
 
 
