@@ -22,6 +22,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     REVERSE_TIME_S = 0.25
     NEUTRAL_TIME_2_S = 0.25
     NEUTRAL_TIME_3_S = 1.0
+    STRAIGHT_TIME_S = 3.0
 
     def __init__(
             self,
@@ -46,11 +47,12 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self._run_course = False
         self._waypoint_generator = waypoint_generator
 
-        self._last_command = None
         self._sleep_time = None
         self._wake_time = None
-        self._telemetry_data = None
         self._start_time = None
+
+        # If the car is on the starting line (not started yet)
+        self._on_starting_line = True
 
         self._commands = queue.Queue()
         def callback(message):
@@ -95,6 +97,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         elif command == 'stop':
             self.stop()
         elif command == 'reset':
+            self._on_starting_line = True
             self.reset()
         elif command == 'calibrate-compass':
             self.calibrate_compass(10)
@@ -143,8 +146,26 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                 if not self._run:
                     return
 
-                self._logger.info('Running course iteration')
+                # If we are on the starting line
+                if self._on_starting_line:
+                    self._on_starting_line = False
+                    self._logger.info(
+                        'Driving straight for {} seconds'.format(
+                            self.STRAIGHT_TIME_S
+                        )
+                    )
+                    straight_iterator = self._straight_iterator()
+                    while (
+                            self._run
+                            and self._run_course
+                            and next(straight_iterator)
+                    ):
+                        # Force updating of telemetry estimations
+                        self._telemetry.get_data()
+                        self._driver.drive(1.0, 0.0)
+                        self._wait()
 
+                self._logger.info('Running course iteration')
                 run_iterator = self._run_iterator()
                 while self._run and self._run_course and next(run_iterator):
                     while not self._commands.empty():
@@ -192,6 +213,15 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                     self.run_course()
                     self._logger.warning('Restarting after pause')
                     error_count = 0
+
+    def _straight_iterator(self, seconds=None):
+        """Runs straight for a little bit."""
+        if seconds == None:
+            seconds = self.STRAIGHT_TIME_S
+        start_s = time.time()
+        while time.time() - start_s < seconds:
+            yield True
+        yield False
 
     def _run_iterator(self):
         """Returns an iterator that drives everything."""
