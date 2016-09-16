@@ -49,7 +49,7 @@ def set_time():
         if line.startswith('$GPRMC'):
             print(line)
             time_str = line.split(',')[1]
-            date_str = line.split(',')[-3]
+            date_str = line.split(',')[9]
 
             day = int(date_str[0:2])
             month = int(date_str[2:4])
