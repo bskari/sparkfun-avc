@@ -26,16 +26,14 @@ class ExtensionWaypointGenerator(SimpleWaypointGenerator):
 
     def __init__(self, waypoints):
         super(ExtensionWaypointGenerator, self).__init__(waypoints)
-        self._extension_waypoint = waypoints[0]
 
     def get_current_waypoint(self, x_m, y_m):
         """Returns the current waypoint as projected BEYOND_M past."""
-        return self._extension_waypoint
+        return self._get_extended_waypoint(x_m, y_m)
 
     def next(self):
         """Goes to the next waypoint."""
         super(ExtensionWaypointGenerator, self).next()
-        self._extension_waypoint = self._get_extended_waypoint()
 
     def reached(self, x_m, y_m):
         """Returns True if the current waypoint has been reached."""
@@ -44,15 +42,16 @@ class ExtensionWaypointGenerator(SimpleWaypointGenerator):
         # Because the car is trying to go for the extension, the car might
         # pass the actual waypoint and keep on driving, so check if it's close
         # to the extension as well
+        current_waypoint = self.get_current_waypoint(x_m, y_m)
         distance_m_2 = (
-            (x_m - self._extension_waypoint[0]) ** 2
-            + (y_m - self._extension_waypoint[1]) ** 2
+            (x_m - current_waypoint[0]) ** 2
+            + (y_m - current_waypoint[1]) ** 2
         )
         if distance_m_2 < self.BEYOND_M_2:
             return True
         return False
 
-    def _get_extended_waypoint(self):
+    def _get_extended_waypoint(self, x_m, y_m):
         """Returns the extended waypoint."""
         if self._current_waypoint_index == 0:
             return self._waypoints[0]
@@ -71,10 +70,17 @@ class ExtensionWaypointGenerator(SimpleWaypointGenerator):
                 current_waypoint_m[0],
                 current_waypoint_m[1]
             )
+            distance_to_current_m = math.sqrt(
+                (x_m - current_waypoint_m[0]) ** 2 +
+                (y_m - current_waypoint_m[1]) ** 2
+            )
             offset_m = Telemetry.rotate_degrees_clockwise(
-                (0.0, self.BEYOND_M),
+                (0.0, self.BEYOND_M - distance_to_current_m),
                 degrees
             )
+            # TODO(2016-09-15): If we're coming at the waypoint from the
+            # opposite direction, this will make the car drive past the point
+            # before doubling back. Prevent that.
             return (
                 current_waypoint_m[0] + offset_m[0],
                 current_waypoint_m[1] + offset_m[1]
