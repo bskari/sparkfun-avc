@@ -69,12 +69,8 @@ sparkfun.telemetry.init = function(
     sparkfun.telemetry.postEndPoint = postAddress;
     sparkfun.telemetry.webSocket = null;
     webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
-    // Safari won't connect websockets over secure self-signed connections
-    if (!navigator.userAgent.match('Mac OS X') && window.WebSocket) {
-        sparkfun.telemetry.webSocket = new WebSocket(webSocketAddress);
-    } else if (!navigator.userAgent.match('Mac OS X') && window.MozWebSocket) {
-        sparkfun.telemetry.webSocket = new MozWebSocket(webSocketAddress);
-    } else {
+    sparkfun.telemetry.webSocket = sparkfun.telemetry.openWebSocket(webSocketAddress);
+    if (sparkfun.telemetry.webSocket === null) {
         sparkfun.telemetry.addAlert(
             'Your browser does not support websockets, falling back to POST',
             'alert-info'
@@ -95,6 +91,10 @@ sparkfun.telemetry.init = function(
             // TODO(2016-04-27) Figure out where this message is coming from and
             // prevent it from sending
             if (evt.isTrusted !== undefined) {
+                return;
+            }
+            // I don't know why Galaxy S4 is getting messages, but ignore them
+            if (navigator.userAgent.match('Android 4.4.4; en-us; SAMSUNG SGH-M919 Build/KTU84P')) {
                 return;
             }
             sparkfun.telemetry.addAlert('Unknown message: ' + JSON.stringify(evt));
@@ -301,4 +301,25 @@ sparkfun.telemetry.addAlert = function (message, level) {
 sparkfun.telemetry.enableNoSleep = function() {
     sparkfun.telemetry._noSleep.enable();
     document.removeEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
+};
+
+
+/** Opens a websocket if supported by the platform */
+sparkfun.telemetry.openWebSocket = function(webSocketAddress) {
+    // Safari won't connect websockets over secure self-signed connections
+    if (navigator.userAgent.match('Mac OS X')) {
+        return null;
+    }
+    // And Galaxy S4 doesn't seem to support websockets
+    if (navigator.userAgent.match('SAMSUNG SGH-M919 Build/KTU84P')) {
+        return null;
+    }
+
+    if (window.WebSocket) {
+        return new WebSocket(webSocketAddress);
+    }
+    if (window.MozWebSocket) {
+        return new MozWebSocket(webSocketAddress);
+    }
+    return null;
 };
