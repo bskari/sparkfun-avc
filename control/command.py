@@ -1,5 +1,6 @@
 """Class to control the RC car."""
 
+import datetime
 import math
 import queue
 import random
@@ -13,6 +14,19 @@ from messaging import config
 from messaging.message_consumer import consume_messages
 from messaging.async_logger import AsyncLogger
 from messaging.async_producers import CommandForwardProducer
+
+
+try:
+    import picamera
+except ImportError:
+    class Dummy(object):  # pylint: disable=missing-docstring,too-few-public-methods
+        def __getattr__(self, attr):
+            time.sleep(0.01)
+            return Dummy()
+        def __call__(self, *args, **kwargs):
+            time.sleep(0.01)
+            return Dummy()
+    picamera = Dummy()
 
 
 class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
@@ -50,6 +64,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         self._sleep_time = None
         self._wake_time = None
         self._start_time = None
+
+        self._camera = picamera.PiCamera()
 
         # If the car is on the starting line (not started yet)
         self._on_starting_line = True
@@ -93,12 +109,29 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             return
 
         if command == 'start':
+            try:
+                now = datetime.datetime.now()
+                file_name = '/data/{}-{}-{}_{}:{}:{}.h264'.format(
+                    now.year,
+                    now.month,
+                    now.day,
+                    now.hour,
+                    now.minute,
+                    now.second
+                )
+                self._camera.start_recording(file_name)
+            except Exception as exc:  # pylint: disable=broad-except
+                self._logger.warning('Unable to save video: {}'.format(exc))
             self.run_course()
+
         elif command == 'stop':
+            threading.Thread(target=self._stop_recording).start()
             self.stop()
+
         elif command == 'reset':
             self._on_starting_line = True
             self.reset()
+
         elif command == 'calibrate-compass':
             self.calibrate_compass(10)
 
@@ -118,6 +151,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
         """Run in a thread, controls the RC car."""
         error_count = 0
         if self._waypoint_generator.done():
+            threading.Thread(target=self._stop_recording).start()
             self._logger.info('All waypoints reached')
             return
 
@@ -470,3 +504,8 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
             yield True
 
         yield False
+
+    def _stop_recording(self):
+        """Stops recording after a little while."""
+        time.sleep(5)
+        self._camera.stop_recording()

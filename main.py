@@ -343,13 +343,13 @@ def main():
     parser = make_parser()
     args = parser.parse_args()
 
-    try:
-        global POPEN
-        POPEN = subprocess.Popen((
-            'raspivid', '-o', args.video, '-w', '1024', '-h', '576', '-b', '6000000', '-t', '300000'
-        ))
-    except Exception:
-        logging.warning('Unable to save video')
+    #try:
+    #    global POPEN
+    #    POPEN = subprocess.Popen((
+    #        'raspivid', '-o', args.video, '-w', '1024', '-h', '576', '-b', '6000000', '-t', '300000'
+    #    ))
+    #except Exception:
+    #    logging.warning('Unable to save video')
 
     concrete_logger = logging.Logger('sparkfun')
     concrete_logger.setLevel(logging.DEBUG)
