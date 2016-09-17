@@ -2,8 +2,58 @@
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
 <Document>
 	<name>sparkfun-avc-2016.kmz</name>
-	<open>1</open>
-	<Style id="s_ylw-pushpin_hl2">
+	<Style id="sn_ylw-pushpin1">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+	</Style>
+	<Style id="sh_ylw-pushpin">
+		<IconStyle>
+			<scale>1.3</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+		<LineStyle>
+			<color>ff0000ff</color>
+			<width>3</width>
+		</LineStyle>
+		<PolyStyle>
+			<fill>0</fill>
+		</PolyStyle>
+	</Style>
+	<StyleMap id="m_ylw-pushpin3">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#s_ylw-pushpin2</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#s_ylw-pushpin_hl3</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Style id="s_ylw-pushpin2">
+		<IconStyle>
+			<scale>1.1</scale>
+			<Icon>
+				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+			</Icon>
+			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
+		</IconStyle>
+		<LineStyle>
+			<color>ff00ff00</color>
+			<width>3</width>
+		</LineStyle>
+		<PolyStyle>
+			<fill>0</fill>
+		</PolyStyle>
+	</Style>
+	<Style id="sh_ylw-pushpin1">
 		<IconStyle>
 			<scale>1.3</scale>
 			<Icon>
@@ -24,9 +74,9 @@
 			<color>ff00ff00</color>
 			<width>3</width>
 		</LineStyle>
-        <PolyStyle>
-            <fill>0</fill>
-        </PolyStyle>
+		<PolyStyle>
+			<fill>0</fill>
+		</PolyStyle>
 	</Style>
 	<StyleMap id="msn_ylw-pushpin">
 		<Pair>
@@ -50,78 +100,27 @@
 			<color>ff0000ff</color>
 			<width>3</width>
 		</LineStyle>
-        <PolyStyle>
-            <fill>0</fill>
-        </PolyStyle>
+		<PolyStyle>
+			<fill>0</fill>
+		</PolyStyle>
 	</Style>
-	<Style id="sh_ylw-pushpin">
-		<IconStyle>
-			<scale>1.3</scale>
-			<Icon>
-				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
-			</Icon>
-			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
-		</IconStyle>
-		<LineStyle>
-			<color>ff0000ff</color>
-			<width>3</width>
-		</LineStyle>
-        <PolyStyle>
-            <fill>0</fill>
-        </PolyStyle>
-	</Style>
-	<StyleMap id="m_ylw-pushpin20">
+	<StyleMap id="msn_ylw-pushpin1">
 		<Pair>
 			<key>normal</key>
-			<styleUrl>#s_ylw-pushpin3</styleUrl>
+			<styleUrl>#sn_ylw-pushpin1</styleUrl>
 		</Pair>
 		<Pair>
 			<key>highlight</key>
-			<styleUrl>#s_ylw-pushpin_hl2</styleUrl>
+			<styleUrl>#sh_ylw-pushpin1</styleUrl>
 		</Pair>
 	</StyleMap>
-	<StyleMap id="m_ylw-pushpin3">
-		<Pair>
-			<key>normal</key>
-			<styleUrl>#s_ylw-pushpin2</styleUrl>
-		</Pair>
-		<Pair>
-			<key>highlight</key>
-			<styleUrl>#s_ylw-pushpin_hl3</styleUrl>
-		</Pair>
-	</StyleMap>
-	<Style id="s_ylw-pushpin2">
-		<IconStyle>
-			<scale>1.1</scale>
-			<Icon>
-				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
-			</Icon>
-			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
-		</IconStyle>
-		<LineStyle>
-			<color>ff00ff00</color>
-			<width>3</width>
-		</LineStyle>
-        <PolyStyle>
-            <fill>0</fill>
-        </PolyStyle>
-	</Style>
-	<Style id="s_ylw-pushpin3">
-		<IconStyle>
-			<scale>1.1</scale>
-			<Icon>
-				<href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
-			</Icon>
-			<hotSpot x="20" y="2" xunits="pixels" yunits="pixels"/>
-		</IconStyle>
-	</Style>
 	<Placemark>
 		<name>path</name>
-		<styleUrl>#m_ylw-pushpin20</styleUrl>
+		<styleUrl>#msn_ylw-pushpin1</styleUrl>
 		<LineString>
 			<tessellate>1</tessellate>
 			<coordinates>
-				-105.185741650558,40.09074703976763,0 -105.1857759660772,40.09076854855227,0 -105.1857774615786,40.0907864684513,0 -105.1857072044035,40.09085345178798,0 -105.1856767495333,40.09085390899296,0 -105.1855007486232,40.09073861592956,0 -105.1854795373293,40.09073407566189,0 -105.185358915942,40.09084268854087,0 -105.1853376588714,40.09084986831844,0 -105.1852138772701,40.09077358769446,0 -105.1852087661464,40.09075926679299,0 -105.1853559544486,40.09061932483407,0 -105.1853763504905,40.09061673458178,0 -105.1854026774908,40.09063041436954,0 -105.1854247606298,40.09062001865156,0 -105.1854341071584,40.09060701469057,0 -105.1854111922911,40.09058877881596,0 -105.1853976103827,40.0905724957951,0 -105.1854171581664,40.09055168865133,0 -105.1854392358759,40.09055301595519,0 -105.1855045368513,40.09059666300688,0 -105.1855274159145,40.09061098213825,0 -105.185726160043,40.09073873572966,0 -105.1857459932699,40.09074923895207,0 -105.1857733263628,40.09076911978582,0 -105.1857804860633,40.09078639341355,0 -105.1857118084723,40.09085124447767,0 
+				-105.1855809938799,40.09064633001382,0 -105.1856442155047,40.09068697483129,0 -105.1857080389474,40.09072588221866,0 -105.1857759660772,40.09076854855227,0 -105.1857774615786,40.0907864684513,0 -105.1857072044035,40.09085345178798,0 -105.1856752900512,40.09085363066092,0 -105.1856172731129,40.09081540925598,0 -105.1855496996112,40.09077212224618,0 -105.1855007486232,40.09073861592956,0 -105.1854790874791,40.09073319654738,0 -105.1854419373238,40.09076607363199,0 -105.1853952836559,40.09080789530194,0 -105.1853580753579,40.09084472481856,0 -105.1853354388998,40.0908475481327,0 -105.1852769497358,40.0908119433853,0 -105.1852138772701,40.09077358769446,0 -105.1852095795701,40.09075619554987,0 -105.1852337328309,40.0907338491452,0 -105.1852724936372,40.09069699852746,0 -105.1853192402273,40.09065458800588,0 -105.1853559544486,40.09061932483407,0 -105.1853763504905,40.09061673458178,0 -105.1854026774908,40.09063041436954,0 -105.1854247606298,40.09062001865156,0 -105.1854341071584,40.09060701469057,0 -105.1854111922911,40.09058877881596,0 -105.1853976103827,40.0905724957951,0 -105.1854171581664,40.09055168865133,0 -105.1854392358759,40.09055301595519,0 -105.1855045368513,40.09059666300688,0 -105.1855274159145,40.09061098213825,0 -105.185717455023,40.09073365640008,0 -105.1857459932699,40.09074923895207,0 -105.1857733263628,40.09076911978582,0 -105.1857796706366,40.09078579362417,0 -105.1857434298798,40.09081967668511,0 -105.1857118084723,40.09085124447767,0 
 			</coordinates>
 		</LineString>
 	</Placemark>
