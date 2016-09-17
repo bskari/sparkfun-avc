@@ -137,15 +137,33 @@ sparkfun.telemetry.watch = function(position) {
     } else {
         timestamp = String(position.timestamp);
     }
-    var data = JSON.stringify({
-        latitude_d: position.coords.latitude,
-        longitude_d: position.coords.longitude,
-        speed_m_s: position.coords.speed,
-        heading_d: position.coords.heading,
-        accuracy_m: position.coords.accuracy,
-        altitude_m: position.coords.altitude,
-        timestamp_s: timestamp,
-        device_id: sparkfun.telemetry.deviceId});
+
+    // iPhone 1 doesn't have JSON object. Supporting 8 year old phones!
+    var data;
+    if (navigator.userAgent.match('iPhone OS 3')) {
+        data = (
+            '{' +
+            '"latitude_d":' + position.coords.latitude + "," +
+            '"longitude_d":' + position.coords.longitude + "," +
+            '"speed_m_s":' + position.coords.speed + "," +
+            '"heading_d":' + position.coords.heading + "," +
+            '"accuracy_m":' + position.coords.accuracy + "," +
+            '"altitude_m":' + position.coords.altitude + "," +
+            '"timestamp_s":' + timestamp + "," +
+            '"device_id":"' + sparkfun.telemetry.deviceId + '"' +
+            '}'
+        );
+    } else {
+        data = JSON.stringify({
+            latitude_d: position.coords.latitude,
+            longitude_d: position.coords.longitude,
+            speed_m_s: position.coords.speed,
+            heading_d: position.coords.heading,
+            accuracy_m: position.coords.accuracy,
+            altitude_m: position.coords.altitude,
+            timestamp_s: timestamp,
+            device_id: sparkfun.telemetry.deviceId});
+    }
 
     if (sparkfun.telemetry.webSocket) {
         sparkfun.telemetry.webSocket.send(data);
