@@ -36,7 +36,7 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
     REVERSE_TIME_S = 0.25
     NEUTRAL_TIME_2_S = 0.25
     NEUTRAL_TIME_3_S = 1.0
-    STRAIGHT_TIME_S = 3.0
+    STRAIGHT_TIME_S = 8.0
 
     def __init__(
             self,
@@ -194,8 +194,13 @@ class Command(threading.Thread):  # pylint: disable=too-many-instance-attributes
                             and self._run_course
                             and next(straight_iterator)
                     ):
-                        # Force updating of telemetry estimations
-                        self._telemetry.get_data()
+                        telemetry = self._telemetry.get_data()
+                        if self._waypoint_generator.reached(
+                                telemetry['x_m'],
+                                telemetry['y_m']
+                        ):
+                            self._logger.info('Reached waypoint')
+                            self._waypoint_generator.next()
                         self._driver.drive(1.0, 0.0)
                         self._wait()
 
