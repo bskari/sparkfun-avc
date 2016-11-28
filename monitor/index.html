@@ -156,15 +156,15 @@ $(document).ready(function () {
         accelerometer: $('#accelerometer')
     };
     var logs = $('#logs');
-    sparkfun.status.init(
-        buttons,
-        $('#throttle-select'),
-        $('#waypoint-select'),
+    var status = new sparkfun.status.Status(
         carFields,
         telemetryFields,
         logs,
         '${webSocketAddress}'
     );
+    $(document).ready(function () {
+        status.bindButtons(buttons, $('#throttle-select'), $('#waypoint-select'));
+    });
 });
     </script>
 </body>

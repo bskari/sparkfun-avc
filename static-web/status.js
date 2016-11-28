@@ -4,15 +4,6 @@ sparkfun.status = sparkfun.status || {};
 
 /**
  * @param {
- *  run: Object,
- *  calibrateCompass: Object,
- *  reset: Object,
- *  stop: Object,
- *  shutDown: Object,
- * } buttons
- * @param {Object} throttle
- * @param {Array<String>} waypointFiles
- * @param {
  *  x_m: Object,
  *  y_m: Object,
  *  speed: Object,
@@ -35,108 +26,119 @@ sparkfun.status = sparkfun.status || {};
  * @param {Object} logs
  * @param {string} webSocketAddress
  */
-sparkfun.status.init = function(
-        buttons,
-        throttle,
-        waypointFiles,
-        carFields,
-        telemetryFields,
-        logs,
-        webSocketAddress
+sparkfun.status.Status = function(
+    carFields,
+    telemetryFields,
+    logs,
+    webSocketAddress
 ) {
     'use strict';
-    $(document).ready(function () {
-        // iPad treats single clicks as a hover, we need to bind to a different
-        // event
-        var eventType;
-        if (navigator.userAgent.match('iPad')) {
-            eventType = 'touchstart';
-        } else {
-            eventType = 'click';
-        }
-        buttons.run.bind(eventType, sparkfun.status.run);
-        buttons.stop.bind(eventType, sparkfun.status.stop);
-        buttons.reset.bind(eventType, sparkfun.status.reset);
-        buttons.calibrateCompass.bind(eventType, sparkfun.status.calibrateCompass);
-        buttons.shutDown.bind(eventType, sparkfun.status.confirmShutDown);
-        throttle.change(sparkfun.status.setThrottle);
-        waypointFiles.change(sparkfun.status.setWaypoints);
-    });
 
-    sparkfun.status.carX_m = carFields.x_m;
-    sparkfun.status.carY_m = carFields.y_m;
-    sparkfun.status.carSpeed = carFields.speed;
-    sparkfun.status.carHeading = carFields.heading;
-    sparkfun.status.carThrottle = carFields.throttle;
-    sparkfun.status.carSteering = carFields.steering;
+    this.carX_m = carFields.x_m;
+    this.carY_m = carFields.y_m;
+    this.carSpeed = carFields.speed;
+    this.carHeading = carFields.heading;
+    this.carThrottle = carFields.throttle;
+    this.carSteering = carFields.steering;
 
-    sparkfun.status.waypointX_m = telemetryFields.waypointX_m;
-    sparkfun.status.waypointY_m = telemetryFields.waypointY_m;
-    sparkfun.status.waypointDistance = telemetryFields.waypointDistance;
-    sparkfun.status.waypointHeading = telemetryFields.waypointHeading;
-    sparkfun.status.satellites = telemetryFields.satellites;
-    sparkfun.status.accuracy = telemetryFields.accuracy;
-    sparkfun.status.compass = telemetryFields.compass;
-    sparkfun.status.gps = telemetryFields.gps;
-    sparkfun.status.accelerometer = telemetryFields.accelerometer;
-    sparkfun.status.compassCalibrated = telemetryFields.compassCalibrated;
+    this.waypointX_m = telemetryFields.waypointX_m;
+    this.waypointY_m = telemetryFields.waypointY_m;
+    this.waypointDistance = telemetryFields.waypointDistance;
+    this.waypointHeading = telemetryFields.waypointHeading;
+    this.satellites = telemetryFields.satellites;
+    this.accuracy = telemetryFields.accuracy;
+    this.compass = telemetryFields.compass;
+    this.gps = telemetryFields.gps;
+    this.accelerometer = telemetryFields.accelerometer;
+    this.compassCalibrated = telemetryFields.compassCalibrated;
 
-    sparkfun.status.logs = logs;
+    this.logs = logs;
 
-    sparkfun.status.heading = null;
+    this.heading = null;
 
-    sparkfun.status.webSocket = null;
+    this.webSocket = null;
     webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
     if (!navigator.userAgent.match('Mac OS X') && window.WebSocket) {
-        sparkfun.status.webSocket = new WebSocket(webSocketAddress);
+        this.webSocket = new WebSocket(webSocketAddress);
     } else if (!navigator.userAgent.match('Mac OS X') && window.MozWebSocket) {
-        sparkfun.status.webSocket = new MozWebSocket(webSocketAddress);
+        this.webSocket = new MozWebSocket(webSocketAddress);
     }
-    if (sparkfun.status.webSocket === null) {
+    if (this.webSocket === null) {
         sparkfun.status.addAlert(
             'Your browser does not support websockets, disabling logging and reverting to GET'
         );
     }
 
     window.onbeforeunload = function(e) {
-        if (sparkfun.status.webSocket) {
-            sparkfun.status.webSocket.close(1000);
+        if (this.webSocket) {
+            this.webSocket.close(1000);
         }
         if (!e) {
             e = window.event;
         }
         e.stopPropogation();
         e.preventDefault();
-    };
+    }.bind(this);
 
-    if (sparkfun.status.webSocket) {
-        sparkfun.status.webSocket.onmessage = function(evt) {
+    if (this.webSocket) {
+        this.webSocket.onmessage = function(evt) {
             var data = JSON.parse(evt.data);
             if (data.type === 'log') {
-                sparkfun.status.logs.text(
-                    data.message + '\n' + sparkfun.status.logs.text());
+                this.logs.text(
+                    data.message + '\n' + this.logs.text());
             } else if (data.type === 'telemetry') {
-                sparkfun.status.handleTelemetryMessage(JSON.parse(data.message));
+                this.handleTelemetryMessage(JSON.parse(data.message));
             } else {
                 sparkfun.status.addAlert('Unknown message type: ' + data.type);
             }
-        };
+        }.bind(this);
 
-        sparkfun.status.webSocket.onclose = function (evt) {
+        this.webSocket.onclose = function (evt) {
             sparkfun.status.addAlert('Connection closed by server');
         };
     } else {
         var url = document.location + '/telemetry-json';
         window.setInterval(function () {
             $.getJSON(url, function(data) {
-                sparkfun.status.handleTelemetryMessage(data);
-            });
-        }, 1000);
+                this.handleTelemetryMessage(data);
+            }.bind(this));
+        }.bind(this), 1000);
     }
 };
 
 
-sparkfun.status.handleTelemetryMessage = function(telemetry) {
+/**
+ * @param {
+ *  run: Object,
+ *  calibrateCompass: Object,
+ *  reset: Object,
+ *  stop: Object,
+ *  shutDown: Object,
+ * } buttons
+ * @param {Object} throttle
+ * @param {Array<String>} waypointFiles
+ */
+sparkfun.status.Status.prototype.bindButtons = function(buttons, throttle, waypointFiles) {
+    // iPad treats single clicks as a hover, we need to bind to a different
+    // event
+    var eventType;
+    if (navigator.userAgent.match('iPad')) {
+        eventType = 'touchstart';
+    } else {
+        eventType = 'click';
+    }
+    buttons.run.bind(eventType, this.run.bind(this));
+    buttons.stop.bind(eventType, this.stop.bind(this));
+    buttons.reset.bind(eventType, this.reset.bind(this));
+    buttons.calibrateCompass.bind(eventType, this.calibrateCompass.bind(this));
+    buttons.shutDown.bind(eventType, this.confirmShutDown.bind(this));
+    throttle.change(this.setThrottle.bind(this));
+    waypointFiles.change(this.setWaypoints.bind(this));
+};
+
+
+sparkfun.status.Status.prototype.handleTelemetryMessage = function(telemetry) {
+    'use strict';
     // Do some processing here to offload the burden from Python
     var xSquare = sparkfun.status.square(
         Math.abs(
@@ -153,22 +155,22 @@ sparkfun.status.handleTelemetryMessage = function(telemetry) {
         telemetry.waypoint_y_m);
 
     var typeToField = {
-        'x_m': sparkfun.status.carX_m,
-        'y_m': sparkfun.status.carY_m,
-        'speed_m_s': sparkfun.status.carSpeed,
-        'heading_d': sparkfun.status.carHeading,
-        'throttle': sparkfun.status.carThrottle,
-        'steering': sparkfun.status.carSteering,
-        'waypoint_x_m': sparkfun.status.waypointX_m,
-        'waypoint_y_m': sparkfun.status.waypointY_m,
-        'waypoint_distance_m': sparkfun.status.waypointDistance,
-        'waypoint_heading_d': sparkfun.status.waypointHeading,
-        'satellites': sparkfun.status.satellites,
-        'accuracy': sparkfun.status.accuracy,
-        'compass': sparkfun.status.compass,
-        'gps': sparkfun.status.gps,
-        'accelerometer': sparkfun.status.accelerometer,
-        'compass_calibrated': sparkfun.status.compassCalibrated};
+        'x_m': this.carX_m,
+        'y_m': this.carY_m,
+        'speed_m_s': this.carSpeed,
+        'heading_d': this.carHeading,
+        'throttle': this.carThrottle,
+        'steering': this.carSteering,
+        'waypoint_x_m': this.waypointX_m,
+        'waypoint_y_m': this.waypointY_m,
+        'waypoint_distance_m': this.waypointDistance,
+        'waypoint_heading_d': this.waypointHeading,
+        'satellites': this.satellites,
+        'accuracy': this.accuracy,
+        'compass': this.compass,
+        'gps': this.gps,
+        'accelerometer': this.accelerometer,
+        'compass_calibrated': this.compassCalibrated};
     for (var key in telemetry) {
         if (telemetry.hasOwnProperty(key)) {
             if (typeof(telemetry[key]) === 'number') {
@@ -182,46 +184,46 @@ sparkfun.status.handleTelemetryMessage = function(telemetry) {
 };
 
 
-sparkfun.status.run = function () {
+sparkfun.status.Status.prototype.run = function () {
     'use strict';
-    sparkfun.status._poke('/run');
+    this._poke('/run');
 };
 
 
-sparkfun.status.stop = function () {
+sparkfun.status.Status.prototype.stop = function () {
     'use strict';
-    sparkfun.status._poke('/stop');
+    this._poke('/stop');
 };
 
 
-sparkfun.status.reset = function () {
+sparkfun.status.Status.prototype.reset = function () {
     'use strict';
-    sparkfun.status._poke('/reset');
+    this._poke('/reset');
 };
 
 
-sparkfun.status.calibrateCompass = function () {
+sparkfun.status.Status.prototype.calibrateCompass = function () {
     'use strict';
-    sparkfun.status._poke('/calibrate-compass');
+    this._poke('/calibrate-compass');
 };
 
 
-sparkfun.status.setThrottle = function (evt) {
+sparkfun.status.Status.prototype.setThrottle = function (evt) {
     'use strict';
-    sparkfun.status._poke('/set-max-throttle', {'throttle': evt.currentTarget.value});
+    this._poke('/set-max-throttle', {'throttle': evt.currentTarget.value});
 };
 
 
-sparkfun.status.setWaypoints = function (evt) {
+sparkfun.status.Status.prototype.setWaypoints = function (evt) {
     'use strict';
-    sparkfun.status._poke('/set-waypoints', {'kml_file_name': evt.currentTarget.value});
+    this._poke('/set-waypoints', {'kml_file_name': evt.currentTarget.value});
 };
 
 
-sparkfun.status.confirmShutDown = function (evt) {
+sparkfun.status.Status.prototype.confirmShutDown = function (evt) {
     'use strict';
     if (confirm('Shut down?')) {
-        sparkfun.status._poke('/shut-down');
+        this._poke('/shut-down');
     }
 };
 
@@ -229,17 +231,17 @@ sparkfun.status.confirmShutDown = function (evt) {
 /**
  * @param {string} url
  */
-sparkfun.status.sendPosition = function() {
+sparkfun.status.Status.prototype.sendPosition = function() {
     'use strict';
     navigator.geolocation.getCurrentPosition(
         function (position) {
-            sparkfun.status.webSocket.send(
+            this.webSocket.send(
                 JSON.stringify({
                     "latitude_d": position.coords.latitude,
                     "longitude_d": position.coords.longitude,
                     "speed_m_s": position.coords.speed,
-                    "heading_d": sparkfun.status.heading}));
-        },
+                    "heading_d": this.heading}));
+        }.bind(this),
         function (error) {
             alert(JSON.stringify(error));
         }
@@ -250,7 +252,7 @@ sparkfun.status.sendPosition = function() {
 /**
  * @param {string} url
  */
-sparkfun.status._poke = function(url, params) {
+sparkfun.status.Status.prototype._poke = function(url, params) {
     'use strict';
     if (params === undefined) {
         params = '';

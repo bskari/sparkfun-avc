@@ -90,12 +90,14 @@ $(document).ready(function () {
         speed: $('#speed'),
         timestamp: $('#timestamp')
     };
-    sparkfun.telemetry.init(
-        buttons,
+    var telemetry = new sparkfun.telemetry.Telemetry(
         telemetryFields,
         '${webSocketAddress}',
         '${postAddress}'
     );
+    $(document).ready(function () {
+        telemetry.bindButtons(buttons);
+    });
 });
     </script>
 </body>

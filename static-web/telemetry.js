@@ -4,12 +4,6 @@ sparkfun.telemetry = sparkfun.telemetry || {};
 
 /**
  * @param {
- *  run: Object,
- *  stop: Object,
- *  send: Object,
- *  stopSending: Object
- * } buttons
- * @param {
  *  latitude:Object,
  *  longitude:Object,
  *  altitude:Object,
@@ -21,56 +15,40 @@ sparkfun.telemetry = sparkfun.telemetry || {};
  * @param {string} webSocketAddress
  * @param {string} postAddress
  */
-sparkfun.telemetry.init = function(
-        buttons,
+sparkfun.telemetry.Telemetry = function(
         telemetryFields,
         webSocketAddress,
         postAddress
 ) {
     'use strict';
-    $(document).ready(function () {
-        // iPad treats single clicks as a hover, we need to bind to a different
-        // event
-        var eventType;
-        if (navigator.userAgent.match('iPad')) {
-            eventType = 'touchstart';
-        } else {
-            eventType = 'click';
-        }
-        buttons.run.bind(eventType, sparkfun.telemetry.run);
-        buttons.stop.click(eventType, sparkfun.telemetry.stop);
-        buttons.send.click(eventType, sparkfun.telemetry.send);
-        buttons.stopSending.click(eventType, sparkfun.telemetry.stopSending);
-    });
+    this.latitude = telemetryFields.latitude;
+    this.longitude = telemetryFields.longitude;
+    this.altitude = telemetryFields.altitude;
+    this.accuracy = telemetryFields.accuracy;
+    this.heading = telemetryFields.heading;
+    this.speed = telemetryFields.speed;
+    this.timestamp = telemetryFields.timestamp;
 
-    sparkfun.telemetry.latitude = telemetryFields.latitude;
-    sparkfun.telemetry.longitude = telemetryFields.longitude;
-    sparkfun.telemetry.altitude = telemetryFields.altitude;
-    sparkfun.telemetry.accuracy = telemetryFields.accuracy;
-    sparkfun.telemetry.heading = telemetryFields.heading;
-    sparkfun.telemetry.speed = telemetryFields.speed;
-    sparkfun.telemetry.timestamp = telemetryFields.timestamp;
-
-    sparkfun.telemetry._noSleep = new NoSleep();
-    document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
+    this._noSleep = new NoSleep();
+    document.addEventListener('touchstart', this.enableNoSleep, false);
 
     var parens = /\([^)]*\)/.exec(navigator.userAgent);
     // I think this is supposed to return null if there's no match, but just to
     // be safe, I'm going to test both
     if (parens !== null && parens.length > 0) {
-        sparkfun.telemetry.deviceId =
+        this.deviceId =
             parens[0].slice(0, -1)
             .split(';')
             .sort(function(a, b) { return b.length - a.length; })[0];
     } else {
-        sparkfun.telemetry.deviceId = 'web-telemetry';
+        this.deviceId = 'web-telemetry';
     }
-    sparkfun.telemetry.deviceId += '-' + String(Math.round(Math.random() * 10000));
-    sparkfun.telemetry.postEndPoint = postAddress;
-    sparkfun.telemetry.webSocket = null;
+    this.deviceId += '-' + String(Math.round(Math.random() * 10000));
+    this.postEndPoint = postAddress;
+    this.webSocket = null;
     webSocketAddress = (window.location.protocol === 'http:' ? 'ws://' : 'wss://') + webSocketAddress;
-    sparkfun.telemetry.webSocket = sparkfun.telemetry.openWebSocket(webSocketAddress);
-    if (sparkfun.telemetry.webSocket === null) {
+    this.webSocket = sparkfun.telemetry.openWebSocket(webSocketAddress);
+    if (this.webSocket === null) {
         sparkfun.telemetry.addAlert(
             'Your browser does not support websockets, falling back to POST',
             'alert-info'
@@ -78,16 +56,16 @@ sparkfun.telemetry.init = function(
     }
 
     window.onbeforeunload = function(e) {
-        sparkfun.telemetry.webSocket.close(1000);
+        this.webSocket.close(1000);
         if (!e) {
             e = window.event;
         }
         e.stopPropogation();
         e.preventDefault();
-    };
+    }.bind(this);
 
-    if (sparkfun.telemetry.webSocket) {
-        sparkfun.telemetry.webSocket.onmessage = function (evt) {
+    if (this.webSocket) {
+        this.webSocket.onmessage = function (evt) {
             // TODO(2016-04-27) Figure out where this message is coming from and
             // prevent it from sending
             if (evt.isTrusted !== undefined) {
@@ -100,26 +78,52 @@ sparkfun.telemetry.init = function(
             sparkfun.telemetry.addAlert('Unknown message: ' + JSON.stringify(evt));
         };
 
-        sparkfun.telemetry.webSocket.onclose = function (evt) {
+        this.webSocket.onclose = function (evt) {
             sparkfun.telemetry.addAlert('Connection closed by server');
         };
     }
-    sparkfun.telemetry.watchId = null;
+    this.watchId = null;
 };
 
 
-sparkfun.telemetry.run = function () {
-    'use strict';
-    sparkfun.telemetry._poke('/run');
-};
-
-
-sparkfun.telemetry.stop = function () {
-    'use strict';
-    if (sparkfun.telemetry.followInterval !== null) {
-        clearInterval(sparkfun.telemetry.followInterval);
+/**
+ * Binds the buttons to the actions. I was having trouble getting this to work
+ * in the constructor, so just do it here instead.
+ * @param {
+ *  run: Object,
+ *  stop: Object,
+ *  send: Object,
+ *  stopSending: Object
+ * } buttons
+ */
+sparkfun.telemetry.Telemetry.prototype.bindButtons = function(buttons) {
+    // iPad treats single clicks as a hover, we need to bind to a different
+    // event
+    var eventType;
+    if (navigator.userAgent.match('iPad')) {
+        eventType = 'touchstart';
+    } else {
+        eventType = 'click';
     }
-    sparkfun.telemetry._poke('/stop');
+    buttons.run.bind(eventType, this.run.bind(this));
+    buttons.stop.click(eventType, this.stop.bind(this));
+    buttons.send.click(eventType, this.send.bind(this));
+    buttons.stopSending.click(eventType, this.stopSending.bind(this));
+};
+
+
+sparkfun.telemetry.Telemetry.prototype.run = function () {
+    'use strict';
+    sparkfun.telemetry.poke('/run');
+};
+
+
+sparkfun.telemetry.Telemetry.prototype.stop = function () {
+    'use strict';
+    if (this.followInterval !== null) {
+        clearInterval(this.followInterval);
+    }
+    sparkfun.telemetry.poke('/stop');
 };
 
 
@@ -127,7 +131,7 @@ sparkfun.telemetry.stop = function () {
  * Sends position changes to the server.
  * @param {Position} position
  */
-sparkfun.telemetry.watch = function(position) {
+sparkfun.telemetry.Telemetry.prototype.watch = function(position) {
     'use strict';
     // Support for old phones that don't follow the spec. They should have
     // position.timestamp as instance of DOMTimeStamp.
@@ -150,7 +154,7 @@ sparkfun.telemetry.watch = function(position) {
             '"accuracy_m":' + position.coords.accuracy + "," +
             '"altitude_m":' + position.coords.altitude + "," +
             '"timestamp_s":' + timestamp + "," +
-            '"device_id":"' + sparkfun.telemetry.deviceId + '"' +
+            '"device_id":"' + this.deviceId + '"' +
             '}'
         );
     } else {
@@ -162,31 +166,33 @@ sparkfun.telemetry.watch = function(position) {
             accuracy_m: position.coords.accuracy,
             altitude_m: position.coords.altitude,
             timestamp_s: timestamp,
-            device_id: sparkfun.telemetry.deviceId});
+            device_id: this.deviceId});
     }
 
-    if (sparkfun.telemetry.webSocket) {
-        sparkfun.telemetry.webSocket.send(data);
+    if (this.webSocket) {
+        this.webSocket.send(data);
     } else {
-        sparkfun.telemetry._poke(
-            sparkfun.telemetry.postEndPoint,
+        sparkfun.telemetry.poke(
+            this.postEndPoint,
             {'message': data}
         );
     }
-    sparkfun.telemetry.latitude.text(position.coords.latitude);
-    sparkfun.telemetry.longitude.text(position.coords.longitude);
-    sparkfun.telemetry.speed.text(position.coords.speed);
-    sparkfun.telemetry.heading.text(position.coords.heading);
-    sparkfun.telemetry.accuracy.text(position.coords.accuracy);
-    sparkfun.telemetry.altitude.text(position.coords.altitude);
-    sparkfun.telemetry.timestamp.text(timestamp);
+    this.latitude.text(position.coords.latitude);
+    this.longitude.text(position.coords.longitude);
+    this.speed.text(position.coords.speed);
+    this.heading.text(position.coords.heading);
+    this.accuracy.text(position.coords.accuracy);
+    this.altitude.text(position.coords.altitude);
+    this.timestamp.text(timestamp);
 };
 
 
 /**
+ * Sends a POST request to the url.
  * @param {string} url
+ * @param {object} data
  */
-sparkfun.telemetry._poke = function(url, data) {
+sparkfun.telemetry.poke = function(url, data) {
     'use strict';
     if (data === undefined) {
         data = '';
@@ -245,15 +251,15 @@ sparkfun.telemetry.watchPositionDelegate = function(callback, error, options) {
 /**
  * Start sending the telemetry data.
  */
-sparkfun.telemetry.send = function () {
-    document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
-    sparkfun.telemetry.watchId = sparkfun.telemetry.watchPositionDelegate(
-        sparkfun.telemetry.watch,
+sparkfun.telemetry.Telemetry.prototype.send = function () {
+    document.addEventListener('touchstart', this.enableNoSleep, false);
+    this.watchId = sparkfun.telemetry.watchPositionDelegate(
+        this.watch.bind(this),
         function (error) {
             console.log(error);
             sparkfun.telemetry.addAlert(error.message);
-            sparkfun.telemetry.stopSending();
-        },
+            this.stopSending();
+        }.bind(this),
         {
             enableHighAccuracy: true
         });
@@ -263,20 +269,20 @@ sparkfun.telemetry.send = function () {
 /**
  * Stops sending the telemetry data.
  */
-sparkfun.telemetry.stopSending = function () {
+sparkfun.telemetry.Telemetry.prototype.stopSending = function () {
     if (sparkfun.telemetry.isMobile()) {
-        navigator.geolocation.clearWatch(sparkfun.telemetry.watchId);
+        navigator.geolocation.clearWatch(this.watchId);
     } else {
-        window.clearInterval(sparkfun.telemetry.watchId);
+        window.clearInterval(this.watchId);
     }
-    sparkfun.telemetry._noSleep.disable();
+    this._noSleep.disable();
 
     // Enable no sleep next time we touch anything
     // I'd like to make it this only enable when we touch 'send' again, but
     // running this code inside of the 'send' handler would mean we need to
     // click twice to make it work, and I would rather have the failure
     // condition of "on but should be off" than the reverse
-    document.addEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
+    document.addEventListener('touchstart', this.enableNoSleep, false);
 };
 
 
@@ -298,9 +304,9 @@ sparkfun.telemetry.addAlert = function (message, level) {
 };
 
 
-sparkfun.telemetry.enableNoSleep = function() {
-    sparkfun.telemetry._noSleep.enable();
-    document.removeEventListener('touchstart', sparkfun.telemetry.enableNoSleep, false);
+sparkfun.telemetry.Telemetry.prototype.enableNoSleep = function() {
+    this._noSleep.enable();
+    document.removeEventListener('touchstart', this.enableNoSleep, false);
 };
 
 
@@ -316,10 +322,10 @@ sparkfun.telemetry.openWebSocket = function(webSocketAddress) {
     }
 
     if (window.WebSocket) {
-        return new WebSocket(webSocketAddress);
+        return new window.WebSocket(webSocketAddress);
     }
     if (window.MozWebSocket) {
-        return new MozWebSocket(webSocketAddress);
+        return new window.MozWebSocket(webSocketAddress);
     }
     return null;
 };
