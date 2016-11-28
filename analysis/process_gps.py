@@ -29,7 +29,7 @@ def process_lines(in_stream):
     run_count = 1
     runs = []
     for line in in_stream:
-        if 'Received run command' in line:
+        if 'Received run command' in line or 'Button pressed' in line:
             print('Starting run {}'.format(run_count))
             runs.append(process_run(in_stream, run_count))
             run_count += 1
