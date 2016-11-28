@@ -149,7 +149,7 @@ class Telemetry(object):
         """Stores telemetry data from messages received from some source."""
         original_message = message
         message = json.loads(original_message)
-        if 'speed_m_s' in message:
+        if 'speed_m_s' in message and message['speed_m_s'] <= MAX_SPEED_M_S:
             self._speed_history.append(message['speed_m_s'])
             while len(self._speed_history) > self.HISTORICAL_SPEED_READINGS_COUNT:
                 self._speed_history.popleft()
@@ -171,7 +171,8 @@ class Telemetry(object):
             self._logger.debug(original_message)
 
         elif 'latitude_d' in message:
-            self._handle_gps_message(message)
+            if message['speed_m_s'] < MAX_SPEED_M_S:
+                self._handle_gps_message(message)
 
             self._data = message
             self._logger.debug(original_message)
