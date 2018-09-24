@@ -1,5 +1,4 @@
-use telemetry::{Degrees, Point, Meters, MetersPerSecond};
-
+use telemetry::{Degrees, Meters, MetersPerSecond, Point};
 
 pub struct GpsMessage {
     pub point: Point,

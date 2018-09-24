@@ -3,9 +3,8 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
-use telemetry::{Telemetry, Point, TelemetryState};
+use telemetry::{Point, Telemetry, TelemetryState};
 use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
-
 
 #[allow(dead_code)]
 pub struct FilteredTelemetry {
@@ -16,25 +15,28 @@ pub struct FilteredTelemetry {
     state: TelemetryState,
 }
 
-
 impl FilteredTelemetry {
     pub fn new() -> FilteredTelemetry {
         FilteredTelemetry {
             throttle: 0.0,
             steering: 0.0,
             gps_message: Box::new(GpsMessage {
-                point: Point {x: 0.0, y: 0.0 },
+                point: Point { x: 0.0, y: 0.0 },
                 heading: 0.0,
                 speed: 0.0,
                 std_dev_x: 2.0,
                 std_dev_y: 2.0,
             }),
-            compass_message: Box::new(CompassMessage { heading: 0.0, std_dev: 0.0 }),
+            compass_message: Box::new(CompassMessage {
+                heading: 0.0,
+                std_dev: 0.0,
+            }),
             state: TelemetryState {
                 location: Point { x: 0.0, y: 0.0 },
                 heading: 0.0,
                 speed: 0.0,
-                stopped: true},
+                stopped: true,
+            },
         }
     }
 
@@ -43,14 +45,14 @@ impl FilteredTelemetry {
         request_telemetry_rx: Receiver<()>,
         telemetry_tx: Sender<TelemetryState>,
         telemetry_message_rx: Receiver<TelemetryMessage>,
-        quit_rx: Receiver<()>
+        quit_rx: Receiver<()>,
     ) {
         loop {
             match quit_rx.try_recv() {
                 Ok(_) => {
                     info!("Telemetry shutting down");
                     return;
-                },
+                }
                 Err(_) => (),
             }
 
@@ -70,7 +72,7 @@ impl FilteredTelemetry {
             while let Ok(_message) = telemetry_message_rx.try_recv() {
                 // TODO: Process the message
                 processed = true;
-            };
+            }
 
             // I don't know if this is a great solution or not
             if !processed {
@@ -80,14 +82,13 @@ impl FilteredTelemetry {
     }
 }
 
-
 impl Telemetry for FilteredTelemetry {
     fn get_raw_gps(&self) -> &GpsMessage {
-        & *self.gps_message
+        &*self.gps_message
     }
 
     fn get_raw_compass(&self) -> &CompassMessage {
-        & *self.compass_message
+        &*self.compass_message
     }
 
     fn get_data(&self) -> &TelemetryState {
@@ -114,10 +115,8 @@ impl Telemetry for FilteredTelemetry {
     #[allow(unused_variables)]
     fn handle_message(&mut self, telemetry_message: &TelemetryMessage) -> () {
         match telemetry_message {
-            &TelemetryMessage::Gps(ref gps_message) => {
-            },
-            &TelemetryMessage::Compass(ref compass_message) => {
-            },
+            &TelemetryMessage::Gps(ref gps_message) => {}
+            &TelemetryMessage::Compass(ref compass_message) => {}
         }
     }
 

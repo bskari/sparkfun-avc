@@ -3,14 +3,12 @@
  * work. I couldn't get the example code to work and I'm not sure how you would call the different
  * functions anyway.
  */
-
 extern crate enum_primitive;
 extern crate libc;
 
+use num::FromPrimitive;
 use std::mem::transmute;
 use std::os::unix::prelude::AsRawFd;
-use num::FromPrimitive;
-
 
 pub trait Termio {
     fn set_speed(&self, speed: Speed) -> Result<i32, i32>;
@@ -22,7 +20,10 @@ pub trait Termio {
     fn input_buffer_count(&self) -> Result<i32, i32>;
     fn errno(&self) -> i32;
 }
-impl<T> Termio for T where T: AsRawFd {
+impl<T> Termio for T
+where
+    T: AsRawFd,
+{
     fn set_speed(&self, speed: Speed) -> Result<i32, i32> {
         let fd = self.as_raw_fd();
         let mut config = CTermios::new();
@@ -44,12 +45,10 @@ impl<T> Termio for T where T: AsRawFd {
         if unsafe { tcgetattr(fd, transmute(&mut config)) } < 0 {
             return Err(self.errno());
         }
-        let getospeed = unsafe {
-            cfgetospeed(&mut config)
-        };
+        let getospeed = unsafe { cfgetospeed(&mut config) };
         match Speed::from_u32(getospeed) {
             Some(speed) => Ok(speed),
-            None => Err(1) // TODO: I'm not too sure what to do here
+            None => Err(1), // TODO: I'm not too sure what to do here
         }
     }
 
@@ -116,7 +115,6 @@ impl<T> Termio for T where T: AsRawFd {
     }
 }
 
-
 #[allow(non_camel_case_types)]
 type cc_t = u8;
 #[allow(non_camel_case_types)]
@@ -125,16 +123,15 @@ type tcflag_t = u32;
 type speed_t = u32;
 
 #[repr(C)]
-struct CTermios
-{
-    c_iflag: tcflag_t,  // input mode flags
-    c_oflag: tcflag_t,  // output mode flags
-    c_cflag: tcflag_t,  // control mode flags
-    c_lflag: tcflag_t,  // local mode flags
-    c_line: cc_t,       // line discipline
-    c_cc: [cc_t; 32],   // control characters
-    c_ispeed: speed_t,  // input speed
-    c_ospeed: speed_t,  // output speed
+struct CTermios {
+    c_iflag: tcflag_t, // input mode flags
+    c_oflag: tcflag_t, // output mode flags
+    c_cflag: tcflag_t, // control mode flags
+    c_lflag: tcflag_t, // local mode flags
+    c_line: cc_t,      // line discipline
+    c_cc: [cc_t; 32],  // control characters
+    c_ispeed: speed_t, // input speed
+    c_ospeed: speed_t, // output speed
 }
 impl CTermios {
     fn new() -> CTermios {
@@ -144,9 +141,9 @@ impl CTermios {
             c_cflag: 0,
             c_lflag: 0,
             c_line: 0,
-            c_cc: [0u8; 32],   // control characters
-            c_ispeed: 0,  // input speed
-            c_ospeed: 0,  // output speed
+            c_cc: [0u8; 32], // control characters
+            c_ispeed: 0,     // input speed
+            c_ospeed: 0,     // output speed
         }
     }
 }
@@ -288,7 +285,7 @@ enum IoCtlOptions {
 }
 
 #[allow(dead_code)]
-extern {
+extern "C" {
     fn tcgetattr(fd: i32, termios_p: *mut CTermios) -> i32;
     fn tcsetattr(fd: i32, optional_actions: i32, termios_p: *mut CTermios) -> i32;
     fn tcsendbreak(fd: i32, duration: i32) -> i32;

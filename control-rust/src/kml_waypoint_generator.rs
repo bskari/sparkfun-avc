@@ -1,11 +1,10 @@
-use std::fs::{File, remove_dir_all};
+use std::fs::{remove_dir_all, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::Command;
 
-use telemetry::{Meters, Point, latitude_longitude_to_point};
+use telemetry::{latitude_longitude_to_point, Meters, Point};
 use waypoint_generator::WaypointGenerator;
-
 
 /**
  * Loads and returns waypoints from a KML file.
@@ -16,13 +15,12 @@ pub struct KmlWaypointGenerator {
     current_waypoint: u32,
 }
 
-
 impl KmlWaypointGenerator {
     #[allow(dead_code)]
     pub fn new(file_name: &str) -> KmlWaypointGenerator {
         KmlWaypointGenerator {
             waypoints: KmlWaypointGenerator::load_waypoints(file_name),
-            current_waypoint: 0
+            current_waypoint: 0,
         }
     }
     fn load_waypoints(file_name: &str) -> Vec<Point> {
@@ -36,7 +34,7 @@ impl KmlWaypointGenerator {
         let temp_directory = "/tmp/waypoints";
         match remove_dir_all(temp_directory) {
             Ok(()) => (),
-            Err(err) => error!("Unable to remove temp directory: {}", err)
+            Err(err) => error!("Unable to remove temp directory: {}", err),
         };
         let zip_io_result = Command::new("unzip")
             .arg(file_name)
@@ -82,11 +80,14 @@ impl KmlWaypointGenerator {
                                     match parsed_longitude {
                                         Ok(longitude_) => longitude = longitude_,
                                         Err(e) => {
-                                            println!("Unable to parse longitude: '{}', {}", longitude_str, e);
+                                            println!(
+                                                "Unable to parse longitude: '{}', {}",
+                                                longitude_str, e
+                                            );
                                             success = false;
-                                        },
+                                        }
                                     }
-                                },
+                                }
                                 None => println!("No longitude"),
                             }
 
@@ -98,10 +99,10 @@ impl KmlWaypointGenerator {
                                         Err(e) => {
                                             println!(
                                                 "Unable to parse latitude: '{}', {}",
-                                                 latitude_str,
-                                                 e);
+                                                latitude_str, e
+                                            );
                                             success = false;
-                                        },
+                                        }
                                     }
                                 }
                                 None => println!("No latitude"),
@@ -120,7 +121,6 @@ impl KmlWaypointGenerator {
         waypoints
     }
 }
-
 
 impl WaypointGenerator for KmlWaypointGenerator {
     #[allow(unused_variables)]

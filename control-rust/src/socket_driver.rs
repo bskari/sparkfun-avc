@@ -26,7 +26,8 @@ impl SocketDriver {
             throttle: 0.0,
             steering: 0.0,
             max_throttle: max_throttle,
-            socket: socket,}
+            socket: socket,
+        }
     }
 }
 

@@ -5,11 +5,10 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
-use telemetry::{Degrees, MetersPerSecond, Point, hdop_to_std_dev, latitude_longitude_to_point};
+use nmea::NmeaMessage;
+use telemetry::{hdop_to_std_dev, latitude_longitude_to_point, Degrees, MetersPerSecond, Point};
 use telemetry_message::{GpsMessage, TelemetryMessage};
 use termios::{Speed, Termio};
-use nmea::NmeaMessage;
-
 
 pub struct TelemetryProvider {
     speed: MetersPerSecond,
@@ -19,12 +18,11 @@ pub struct TelemetryProvider {
     telemetry_message_tx: Sender<TelemetryMessage>,
 }
 
-
 impl TelemetryProvider {
     pub fn new(telemetry_message_tx: Sender<TelemetryMessage>) -> TelemetryProvider {
         TelemetryProvider {
             speed: 0.0,
-            heading: 315.0,  // Starting line of the Sparkfun AVC
+            heading: 315.0, // Starting line of the Sparkfun AVC
             point: latitude_longitude_to_point(40.090583, -105.185664),
             hdop: 2.0,
             telemetry_message_tx: telemetry_message_tx,
@@ -34,7 +32,7 @@ impl TelemetryProvider {
     pub fn run(&mut self, quit_rx: Receiver<()>) {
         let tty = match File::open(&Path::new("/dev/ttyAMA0")) {
             Ok(f) => f,
-            Err(m) => panic!("Unable to open /dev/ttyAMA0: {}", m)
+            Err(m) => panic!("Unable to open /dev/ttyAMA0: {}", m),
         };
         match tty.set_speed(Speed::B1152000) {
             Ok(_) => (),
@@ -73,7 +71,7 @@ impl TelemetryProvider {
                 Ok(_) => {
                     info!("Telemetry provider shutting down");
                     return;
-                },
+                }
                 Err(_) => (),
             };
 
@@ -88,41 +86,44 @@ impl TelemetryProvider {
 
             match NmeaMessage::parse(&message) {
                 Ok(nmea) => match nmea {
-                    NmeaMessage::Binary(_) => (),  // TODO Translate to compass
+                    NmeaMessage::Binary(_) => (), // TODO Translate to compass
                     NmeaMessage::Gga(gga) => {
                         self.point = latitude_longitude_to_point(
-                           gga.latitude_degrees,
-                           gga.longitude_degrees);
+                            gga.latitude_degrees,
+                            gga.longitude_degrees,
+                        );
                         self.hdop = gga.hdop;
                         if !self.send_gps() {
                             break;
                         }
-                    },
+                    }
                     NmeaMessage::Gll(gll) => {
                         self.point = latitude_longitude_to_point(
-                           gll.latitude_degrees,
-                           gll.longitude_degrees);
+                            gll.latitude_degrees,
+                            gll.longitude_degrees,
+                        );
                         if !self.send_gps() {
                             break;
                         }
-                    },
+                    }
                     NmeaMessage::Gsa(gsa) => self.hdop = gsa.hdop,
-                    NmeaMessage::Gsv(_) => (),  // TODO Gsv is satellites in view?
+                    NmeaMessage::Gsv(_) => (), // TODO Gsv is satellites in view?
                     NmeaMessage::Vtg(vtg) => {
                         self.heading = vtg.course;
                         self.speed = vtg.speed;
-                    },
+                    }
                     NmeaMessage::Rmc(rmc) => {
                         self.point = latitude_longitude_to_point(
-                           rmc.latitude_degrees,
-                           rmc.longitude_degrees);
+                            rmc.latitude_degrees,
+                            rmc.longitude_degrees,
+                        );
                         self.heading = rmc.course;
                         self.speed = rmc.speed;
                         if !self.send_gps() {
                             break;
                         }
-                    },
-                    NmeaMessage::Sti(_) => (),  // I don't think there's anything useful here
+                    }
+                    NmeaMessage::Sti(_) => (), // I don't think there's anything useful here
                 },
                 Err(_) => (),
             }
@@ -130,14 +131,15 @@ impl TelemetryProvider {
     }
 
     fn send_gps(&self) -> bool {
-        let status = self.telemetry_message_tx.send(
-            TelemetryMessage::Gps(
-                GpsMessage {
-                    point: self.point,
-                    heading: self.heading,
-                    speed: self.speed,
-                    std_dev_x: hdop_to_std_dev(self.hdop),
-                    std_dev_y: hdop_to_std_dev(self.hdop),}));
+        let status = self
+            .telemetry_message_tx
+            .send(TelemetryMessage::Gps(GpsMessage {
+                point: self.point,
+                heading: self.heading,
+                speed: self.speed,
+                std_dev_x: hdop_to_std_dev(self.hdop),
+                std_dev_y: hdop_to_std_dev(self.hdop),
+            }));
         match status {
             Ok(_) => true,
             Err(_) => false,

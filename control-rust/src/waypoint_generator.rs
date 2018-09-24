@@ -1,8 +1,8 @@
+use telemetry::Meters;
 /**
  * Provides waypoint data.
  */
 use telemetry::Point;
-use telemetry::Meters;
 
 pub trait WaypointGenerator {
     /**

@@ -1,11 +1,11 @@
 extern crate log;
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::{UNIX_EPOCH, SystemTime};
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use driver::{Driver, Percentage};
-use telemetry::{Degrees, TelemetryState, difference_d, distance, is_turn_left, relative_degrees};
+use telemetry::{difference_d, distance, is_turn_left, relative_degrees, Degrees, TelemetryState};
 use telemetry_message::CommandMessage;
 use waypoint_generator::WaypointGenerator;
 
@@ -19,7 +19,6 @@ enum ControlState {
     CollisionRecovery,
 }
 
-
 pub struct Control {
     state: ControlState,
     run: bool,
@@ -30,7 +29,6 @@ pub struct Control {
     waypoint_generator: Box<WaypointGenerator>,
     driver: Box<Driver>,
 }
-
 
 impl Control {
     pub fn new(
@@ -47,7 +45,8 @@ impl Control {
             telemetry_rx: telemetry_rx,
             request_telemetry_tx: request_telemetry_tx,
             waypoint_generator: waypoint_generator,
-            driver: driver,}
+            driver: driver,
+        }
     }
 
     /**
@@ -59,7 +58,7 @@ impl Control {
                 Ok(_) => {
                     info!("Control shutting down");
                     return;
-                },
+                }
                 Err(_) => (),
             };
 
@@ -74,7 +73,7 @@ impl Control {
                             self.state = ControlState::CalibrateCompass;
                             self.run = true;
                         }
-                    },
+                    }
                     CommandMessage::Start => self.run = true,
                     CommandMessage::Stop => self.run = false,
                 }
@@ -127,7 +126,7 @@ impl Control {
             ControlState::CollisionRecovery => {
                 let now_ms = SystemTime::now().to_milliseconds();
                 self.collision_recovery(now_ms);
-            },
+            }
             ControlState::CalibrateCompass => {
                 let now_ms = SystemTime::now().to_milliseconds();
                 self.calibrate_compass(now_ms);
@@ -153,24 +152,26 @@ impl Control {
                 return;
             }
         }
-        let waypoint = self.waypoint_generator.get_current_raw_waypoint(&state.location);
+        let waypoint = self
+            .waypoint_generator
+            .get_current_raw_waypoint(&state.location);
         let distance_m = distance(&state.location, &waypoint);
         let throttle: f32 = if distance_m > 5.0 {
-                1.0
-            } else if distance_m > 2.0 {
-                0.75
-            } else {
-                0.5
-            };
+            1.0
+        } else if distance_m > 2.0 {
+            0.75
+        } else {
+            0.5
+        };
 
         let goal_heading: Degrees = relative_degrees(&state.location, &waypoint);
 
         // We want to stay in the heading range of the waypoint +- 1/2 of the waypoint reached
         // distance diameter
-        let mut range: Degrees = 2.0 * (
-            self.waypoint_generator.reach_distance() /
-            distance_m
-        ).atan().to_degrees();
+        let mut range: Degrees = 2.0
+            * (self.waypoint_generator.reach_distance() / distance_m)
+                .atan()
+                .to_degrees();
         // Range should never be > 90.0; otherwise, we would have already reached the waypoint.
         if range < 5.0 {
             range = 5.0;
@@ -180,22 +181,22 @@ impl Control {
         // TODO: We should keep turning until we exactly hit the heading, rather than continually
         // adjusting as we get inside or outside of the range
         let steering_magnitude: f32 = if difference < range {
-                0.0
-            } else if difference < 15.0 {
-                0.25
-            } else if difference < 30.0 {
-                0.5
-            } else if difference < 45.0 || throttle > 0.5 {
-                0.75
-            } else {
-                1.0
-            };
+            0.0
+        } else if difference < 15.0 {
+            0.25
+        } else if difference < 30.0 {
+            0.5
+        } else if difference < 45.0 || throttle > 0.5 {
+            0.75
+        } else {
+            1.0
+        };
 
         let steering: f32 = if is_turn_left(state.heading, goal_heading) {
-                -steering_magnitude
-            } else {
-                steering_magnitude
-            };
+            -steering_magnitude
+        } else {
+            steering_magnitude
+        };
 
         self.drive(throttle, steering);
     }
@@ -233,11 +234,9 @@ impl Control {
     }
 }
 
-
 trait ToMilliseconds {
     fn to_milliseconds(&self) -> MilliSeconds;
 }
-
 
 impl ToMilliseconds for SystemTime {
     fn to_milliseconds(&self) -> MilliSeconds {
@@ -246,16 +245,15 @@ impl ToMilliseconds for SystemTime {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::sync::mpsc::channel;
     use std::thread::spawn;
     use std::time::SystemTime;
 
-    use driver::{Driver, Percentage};
-    use super::{Control, ControlState};
     use super::ToMilliseconds;
+    use super::{Control, ControlState};
+    use driver::{Driver, Percentage};
     use telemetry::{Meters, Point, TelemetryState};
     use waypoint_generator::WaypointGenerator;
 
@@ -263,12 +261,24 @@ mod tests {
         done: bool,
     }
     impl WaypointGenerator for DummyWaypointGenerator {
-        fn get_current_waypoint(&self, _point: &Point) -> Point { Point {x: 100.0, y: 100.0 } }
-        fn get_current_raw_waypoint(&self, _point: &Point) -> Point { Point { x: 100.0, y: 100.0 } }
-        fn next(&mut self) { self.done = true; }
-        fn reached(&self, _point: &Point) -> bool { false }
-        fn done(&self) -> bool { self.done }
-        fn reach_distance(&self) -> Meters { 1.0 }
+        fn get_current_waypoint(&self, _point: &Point) -> Point {
+            Point { x: 100.0, y: 100.0 }
+        }
+        fn get_current_raw_waypoint(&self, _point: &Point) -> Point {
+            Point { x: 100.0, y: 100.0 }
+        }
+        fn next(&mut self) {
+            self.done = true;
+        }
+        fn reached(&self, _point: &Point) -> bool {
+            false
+        }
+        fn done(&self) -> bool {
+            self.done
+        }
+        fn reach_distance(&self) -> Meters {
+            1.0
+        }
     }
 
     struct DummyDriver {
@@ -296,26 +306,22 @@ mod tests {
         // Fake telemetry end point returns test data
         spawn(move || {
             telemetry_rx.recv().unwrap();
-            telemetry_2_tx.send(
-                TelemetryState {
+            telemetry_2_tx
+                .send(TelemetryState {
                     location: Point { x: 0.0, y: 0.0 },
                     heading: 0.0f32,
                     speed: 0.0f32,
-                    stopped: true}).unwrap();
-
+                    stopped: true,
+                }).unwrap();
         });
 
-        let waypoint_generator = Box::new(DummyWaypointGenerator {
-            done: false,});
+        let waypoint_generator = Box::new(DummyWaypointGenerator { done: false });
         let driver = Box::new(DummyDriver {
             throttle: 0.0,
-            steering: 0.0,});
+            steering: 0.0,
+        });
 
-        let mut control = Control::new(
-            telemetry_tx,
-            telemetry_2_rx,
-            waypoint_generator,
-            driver);
+        let mut control = Control::new(telemetry_tx, telemetry_2_rx, waypoint_generator, driver);
         control.state = ControlState::Running;
         control.run = true;
         control.run_incremental();

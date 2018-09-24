@@ -1,18 +1,20 @@
-#[macro_use] extern crate log;  // This needs to be declared first, otherwise you get compilation errors
+#[macro_use]
+extern crate log; // This needs to be declared first, otherwise you get compilation errors
 extern crate chrono;
-#[macro_use] extern crate enum_primitive;
+#[macro_use]
+extern crate enum_primitive;
 extern crate getopts;
 extern crate num;
 
 use getopts::{Matches, Options};
 use log::{set_logger, Level, Metadata, Record};
-use std::path::Path;
 use std::error::Error;
 use std::io::Read;
 use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::str::from_utf8;
-use std::sync::mpsc::{channel, Sender, Receiver};
-use std::thread::{JoinHandle, sleep, spawn};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread::{sleep, spawn, JoinHandle};
 use std::time::Duration;
 
 use control::Control;
@@ -51,38 +53,39 @@ impl log::Log for StdoutLogger {
             let file_name = match record.file() {
                 Some(record_file_name) => match record_file_name.split('/').last() {
                     Some(name) => name,
-                    None => "UNKNOWN"
+                    None => "UNKNOWN",
                 },
-                None => "UNKNOWN"
+                None => "UNKNOWN",
             };
             let line = match record.line() {
                 Some(line) => line,
-                None => 0
+                None => 0,
             };
             println!(
                 "{time} {file}:{line} {level:<5} {message}",
-                time=time_str,
-                file=file_name,
-                line=line,
-                level=record.level(),
-                message=record.args());
+                time = time_str,
+                file = file_name,
+                line = line,
+                level = record.level(),
+                message = record.args()
+            );
         }
     }
 
     fn flush(&self) {}
 }
-static mut LOGGER: StdoutLogger = StdoutLogger { level: Level::Debug };
-
+static mut LOGGER: StdoutLogger = StdoutLogger {
+    level: Level::Debug,
+};
 
 macro_rules! warn_err {
-    ($option:expr) => (
+    ($option:expr) => {
         match $option {
             Ok(s) => s,
-            Err(e) => warn!("{}", e.description().to_string())
+            Err(e) => warn!("{}", e.description().to_string()),
         };
-    );
+    };
 }
-
 
 fn main() {
     let options = match handle_opts() {
@@ -113,36 +116,39 @@ fn main() {
         None => 1.0,
     };
 
-    join_handles.push(
-        spawn_control(
-            &path_file_name,
-            max_throttle,
-            request_telemetry_tx,
-            telemetry_rx,
-            command_rx,
-            quit_command_rx));
+    join_handles.push(spawn_control(
+        &path_file_name,
+        max_throttle,
+        request_telemetry_tx,
+        telemetry_rx,
+        command_rx,
+        quit_command_rx,
+    ));
 
     let (telemetry_message_tx, telemetry_message_rx) = channel();
     let (quit_termio_tx, quit_termio_rx) = channel();
     quitters.push(quit_termio_tx);
-    join_handles.push(spawn_telemetry_provider(telemetry_message_tx, quit_termio_rx));
+    join_handles.push(spawn_telemetry_provider(
+        telemetry_message_tx,
+        quit_termio_rx,
+    ));
 
     let (quit_telemetry_tx, quit_telemetry_rx) = channel();
 
-    join_handles.push(
-        spawn_telemetry(
-            request_telemetry_rx,
-            telemetry_tx,
-            telemetry_message_rx,
-            quit_telemetry_rx));
+    join_handles.push(spawn_telemetry(
+        request_telemetry_rx,
+        telemetry_tx,
+        telemetry_message_rx,
+        quit_telemetry_rx,
+    ));
     quitters.push(quit_telemetry_tx);
 
     let (quit_command_message_tx, quit_command_message_rx) = channel();
     quitters.push(quit_command_message_tx);
-    join_handles.push(
-        spawn_command_message_listener(
-            command_tx,
-            quit_command_message_rx));
+    join_handles.push(spawn_command_message_listener(
+        command_tx,
+        quit_command_message_rx,
+    ));
 
     sleep(Duration::from_millis(1000));
 
@@ -153,13 +159,12 @@ fn main() {
     for handle in join_handles {
         match handle.join() {
             Ok(_) => (),
-            Err(_) => error!("Unable to join thread, child thread panicked")
+            Err(_) => error!("Unable to join thread, child thread panicked"),
         }
     }
 
     info!("Main thread shutting down");
 }
-
 
 fn spawn_control(
     path_file_name: &str,
@@ -176,12 +181,12 @@ fn spawn_control(
             request_telemetry_tx,
             telemetry_rx,
             waypoint_generator,
-            driver);
+            driver,
+        );
 
         control.run(command_rx, quit_rx);
     })
 }
-
 
 fn spawn_telemetry_provider(
     telemetry_message_tx: Sender<TelemetryMessage>,
@@ -193,7 +198,6 @@ fn spawn_telemetry_provider(
     })
 }
 
-
 fn spawn_telemetry(
     request_telemetry_rx: Receiver<()>,
     telemetry_tx: Sender<TelemetryState>,
@@ -202,10 +206,14 @@ fn spawn_telemetry(
 ) -> JoinHandle<()> {
     spawn(move || {
         let mut telemetry = FilteredTelemetry::new();
-        telemetry.run(request_telemetry_rx, telemetry_tx, telemetry_message_rx, quit_rx);
+        telemetry.run(
+            request_telemetry_rx,
+            telemetry_tx,
+            telemetry_message_rx,
+            quit_rx,
+        );
     })
 }
-
 
 fn spawn_command_message_listener(
     command_tx: Sender<CommandMessage>,
@@ -224,7 +232,7 @@ fn spawn_command_message_listener(
 
         match socket.set_read_timeout(Some(Duration::from_millis(1000u64))) {
             Ok(()) => (),
-            Err(err) => error!("Unable to set read timeout: {}", err)
+            Err(err) => error!("Unable to set read timeout: {}", err),
         }
         let mut message_bytes = Vec::<u8>::new();
         loop {
@@ -256,7 +264,7 @@ fn spawn_command_message_listener(
                     } else {
                         warn!("Unknown message \"{}\" on Unix socket", message);
                     }
-                },
+                }
                 Err(_) => error!("Unable to interpret bytes from Unix socket as UTF8"),
             }
             message_bytes.clear();
@@ -265,22 +273,26 @@ fn spawn_command_message_listener(
                 Ok(_) => {
                     info!("Command message thread shutting down");
                     return;
-                },
+                }
                 Err(_) => (),
             }
         }
     })
 }
 
-
 fn handle_opts() -> Option<Matches> {
     let mut opts = Options::new();
     opts.optflag("v", "verbose", "Prints extra logging.");
     opts.optflag("h", "help", "Print this help menu.");
     opts.optopt("p", "path", "Filename for KML path to drive.", "FILE");
-    opts.optopt("", "max-throttle", "Maximum throttle to drive at (defaults to 1.0)", "THROTTLE");
+    opts.optopt(
+        "",
+        "max-throttle",
+        "Maximum throttle to drive at (defaults to 1.0)",
+        "THROTTLE",
+    );
     let mut args = std::env::args();
-    args.next();  // Skip the program name
+    args.next(); // Skip the program name
     let matches = match opts.parse(args) {
         Ok(m) => m,
         Err(e) => panic!("Unable to parse options: {}", e),
@@ -295,13 +307,13 @@ fn handle_opts() -> Option<Matches> {
     // unstable release
     unsafe {
         LOGGER.level = if matches.opt_present("v") {
-                Level::Debug
-            } else {
-                Level::Info
-            };
+            Level::Debug
+        } else {
+            Level::Info
+        };
         match set_logger(&LOGGER) {
             Ok(_) => (),
-            Err(e) => panic!("Unable to initialize logger: {}", e)
+            Err(e) => panic!("Unable to initialize logger: {}", e),
         };
     }
 
@@ -314,12 +326,11 @@ fn handle_opts() -> Option<Matches> {
             if throttle < 0.25 || throttle > 1.0 {
                 panic!("Invalid throttle, should be between 0.25 and 1.0");
             }
-        },
-        None => ()
+        }
+        None => (),
     };
     Some(matches)
 }
-
 
 fn print_usage(opts: Options) {
     let brief = "Usage: control-rust [options]";
