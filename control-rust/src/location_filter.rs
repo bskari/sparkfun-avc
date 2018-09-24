@@ -219,10 +219,10 @@ fn multiply44x44(
     b: &[[f32; 4]; 4],
     out: &mut [[f32; 4]; 4]
 ) {
-    for row in (0..a.len()) {
-        for column in (0..a[0].len()) {
+    for row in 0..a.len() {
+        for column in 0..a[0].len() {
             let mut sum: f32 = 0.0;
-            for iter in (0..4) {
+            for iter in 0..4 {
                 sum += a[row][iter] * b[iter][column];
             }
             out[row][column] = sum;
@@ -236,10 +236,10 @@ fn multiply44x41(
     b: &[[f32; 1]; 4],
     out: &mut [[f32; 1]; 4]
 ) {
-    for row in (0..a.len()) {
-        for column in (0..b[0].len()) {
+    for row in 0..a.len() {
+        for column in 0..b[0].len() {
             let mut sum: f32 = 0.0;
-            for iter in (0..4) {
+            for iter in 0..4 {
                 sum += a[row][iter] * b[iter][column];
             }
             out[row][column] = sum;
@@ -253,8 +253,8 @@ fn add(
     b: &[[f32; 4]; 4],
     out: &mut [[f32; 4]; 4]
 ) {
-    for row in (0..a.len()) {
-        for column in (0..a[0].len()) {
+    for row in 0..a.len() {
+        for column in 0..a[0].len() {
             out[row][column] = a[row][column] + b[row][column];
         }
     }
@@ -266,8 +266,8 @@ fn subtract44(
     b: &[[f32; 4]; 4],
     out: &mut [[f32; 4]; 4]
 ) {
-    for row in (0..a.len()) {
-        for column in (0..a[0].len()) {
+    for row in 0..a.len() {
+        for column in 0..a[0].len() {
             out[row][column] = a[row][column] - b[row][column];
         }
     }
@@ -279,8 +279,8 @@ fn subtract41(
     b: &[[f32; 1]; 4],
     out: &mut [[f32; 1]; 4]
 ) {
-    for row in (0..a.len()) {
-        for column in (0..a[0].len()) {
+    for row in 0..a.len() {
+        for column in 0..a[0].len() {
             out[row][column] = a[row][column] - b[row][column];
         }
     }
@@ -292,8 +292,8 @@ fn add41(
     b: &[[f32; 1]; 4],
     out: &mut [[f32; 1]; 4]
 ) {
-    for row in (0..a.len()) {
-        for column in (0..a[0].len()) {
+    for row in 0..a.len() {
+        for column in 0..a[0].len() {
             out[row][column] = a[row][column] + b[row][column];
         }
     }
@@ -307,8 +307,8 @@ fn invert (
     if _invert(a, out) == false {
         // Just fudge it
         let mut new_a: [[f32; 4]; 4] = [[0f32; 4]; 4];
-        for row in (0..a.len()) {
-            for column in (0..a[0].len()) {
+        for row in 0..a.len() {
+            for column in 0..a[0].len() {
                 if row == column && a[row][column] == 0.0f32 {
                     new_a[row][column] = 0.000001f32;
                 } else {
@@ -374,8 +374,8 @@ fn transpose(
     a: &[[f32; 4]; 4],
     out: &mut [[f32; 4]; 4]
 ) {
-    for row in (0..a.len()) {
-        for column in (0..a[0].len()) {
+    for row in 0..a.len() {
+        for column in 0..a[0].len() {
             out[row][column] = a[column][row];
         }
     }
@@ -384,8 +384,8 @@ fn transpose(
 
 //fn print44(message: &str, a: &[[f32; 4]; 4]) {
 //    println!("{}", message);
-//    for row in (0..a.len()) {
-//        for column in (0..a[0].len()) {
+//    for row in 0..a.len() {
+//        for column in 0..a[0].len() {
 //            print!("{}\t", a[row][column]);
 //        }
 //        println!("");
@@ -395,7 +395,7 @@ fn transpose(
 //
 //fn print41(message: &str, a: &[[f32; 1]; 4]) {
 //    print!("{}", message);
-//    for row in (0..a.len()) {
+//    for row in 0..a.len() {
 //        print!("{}\t", a[row][0]);
 //    }
 //    println!("");
@@ -404,13 +404,12 @@ fn transpose(
 
 #[cfg(test)]
 mod tests {
-    use std::num::Float;
     use super::{LocationFilter, add, identity, invert, multiply44x44};
     use telemetry::{Point, rotate_degrees_clockwise};
 
     fn assert_equal(a: &[[f32; 4]; 4], b: &[[f32; 4]; 4]) {
-        for row in (0..a.len()) {
-            for column in (0..a[0].len()) {
+        for row in 0..a.len() {
+            for column in 0..a[0].len() {
                 let diff = (a[row][column] - b[row][column]).abs();
                 assert!(diff < 0.00001f32);
             }
@@ -457,14 +456,14 @@ mod tests {
         let identity_ = identity();
 
         add(&identity_, &identity_, &mut out);
-        for row in (0..out.len()) {
-            for column in (0..out[0].len()) {
+        for row in 0..out.len() {
+            for column in 0..out[0].len() {
                 assert!(out[row][column] == 2.0f32 * identity_[row][column]);
             }
         }
 
-        for row in (0..out.len()) {
-            for column in (0..out[0].len()) {
+        for row in 0..out.len() {
+            for column in 0..out[0].len() {
                 assert!(out[row][column] == 2.0f32 * identity_[row][column]);
             }
         }
@@ -480,8 +479,8 @@ mod tests {
         assert_equal(&out, &identity_);
 
         let mut array = identity();
-        for row in (0..out.len()) {
-            for column in (0..out[0].len()) {
+        for row in 0..out.len() {
+            for column in 0..out[0].len() {
                 array[row][column] += row as f32 * column as f32 + row as f32;
             }
         }
@@ -521,7 +520,7 @@ mod tests {
         let seconds = 5u32;
         let compass_observer_matrix = location_filter.compass_observer_matrix;
         let compass_measurement_noise = location_filter.compass_measurement_noise;
-        for _ in (0..seconds) {
+        for _ in 0..seconds {
             location_filter.update(
                 &measurements,
                 &compass_observer_matrix,

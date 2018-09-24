@@ -4,7 +4,7 @@
 
 use std::error::Error;
 use std::mem::transmute;
-use std::num::{Int, ParseFloatError};
+use std::num::ParseFloatError;
 
 use telemetry::Degrees;
 use telemetry::MetersPerSecond;
@@ -134,6 +134,7 @@ pub struct BinaryMessage {
 }
 
 
+#[allow(dead_code)]
 #[derive(PartialEq)]
 pub enum NmeaMessage {
     Binary(BinaryMessage),
@@ -593,6 +594,7 @@ impl NmeaMessage {
         )
     }
 
+    #[allow(dead_code)]
     fn parse_binary(message: &[u8; 34]) -> Result<NmeaMessage, String> {
         // The payload length from the GPS is always 34 bytes
         unsafe {
@@ -643,11 +645,10 @@ impl NmeaMessage {
 #[cfg(test)]
 mod tests {
     use std::fs::File;
-    use std::io::{BufRead, BufReader, Read};
+    use std::io::{BufRead, BufReader};
     use std::mem::transmute;
-    use std::num::{Int, Float};
-    use std::old_io::Timer;
     use std::path::Path;
+    use std::thread::sleep;
     use std::time::Duration;
     use super::{
         BinaryMessage,
@@ -663,7 +664,7 @@ mod tests {
         StiMessage,
         VtgMessage,
     };
-    use super::NmeaMessage::{Binary, Gga, Vtg};
+    use super::NmeaMessage::Binary;
 
     use termios::{Speed, Termio};
 
@@ -848,31 +849,31 @@ mod tests {
         let sti = "$PSTI,004,001,1,34.7,121.6,-48.2,99912,29.4*08\r\n";
 
         match NmeaMessage::parse(gga).unwrap() {
-            NmeaMessage::Gga(gga) => (),
+            NmeaMessage::Gga(_gga) => (),
             _ => assert!(false)
         };
         match NmeaMessage::parse(vtg).unwrap() {
-            NmeaMessage::Vtg(vtg) => (),
+            NmeaMessage::Vtg(_vtg) => (),
             _ => assert!(false)
         };
         match NmeaMessage::parse(rmc).unwrap() {
-            NmeaMessage::Rmc(rmc) => (),
+            NmeaMessage::Rmc(_rmc) => (),
             _ => assert!(false)
         };
         match NmeaMessage::parse(gsa).unwrap() {
-            NmeaMessage::Gsa(gsa) => (),
+            NmeaMessage::Gsa(_gsa) => (),
             _ => assert!(false)
         };
         match NmeaMessage::parse(gsv).unwrap() {
-            NmeaMessage::Gsv(gsv) => (),
+            NmeaMessage::Gsv(_gsv) => (),
             _ => assert!(false)
         };
         match NmeaMessage::parse(gll).unwrap() {
-            NmeaMessage::Gll(gll) => (),
+            NmeaMessage::Gll(_gll) => (),
             _ => assert!(false)
         };
         match NmeaMessage::parse(sti).unwrap() {
-            NmeaMessage::Sti(sti) => (),
+            NmeaMessage::Sti(_sti) => (),
             _ => assert!(false)
         };
     }
@@ -884,21 +885,20 @@ mod tests {
         if !cfg!(target_arch = "arm") {
             return;
         }
-        let mut tty = match File::open(Path::new("/dev/ttyAMA0")) {
+        let tty = match File::open(Path::new("/dev/ttyAMA0")) {
             Ok(f) => f,
-            Err(m) => panic!("Unable to open /dev/ttyAMA0.")
+            Err(_m) => panic!("Unable to open /dev/ttyAMA0.")
         };
-        tty.set_speed(Speed::B1152000);
-        tty.drop_input_output();
+        tty.set_speed(Speed::B1152000).unwrap();
+        tty.drop_input_output().unwrap();
         let mut message = String::new();
-        let mut timer = Timer::new().unwrap();
         let mut buffer_ready = false;
-        for _ in (0..20) {
+        for _ in 0..20 {
             if tty.input_buffer_count().unwrap() > 0 {
                 buffer_ready = true;
                 break;
             } else {
-                timer.sleep(Duration::milliseconds(50));
+                sleep(Duration::from_millis(50));
             }
         }
         assert!({
@@ -906,9 +906,10 @@ mod tests {
             buffer_ready
         });
         let mut reader = BufReader::new(tty);
-        reader.read_line(&mut message);
+        reader.read_line(&mut message).unwrap();
+        let message = String::new();
         match NmeaMessage::parse(&message) {
-            Ok(m) => (),
+            Ok(_m) => (),
             Err(e) => panic!(format!("Unable to parse NmeaMessage\n{}\nbecause {}", message, e))
         }
     }

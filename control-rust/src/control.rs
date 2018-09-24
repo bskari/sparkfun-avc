@@ -1,9 +1,8 @@
 extern crate log;
-extern crate time;
-use std::num::Float;
 use std::sync::mpsc::{Sender, Receiver};
 use std::thread;
-use std::time::duration::Duration;
+use std::time::{UNIX_EPOCH, SystemTime};
+use std::time::Duration;
 
 use driver::{Driver, Percentage};
 use telemetry::{Degrees, TelemetryState, difference_d, distance, is_turn_left, relative_degrees};
@@ -71,7 +70,7 @@ impl Control {
                         if self.state != ControlState::WaitingForStart {
                             warn!("Tried to calibrate compass while running, ignoring");
                         } else {
-                            self.calibrate_time_ms = time::now().to_milliseconds();
+                            self.calibrate_time_ms = SystemTime::now().to_milliseconds();
                             self.state = ControlState::CalibrateCompass;
                             self.run = true;
                         }
@@ -84,7 +83,7 @@ impl Control {
             if !self.run_incremental() {
                 return;
             }
-            thread::sleep(Duration::milliseconds(50));
+            thread::sleep(Duration::from_millis(50));
         }
     }
 
@@ -114,7 +113,7 @@ impl Control {
             self.state = ControlState::WaitingForStart;
         } else if state.stopped {
             // We want to drive for at least one second between collisions
-            self.collision_time_ms = time::now().to_milliseconds();
+            self.collision_time_ms = SystemTime::now().to_milliseconds();
             self.state = ControlState::CollisionRecovery;
         }
 
@@ -126,11 +125,11 @@ impl Control {
             ControlState::WaitingForStart => self.waiting_for_start(),
             ControlState::Running => self.running(&state),
             ControlState::CollisionRecovery => {
-                let now_ms = time::now().to_milliseconds();
+                let now_ms = SystemTime::now().to_milliseconds();
                 self.collision_recovery(now_ms);
             },
             ControlState::CalibrateCompass => {
-                let now_ms = time::now().to_milliseconds();
+                let now_ms = SystemTime::now().to_milliseconds();
                 self.calibrate_compass(now_ms);
             }
         }
@@ -240,36 +239,36 @@ trait ToMilliseconds {
 }
 
 
-impl ToMilliseconds for time::Tm {
+impl ToMilliseconds for SystemTime {
     fn to_milliseconds(&self) -> MilliSeconds {
-        let timespec = self.to_timespec();
-        (timespec.sec * 1000 + timespec.nsec as i64 / 1000000) as MilliSeconds
+        let since_the_epoch = self.duration_since(UNIX_EPOCH).unwrap();
+        since_the_epoch.as_secs() * 1000 + since_the_epoch.subsec_nanos() as u64 / 1_000_000
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    extern crate time;
-    use std::sync::mpsc::{channel, Sender, Receiver};
-    use std::thread::Thread;
+    use std::sync::mpsc::channel;
+    use std::thread::spawn;
+    use std::time::SystemTime;
 
     use driver::{Driver, Percentage};
-    use super::{Control, ControlState, MilliSeconds};
+    use super::{Control, ControlState};
     use super::ToMilliseconds;
-    use telemetry::{Meter, Point, TelemetryState};
+    use telemetry::{Meters, Point, TelemetryState};
     use waypoint_generator::WaypointGenerator;
 
     struct DummyWaypointGenerator {
         done: bool,
     }
     impl WaypointGenerator for DummyWaypointGenerator {
-        fn get_current_waypoint(&self, point: &Point) -> Point { Point {x: 100.0, y: 100.0 } }
-        fn get_current_raw_waypoint(&self, point: &Point) -> Point { Point { x: 100.0, y: 100.0 } }
+        fn get_current_waypoint(&self, _point: &Point) -> Point { Point {x: 100.0, y: 100.0 } }
+        fn get_current_raw_waypoint(&self, _point: &Point) -> Point { Point { x: 100.0, y: 100.0 } }
         fn next(&mut self) { self.done = true; }
-        fn reached(&self, point: &Point) -> bool { false }
+        fn reached(&self, _point: &Point) -> bool { false }
         fn done(&self) -> bool { self.done }
-        fn reach_distance(&self) -> Meter { 1.0 }
+        fn reach_distance(&self) -> Meters { 1.0 }
     }
 
     struct DummyDriver {
@@ -295,14 +294,15 @@ mod tests {
         let (telemetry_2_tx, telemetry_2_rx) = channel();
 
         // Fake telemetry end point returns test data
-        Thread::spawn(move || {
-            telemetry_rx.recv();
+        spawn(move || {
+            telemetry_rx.recv().unwrap();
             telemetry_2_tx.send(
                 TelemetryState {
                     location: Point { x: 0.0, y: 0.0 },
                     heading: 0.0f32,
                     speed: 0.0f32,
-                    stopped: true});
+                    stopped: true}).unwrap();
+
         });
 
         let waypoint_generator = Box::new(DummyWaypointGenerator {
@@ -320,7 +320,7 @@ mod tests {
         control.run = true;
         control.run_incremental();
 
-        let now = time::now().to_milliseconds();
+        let now = SystemTime::now().to_milliseconds();
         control.collision_recovery(now + 0);
         assert!(control.state == ControlState::CollisionRecovery);
         assert!(control.driver.get_throttle() == 0.0 as Percentage);

@@ -4,11 +4,12 @@
  * functions anyway.
  */
 
+extern crate enum_primitive;
 extern crate libc;
 
 use std::mem::transmute;
-use std::num::FromPrimitive;
 use std::os::unix::prelude::AsRawFd;
+use num::FromPrimitive;
 
 
 pub trait Termio {
@@ -43,10 +44,13 @@ impl<T> Termio for T where T: AsRawFd {
         if unsafe { tcgetattr(fd, transmute(&mut config)) } < 0 {
             return Err(self.errno());
         }
-        let speed: Speed = unsafe {
-                FromPrimitive::from_u32(cfgetospeed(&mut config)).unwrap()
-            };
-        Ok(speed)
+        let getospeed = unsafe {
+            cfgetospeed(&mut config)
+        };
+        match Speed::from_u32(getospeed) {
+            Some(speed) => Ok(speed),
+            None => Err(1) // TODO: I'm not too sure what to do here
+        }
     }
 
     fn drain(&self) -> Result<i32, i32> {
@@ -203,7 +207,7 @@ pub enum OflagBits {
 }
 
 #[allow(dead_code)]
-#[derive(FromPrimitive)]
+enum_from_primitive! {
 pub enum Speed {
     B0 = 0000000,
     B50 = 0000001,
@@ -236,6 +240,7 @@ pub enum Speed {
     B3000000 = 0010015,
     B3500000 = 0010016,
     B4000000 = 0010017,
+}
 }
 
 #[allow(dead_code)]

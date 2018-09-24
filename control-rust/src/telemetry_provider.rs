@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::duration::Duration;
+use std::time::Duration;
 
 use telemetry::{Degrees, MetersPerSecond, Point, hdop_to_std_dev, latitude_longitude_to_point};
 use telemetry_message::{GpsMessage, TelemetryMessage};
@@ -34,7 +34,7 @@ impl TelemetryProvider {
     pub fn run(&mut self, quit_rx: Receiver<()>) {
         let tty = match File::open(&Path::new("/dev/ttyAMA0")) {
             Ok(f) => f,
-            Err(m) => panic!("Unable to open /dev/ttyAMA0: {}", m.description())
+            Err(m) => panic!("Unable to open /dev/ttyAMA0: {}", m)
         };
         match tty.set_speed(Speed::B1152000) {
             Ok(_) => (),
@@ -54,12 +54,12 @@ impl TelemetryProvider {
         // Just do this test to make sure we're running on the Pi with GPS attached. If we just
         // blindly enter the loop without the GPS attached, we'll dead lock.
         let mut gps_message_received = false;
-        for _ in (0..5) {
+        for _ in 0..5 {
             if tty.input_buffer_count().unwrap() > 0 {
                 gps_message_received = true;
                 break;
             }
-            thread::sleep(Duration::milliseconds(50));
+            thread::sleep(Duration::from_millis(50));
         }
         if !gps_message_received {
             error!("No messages received from GPS, aborting telemetry provider thread");

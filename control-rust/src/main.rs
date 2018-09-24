@@ -1,28 +1,19 @@
-// Silence warnings about use of unstable features
-#![feature(core)]
-#![feature(io)]
-#![feature(io_ext)]
-#![feature(libc)]
-#![feature(old_io)]  // For socket stuff
-#![feature(old_path)]  // For socket stuff
-#![feature(path_ext)]  // For is_file, etc.
-#![feature(std_misc)]
-#![feature(str_words)]
-#![feature(thread_sleep)]
-#[macro_use]
+#[macro_use] extern crate log;  // This needs to be declared first, otherwise you get compilation errors
+extern crate chrono;
+#[macro_use] extern crate enum_primitive;
+extern crate getopts;
+extern crate num;
 
-extern crate log;
-extern crate getopts; // This needs to be declared after log, otherwise you get compilation errors
-extern crate time;
 use getopts::{Matches, Options};
-use log::{set_logger, LogLevel, LogLevelFilter, LogRecord};
+use log::{set_logger, Level, Metadata, Record};
+use std::path::Path;
 use std::error::Error;
-use std::old_io::net::pipe::UnixStream;
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::io::Read;
+use std::os::unix::net::UnixStream;
 use std::str::from_utf8;
+use std::sync::mpsc::{channel, Sender, Receiver};
 use std::thread::{JoinHandle, sleep, spawn};
-use std::time::duration::Duration;
-use time::{now, strftime};
+use std::time::Duration;
 
 use control::Control;
 use filtered_telemetry::FilteredTelemetry;
@@ -46,40 +37,41 @@ mod termios;
 mod waypoint_generator;
 
 struct StdoutLogger {
-    level: LogLevel,
+    level: Level,
 }
 impl log::Log for StdoutLogger {
-    fn enabled(&self, level: LogLevel, _module: &str) -> bool {
-        level <= self.level
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= self.level
     }
 
-    fn log(&self, record: &LogRecord) {
-        if self.enabled(record.level(), record.location().module_path) {
-            let now_tm = now();
-            let time_str = match strftime("%Y/%m/%d %H:%M:%S.", &now_tm) {
-                Ok(s) => s,
-                Err(_) => "UNKNOWN".to_string()  // This should never happen
-            } + &format!("{}", now_tm.tm_nsec)[0..3];
-            let location = record.location();
-            let file_name = match location.file.split('/').last() {
-                Some(slashes) => {
-                    match slashes.split('.').next() {
-                        Some(name) => name,
-                        None => "UNKNOWN",
-                    }
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            let now = chrono::Utc::now();
+            let time_str = now.format("%Y/%m/%d %H:%M:%S");
+            let file_name = match record.file() {
+                Some(record_file_name) => match record_file_name.split('/').last() {
+                    Some(name) => name,
+                    None => "UNKNOWN"
                 },
-                None => "UNKNOWN",
+                None => "UNKNOWN"
+            };
+            let line = match record.line() {
+                Some(line) => line,
+                None => 0
             };
             println!(
                 "{time} {file}:{line} {level:<5} {message}",
                 time=time_str,
                 file=file_name,
-                line=location.line,
+                line=line,
                 level=record.level(),
                 message=record.args());
         }
     }
+
+    fn flush(&self) {}
 }
+static mut LOGGER: StdoutLogger = StdoutLogger { level: Level::Debug };
 
 
 macro_rules! warn_err {
@@ -123,7 +115,7 @@ fn main() {
 
     join_handles.push(
         spawn_control(
-            path_file_name.as_slice(),
+            &path_file_name,
             max_throttle,
             request_telemetry_tx,
             telemetry_rx,
@@ -152,7 +144,7 @@ fn main() {
             command_tx,
             quit_command_message_rx));
 
-    sleep(Duration::milliseconds(1000));
+    sleep(Duration::from_millis(1000));
 
     for quitter in quitters {
         warn_err!(quitter.send(()));
@@ -176,7 +168,7 @@ fn spawn_control(
     telemetry_rx: Receiver<TelemetryState>,
     command_rx: Receiver<CommandMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     let waypoint_generator = Box::new(KmlWaypointGenerator::new(&path_file_name));
     spawn(move || {
         let driver = Box::new(SocketDriver::new(max_throttle));
@@ -194,7 +186,7 @@ fn spawn_control(
 fn spawn_telemetry_provider(
     telemetry_message_tx: Sender<TelemetryMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     spawn(move || {
         let mut provider = TelemetryProvider::new(telemetry_message_tx);
         provider.run(quit_rx);
@@ -207,7 +199,7 @@ fn spawn_telemetry(
     telemetry_tx: Sender<TelemetryState>,
     telemetry_message_rx: Receiver<TelemetryMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     spawn(move || {
         let mut telemetry = FilteredTelemetry::new();
         telemetry.run(request_telemetry_rx, telemetry_tx, telemetry_message_rx, quit_rx);
@@ -218,7 +210,7 @@ fn spawn_telemetry(
 fn spawn_command_message_listener(
     command_tx: Sender<CommandMessage>,
     quit_rx: Receiver<()>,
-) -> JoinHandle {
+) -> JoinHandle<()> {
     spawn(move || {
         // Keep listening for start and stop messages on a Unix socket
         let server = Path::new("/tmp/command-socket");
@@ -230,14 +222,17 @@ fn spawn_command_message_listener(
             }
         };
 
-        socket.set_timeout(Some(1000u64));
+        match socket.set_read_timeout(Some(Duration::from_millis(1000u64))) {
+            Ok(()) => (),
+            Err(err) => error!("Unable to set read timeout: {}", err)
+        }
         let mut message_bytes = Vec::<u8>::new();
         loop {
             let mut buffer: [u8; 20] = [0; 20];
             loop {
                 match socket.read(&mut buffer) {
                     Ok(size) => if size > 0 {
-                        for index in (0..size) {
+                        for index in 0..size {
                             message_bytes.push(buffer[index])
                         }
                         if message_bytes[message_bytes.len() - 1] == '\n' as u8 {
@@ -249,7 +244,7 @@ fn spawn_command_message_listener(
                     }
                 }
             }
-            match from_utf8(message_bytes.as_slice()) {
+            match from_utf8(&message_bytes) {
                 Ok(message) => {
                     info!("Received message \"{}\" on Unix socket", message);
                     if message == "start" {
@@ -295,20 +290,21 @@ fn handle_opts() -> Option<Matches> {
         return None;
     }
 
-    let level = if matches.opt_present("v") {
-            LogLevel::Debug
-        } else {
-            LogLevel::Info
+    // TODO: We could use set_boxed_logger instead of having a static one and
+    // playing with unsafe, but that requies #![feature(std)] and therefore an
+    // unstable release
+    unsafe {
+        LOGGER.level = if matches.opt_present("v") {
+                Level::Debug
+            } else {
+                Level::Info
+            };
+        match set_logger(&LOGGER) {
+            Ok(_) => (),
+            Err(e) => panic!("Unable to initialize logger: {}", e)
         };
+    }
 
-    let status = set_logger(|max_log_level| {
-        max_log_level.set(LogLevelFilter::Debug);
-        Box::new(StdoutLogger { level: level })
-    });
-    match status {
-        Ok(_) => (),
-        Err(e) => panic!("Unable to initialize logger: {}", e)
-    };
     match matches.opt_str("max-throttle") {
         Some(throttle_str) => {
             let throttle: f32 = match throttle_str.parse() {

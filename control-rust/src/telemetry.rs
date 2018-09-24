@@ -1,21 +1,20 @@
-use std::f64;
-use std::num::Float;
+use std::f64 as f64_module;
 
 use telemetry_message::CompassMessage;
 use telemetry_message::GpsMessage;
 use telemetry_message::TelemetryMessage;
 
 
-pub type Meter = f32;
+pub type Meters = f32;
 pub type Degrees = f32;
 pub type MetersPerSecond = f32;
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct Point {
-    pub x: Meter,
-    pub y: Meter,
+    pub x: Meters,
+    pub y: Meters,
 }
 
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub struct TelemetryState {
     pub location: Point,
     pub heading: Degrees,
@@ -88,7 +87,7 @@ fn equatorial_radius_m() -> f64 {
  * define constants in Rust.
  */
 pub fn m_per_latitude_d() -> f64 {
-    equatorial_radius_m() * f64::consts::PI_2 / 360.0
+    equatorial_radius_m() * f64_module::consts::PI / 180.0
 }
 
 
@@ -97,8 +96,8 @@ pub fn m_per_latitude_d() -> f64 {
  */
 pub fn latitude_d_to_m_per_longitude_d(latitude: f64) -> f64 {
     let radius_m: f64 = latitude.cosine_d() * equatorial_radius_m();
-    let circumference_m: f64 = f64::consts::PI_2 * radius_m;
-    circumference_m / 360.0
+    let circumference_m: f64 = f64_module::consts::PI * radius_m;
+    circumference_m / 180.0
 }
 
 
@@ -181,7 +180,7 @@ pub fn difference_d(heading_1: Degrees, heading_2: Degrees) -> Degrees {
 /**
  * Distance between 2 points.
  */
-pub fn distance(point_1: &Point, point_2: &Point) -> Meter {
+pub fn distance(point_1: &Point, point_2: &Point) -> Meters {
     let diff_x = (point_1.x - point_2.x).abs();
     let diff_y = (point_1.y - point_2.y).abs();
     (diff_x * diff_x + diff_y * diff_y).sqrt()
@@ -211,7 +210,7 @@ pub fn latitude_longitude_to_point(latitude: f64, longitude: f64) -> Point {
 /**
  * Estimation of converting HDOP to standard deviation. This is a complete guess.
  */
-pub fn hdop_to_std_dev(hdop: f32) -> Meter {
+pub fn hdop_to_std_dev(hdop: f32) -> Meters {
     hdop * 2.0
 }
 
@@ -281,8 +280,9 @@ fn test_cosine_d() {
 
 #[cfg(test)]
 mod tests {
-    use std::f64;
-    use std::num::{Float, FromPrimitive};
+    extern crate enum_primitive;
+    use std::f64 as f64_module;
+    use num::{Float, FromPrimitive};
     use super::{
         Point,
         Degrees,
@@ -296,10 +296,14 @@ mod tests {
         wrap_degrees,
     };
 
-    fn assert_approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) {
+    fn assert_approx_eq<T: Float>(value_1: T, value_2: T)
+        where T: enum_primitive::FromPrimitive
+    {
         assert!(approx_eq(value_1, value_2));
     }
-    fn approx_eq<T: Float + FromPrimitive>(value_1: T, value_2: T) -> bool {
+    fn approx_eq<T: Float>(value_1: T, value_2: T) -> bool
+        where T: enum_primitive::FromPrimitive
+    {
         // Yeah, I know this is bad, see
         // http://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
 
@@ -364,11 +368,11 @@ mod tests {
     fn test_latitude_d_to_m_per_longitude_d_spherical() {
         // Assume Earth is a sphere
         assert_approx_eq(
-            equatorial_radius_m() * f64::consts::PI_2 / 360.0,
+            equatorial_radius_m() * f64_module::consts::PI / 180.0,
             latitude_d_to_m_per_longitude_d(0.0));
 
         // Should be symmetrical
-        for degrees in (0i32..85) {
+        for degrees in 0i32..85 {
             assert_approx_eq(
                 latitude_d_to_m_per_longitude_d(degrees as f64),
                 latitude_d_to_m_per_longitude_d(-degrees as f64));
@@ -380,7 +384,8 @@ mod tests {
     }
 
     #[test]
-    #[should_fail]  // We're using a less accurate spherical method right now
+    // We're using a less accurate spherical method right now
+    #[ignore]
     fn test_latitude_d_to_m_per_longitude_d_oblong() {
         // Known values, from http://www.csgnetwork.com/degreelenllavcalc.html
         // M_PER_D_LATITUDE = 111319.458,
@@ -432,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_wrap_degrees() {
-        for d in (0i32..360) {
+        for d in 0i32..360 {
             assert_approx_eq(d as f32, wrap_degrees(d as f32));
         }
 

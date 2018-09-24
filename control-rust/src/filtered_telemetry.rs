@@ -1,7 +1,7 @@
 extern crate log;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::duration::Duration;
+use std::time::Duration;
 
 use telemetry::{Telemetry, Point, TelemetryState};
 use telemetry_message::{CompassMessage, GpsMessage, TelemetryMessage};
@@ -67,14 +67,14 @@ impl FilteredTelemetry {
                 processed = true;
             }
 
-            while let Ok(message) = telemetry_message_rx.try_recv() {
+            while let Ok(_message) = telemetry_message_rx.try_recv() {
                 // TODO: Process the message
                 processed = true;
             };
 
             // I don't know if this is a great solution or not
             if !processed {
-                thread::sleep(Duration::milliseconds(10));
+                thread::sleep(Duration::from_millis(10));
             }
         }
     }

@@ -1,9 +1,9 @@
-use std::fs::{File, PathExt, remove_dir_all};
+use std::fs::{File, remove_dir_all};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::Command;
 
-use telemetry::{Meter, Point, latitude_longitude_to_point};
+use telemetry::{Meters, Point, latitude_longitude_to_point};
 use waypoint_generator::WaypointGenerator;
 
 
@@ -34,7 +34,10 @@ impl KmlWaypointGenerator {
         // A KML file is a zip archive containing a single file named "doc.kml"
         // that is an XML file
         let temp_directory = "/tmp/waypoints";
-        remove_dir_all(temp_directory);
+        match remove_dir_all(temp_directory) {
+            Ok(()) => (),
+            Err(err) => error!("Unable to remove temp directory: {}", err)
+        };
         let zip_io_result = Command::new("unzip")
             .arg(file_name)
             .arg("-d")  // Output directory
@@ -65,12 +68,12 @@ impl KmlWaypointGenerator {
         for line_option in xml_file.lines() {
             match line_option {
                 Ok(line) => {
-                    if line.as_slice().contains("<coordinates>") {
+                    if line.contains("<coordinates>") {
                         coordinates_open_tag = true;
                     } else if coordinates_open_tag {
                         let mut latitude = 0.0f64;
                         let mut longitude = 0.0f64;
-                        for long_lat_alt in line.as_slice().words() {
+                        for long_lat_alt in line.split_whitespace() {
                             let mut iterator = long_lat_alt.split(',');
                             let mut success = true;
                             match iterator.next() {
@@ -148,7 +151,7 @@ impl WaypointGenerator for KmlWaypointGenerator {
     }
 
     #[allow(unused_variables)]
-    fn reach_distance(&self) -> Meter {
+    fn reach_distance(&self) -> Meters {
         1.0
     }
 }

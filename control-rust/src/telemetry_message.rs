@@ -1,12 +1,12 @@
-use telemetry::{Degrees, Point, Meter, MetersPerSecond};
+use telemetry::{Degrees, Point, Meters, MetersPerSecond};
 
 
 pub struct GpsMessage {
     pub point: Point,
     pub heading: Degrees,
     pub speed: MetersPerSecond,
-    pub std_dev_x: Meter,
-    pub std_dev_y: Meter,
+    pub std_dev_x: Meters,
+    pub std_dev_y: Meters,
 }
 pub struct CompassMessage {
     pub heading: Degrees,
