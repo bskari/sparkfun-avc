@@ -5,10 +5,12 @@ extern crate chrono;
 extern crate enum_primitive;
 extern crate getopts;
 extern crate num;
+extern crate simplelog;
 
 use getopts::{Matches, Options};
-use log::{set_logger, Level, Metadata, Record};
+use simplelog::{CombinedLogger, Config, LevelFilter, TermLogger, WriteLogger};
 use std::error::Error;
+use std::fs::File;
 use std::io::Read;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -37,46 +39,6 @@ mod telemetry_message;
 mod telemetry_provider;
 mod termios;
 mod waypoint_generator;
-
-struct StdoutLogger {
-    level: Level,
-}
-impl log::Log for StdoutLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= self.level
-    }
-
-    fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            let now = chrono::Utc::now();
-            let time_str = now.format("%Y/%m/%d %H:%M:%S");
-            let file_name = match record.file() {
-                Some(record_file_name) => match record_file_name.split('/').last() {
-                    Some(name) => name,
-                    None => "UNKNOWN",
-                },
-                None => "UNKNOWN",
-            };
-            let line = match record.line() {
-                Some(line) => line,
-                None => 0,
-            };
-            println!(
-                "{time} {file}:{line} {level:<5} {message}",
-                time = time_str,
-                file = file_name,
-                line = line,
-                level = record.level(),
-                message = record.args()
-            );
-        }
-    }
-
-    fn flush(&self) {}
-}
-static mut LOGGER: StdoutLogger = StdoutLogger {
-    level: Level::Debug,
-};
 
 macro_rules! warn_err {
     ($option:expr) => {
@@ -302,19 +264,27 @@ fn handle_opts() -> Option<Matches> {
         return None;
     }
 
-    // TODO: We could use set_boxed_logger instead of having a static one and
-    // playing with unsafe, but that requies #![feature(std)] and therefore an
-    // unstable release
-    unsafe {
-        LOGGER.level = if matches.opt_present("v") {
-            Level::Debug
-        } else {
-            Level::Info
-        };
-        match set_logger(&LOGGER) {
-            Ok(_) => (),
-            Err(e) => panic!("Unable to initialize logger: {}", e),
-        };
+    let level = if matches.opt_present("v") {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Info
+    };
+    let log_file_name = chrono::Utc::now()
+        .format("log/%Y-%m-%d-%H-%M-sparkfun.log")
+        .to_string();
+    match File::create(&log_file_name) {
+        Ok(file) => {
+            CombinedLogger::init(vec![
+                TermLogger::new(LevelFilter::Warn, Config::default()).unwrap(),
+                WriteLogger::new(level, Config::default(), file),
+            ]).unwrap();
+        }
+        Err(_) => {
+            CombinedLogger::init(vec![
+                TermLogger::new(LevelFilter::Warn, Config::default()).unwrap(),
+            ]).unwrap();
+            error!("Unable to open log file");
+        }
     }
 
     match matches.opt_str("max-throttle") {
