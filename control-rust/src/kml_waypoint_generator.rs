@@ -28,31 +28,41 @@ impl KmlWaypointGenerator {
         if !path.exists() || !path.is_file() {
             panic!("File does not exist: {}", file_name);
         }
-
-        // A KML file is a zip archive containing a single file named "doc.kml"
-        // that is an XML file
-        let temp_directory = "/tmp/waypoints";
-        match remove_dir_all(temp_directory) {
-            Ok(()) => (),
-            Err(err) => error!("Unable to remove temp directory: {}", err),
+        let extension = match path.extension() {
+            Some(ext) => match ext.to_str() {
+                Some(ext2) => ext2,
+                None => "",
+            },
+            None => "",
         };
-        let zip_io_result = Command::new("unzip")
-            .arg(file_name)
-            .arg("-d")  // Output directory
-            .arg(temp_directory)
-            .spawn();
-        let mut zip_child = match zip_io_result {
-            Ok(child) => (child),
-            Err(e) => panic!("Failed to unzip file: {}", e),
-        };
+        let kml_file_name = if extension == "kmz" {
+            // A KML file is a zip archive containing a single file named "doc.kml"
+            // that is an XML file
+            let temp_directory = "/tmp/waypoints";
+            match remove_dir_all(temp_directory) {
+                Ok(()) => (),
+                Err(err) => error!("Unable to remove temp directory: {}", err),
+            };
+            let zip_io_result = Command::new("unzip")
+                .arg(file_name)
+                .arg("-d")  // Output directory
+                .arg(temp_directory)
+                .spawn();
+            let mut zip_child = match zip_io_result {
+                Ok(child) => (child),
+                Err(e) => panic!("Failed to unzip file: {}", e),
+            };
 
-        match zip_child.wait() {
-            Ok(_) => (),
-            Err(e) => panic!("Failed to unzip file: {}", e),
+            match zip_child.wait() {
+                Ok(_) => "/tmp/waypoints/doc.kml",
+                Err(e) => panic!("Failed to unzip file: {}", e),
+            }
+        } else {
+            file_name
         };
 
         let mut waypoints = Vec::<Point>::new();
-        let file_path = Path::new("/tmp/waypoints/doc.kml");
+        let file_path = Path::new(kml_file_name);
         let file = match File::open(&file_path) {
             Ok(f) => f,
             Err(_) => panic!("Couldn't open doc.kml"),
